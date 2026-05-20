@@ -1242,6 +1242,7 @@ ul { list-style: none; padding: 0; margin: 0; }
   z-index: 100;
   animation: fadeIn .2s ease;
 }
+.modal-overlay[hidden] { display: none; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .modal {
