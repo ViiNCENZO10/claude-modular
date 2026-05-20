@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Télécommande — Maison connectée</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </div>
+      <div class="brand-text">
+        <h1>Maison<span>·</span>Lumière</h1>
+        <p>Contrôle à distance</p>
+      </div>
+    </div>
+    <div class="status">
+      <div class="status-pill net" id="net-pill" title="Connexion réseau">
+        <svg id="net-icon" class="net-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2 8.5a16 16 0 0 1 20 0"/>
+          <path d="M5 12a11 11 0 0 1 14 0"/>
+          <path d="M8.5 15.5a6 6 0 0 1 7 0"/>
+          <circle cx="12" cy="19" r="1.2" fill="currentColor" stroke="none"/>
+        </svg>
+        <span class="net-text">
+          <span class="net-label" id="net-label">Wi-Fi 6E</span>
+          <span class="net-sub" id="net-sub">Livebox · 920 Mb/s</span>
+        </span>
+      </div>
+
+      <div class="status-pill clock">
+        <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span class="clock-block">
+          <span id="clock">--:--</span>
+          <span class="date" id="date">--</span>
+        </span>
+      </div>
+
+      <div class="status-pill weather" id="weather-pill" title="Météo">
+        <span class="weather-icon" id="weather-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v2"/><path d="M12 19v2"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="M5.6 5.6l1.4 1.4"/><path d="M17 17l1.4 1.4"/><path d="M5.6 18.4L7 17"/><path d="M17 7l1.4-1.4"/></g></svg>
+        </span>
+        <span class="weather-block">
+          <span class="weather-top">
+            <span id="weather-temp">21°</span>
+            <span id="weather-cond">Ensoleillé</span>
+          </span>
+          <span class="weather-sub">
+            <span id="weather-city">Paris</span>
+            <span class="dot-sep">·</span>
+            <span id="weather-hum">💧 48%</span>
+            <span class="dot-sep">·</span>
+            <span id="weather-wind">🌬 12 km/h</span>
+          </span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid">
+    <!-- ========= LAUNCHER ANDROID 14 ========= -->
+    <section class="card card-launcher">
+      <div class="card-head">
+        <div>
+          <h2>Lanceur</h2>
+          <p class="subtitle">Android 16 · One UI 8 · Material You</p>
+        </div>
+        <div class="android-status">
+          <span class="a-pill"><span class="a-dot"></span>5G</span>
+          <span class="a-pill">Wi-Fi 6E</span>
+          <span class="a-pill">🔋 87%</span>
+        </div>
+      </div>
+
+      <div class="launcher-grid">
+        <!-- Colonne 1 : Applications -->
+        <div class="launcher-col">
+          <div class="col-head">
+            <h3>Applications</h3>
+            <span class="col-count">12</span>
+          </div>
+          <div class="apps">
+            <button class="app" data-app="ipremium">
+              <span class="app-icon" style="background:linear-gradient(135deg,#ef4444,#f59e0b)">📺</span>
+              <span class="app-name">iPremium<br>TvOnline</span>
+            </button>
+            <button class="app" data-app="anydesk">
+              <span class="app-icon" style="background:linear-gradient(135deg,#ef4444,#7f1d1d)">🖥️</span>
+              <span class="app-name">AnyDesk</span>
+            </button>
+            <button class="app" data-app="youtube">
+              <span class="app-icon" style="background:linear-gradient(135deg,#ff0000,#991b1b)">▶</span>
+              <span class="app-name">YouTube</span>
+            </button>
+            <button class="app" data-app="remote">
+              <span class="app-icon" style="background:linear-gradient(135deg,#7c9bff,#b48cff)">📡</span>
+              <span class="app-name">Remote<br>Controller</span>
+            </button>
+            <button class="app" data-app="filebrowser">
+              <span class="app-icon" style="background:linear-gradient(135deg,#3b82f6,#1e40af)">📁</span>
+              <span class="app-name">FileBrowser<br><small>+ USB / SD</small></span>
+            </button>
+            <button class="app" data-app="playstore">
+              <span class="app-icon" style="background:conic-gradient(from 220deg at 50% 50%,#22c55e 0deg,#3b82f6 90deg,#ef4444 180deg,#fbbf24 270deg,#22c55e 360deg)">▶</span>
+              <span class="app-name">Google<br>Play Store</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Colonne 2 : Outils système -->
+        <div class="launcher-col">
+          <div class="col-head">
+            <h3>Système</h3>
+            <span class="col-count">Android 16</span>
+          </div>
+          <div class="tools">
+            <button class="tool" data-tool="settings">
+              <span class="tool-icon" style="background:linear-gradient(135deg,#64748b,#334155)">⚙️</span>
+              <div class="tool-info">
+                <span class="tool-name">Paramètres système</span>
+                <span class="tool-desc">Réseau · affichage · sécurité · comptes</span>
+              </div>
+              <span class="tool-arrow">›</span>
+            </button>
+            <button class="tool" data-tool="launcher">
+              <span class="tool-icon" style="background:linear-gradient(135deg,#8b5cf6,#5b21b6)">🎨</span>
+              <div class="tool-info">
+                <span class="tool-name">Paramètres du lanceur</span>
+                <span class="tool-desc">Grille · fond d'écran · thème dynamique</span>
+              </div>
+              <span class="tool-arrow">›</span>
+            </button>
+            <button class="tool" data-tool="update">
+              <span class="tool-icon" style="background:linear-gradient(135deg,#22c55e,#15803d)">⬆️</span>
+              <div class="tool-info">
+                <span class="tool-name">Mise à jour du logiciel</span>
+                <span class="tool-desc" id="update-desc">Android 16 · build BP1A.260401.006</span>
+              </div>
+              <span class="tool-badge" id="update-badge">À jour</span>
+            </button>
+            <button class="tool" data-tool="hotkeys">
+              <span class="tool-icon" style="background:linear-gradient(135deg,#0ea5e9,#0c4a6e)">⌨️</span>
+              <div class="tool-info">
+                <span class="tool-name">Raccourcis</span>
+                <span class="tool-desc">Touches longues · gestes · macros</span>
+              </div>
+              <span class="tool-arrow">›</span>
+            </button>
+            <button class="tool" data-tool="sysinfo">
+              <span class="tool-icon" style="background:linear-gradient(135deg,#f59e0b,#b45309)">ℹ️</span>
+              <div class="tool-info">
+                <span class="tool-name">Informations système</span>
+                <span class="tool-desc" id="sysinfo-desc">ARM Cortex-A78 · 8 Go · 128 Go</span>
+              </div>
+              <span class="tool-arrow">›</span>
+            </button>
+            <button class="tool" data-tool="clean">
+              <span class="tool-icon" style="background:linear-gradient(135deg,#ec4899,#9d174d)">🧹</span>
+              <div class="tool-info">
+                <span class="tool-name">Nettoyage mémoire</span>
+                <span class="tool-desc" id="clean-desc">RAM 3,2 / 8 Go utilisés</span>
+              </div>
+              <span class="tool-badge ok" id="clean-badge">OK</span>
+            </button>
+          </div>
+
+          <!-- Panneau dépliable -->
+          <div class="tool-panel" id="tool-panel" hidden>
+            <div class="tool-panel-head">
+              <h4 id="panel-title">Détails</h4>
+              <button class="panel-close" id="panel-close">×</button>
+            </div>
+            <div class="tool-panel-body" id="panel-body"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========= PORTAIL ========= -->
+    <section class="card card-gate" id="gate-card">
+      <div class="card-head">
+        <div>
+          <h2>Portail principal</h2>
+          <p class="subtitle">Allée — entrée extérieure</p>
+        </div>
+        <div class="badge" id="gate-badge">Fermé</div>
+      </div>
+
+      <div class="gate-stage">
+        <div class="gate-ground"></div>
+        <div class="gate-pillar left"></div>
+        <div class="gate-pillar right"></div>
+        <div class="gate-door door-left" id="door-left">
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        </div>
+        <div class="gate-door door-right" id="door-right">
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        </div>
+        <div class="gate-glow" id="gate-glow"></div>
+      </div>
+
+      <div class="gate-controls">
+        <button class="gate-btn open" data-action="open">
+          <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          Ouvrir
+        </button>
+        <button class="gate-btn pause" data-action="stop">
+          <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
+          Arrêter
+        </button>
+        <button class="gate-btn close" data-action="close">
+          <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Fermer
+        </button>
+      </div>
+
+      <div class="gate-meta">
+        <div class="meta-cell">
+          <span class="meta-label">Dernier accès</span>
+          <span class="meta-value" id="last-access">il y a 12 min</span>
+        </div>
+        <div class="meta-cell">
+          <span class="meta-label">Mode</span>
+          <span class="meta-value">Automatique</span>
+        </div>
+        <div class="meta-cell">
+          <span class="meta-label">Batterie</span>
+          <span class="meta-value">94%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========= TÉLÉCOMMANDE TV ========= -->
+    <section class="card card-remote">
+      <div class="card-head">
+        <div>
+          <h2>Télécommande</h2>
+          <p class="subtitle">Salon — TV principale</p>
+        </div>
+        <div class="badge soft" id="tv-state">En veille</div>
+      </div>
+
+      <div class="remote">
+        <div class="remote-top">
+          <button class="rb power" id="power-btn" title="Marche / Arrêt">
+            <svg viewBox="0 0 24 24"><path d="M12 3v9M5.6 7.6a8 8 0 1 0 12.8 0"/></svg>
+          </button>
+          <button class="rb mute" id="mute-btn" title="Muet">
+            <svg viewBox="0 0 24 24"><path d="M9 9H5v6h4l5 4V5L9 9z"/><path class="mute-cross" d="M17 9l4 6M21 9l-4 6"/></svg>
+          </button>
+        </div>
+
+        <div class="dpad">
+          <button class="dpad-btn up" data-dir="up">▲</button>
+          <button class="dpad-btn left" data-dir="left">◀</button>
+          <button class="dpad-center" id="ok-btn">OK</button>
+          <button class="dpad-btn right" data-dir="right">▶</button>
+          <button class="dpad-btn down" data-dir="down">▼</button>
+        </div>
+
+        <div class="sliders">
+          <div class="slider-group">
+            <label>Volume</label>
+            <div class="slider-row">
+              <button class="rb small" data-vol="-1">−</button>
+              <div class="slider-track"><div class="slider-fill" id="vol-fill"></div></div>
+              <button class="rb small" data-vol="1">+</button>
+              <span class="slider-val" id="vol-val">42</span>
+            </div>
+          </div>
+          <div class="slider-group">
+            <label>Chaîne</label>
+            <div class="slider-row">
+              <button class="rb small" data-ch="-1">−</button>
+              <div class="channel" id="channel-val">12</div>
+              <button class="rb small" data-ch="1">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="numpad">
+          <button>1</button><button>2</button><button>3</button>
+          <button>4</button><button>5</button><button>6</button>
+          <button>7</button><button>8</button><button>9</button>
+          <button class="ghost">↩</button><button>0</button><button class="ghost">⋯</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========= SCÈNES ========= -->
+    <section class="card card-scenes">
+      <div class="card-head">
+        <div>
+          <h2>Scènes</h2>
+          <p class="subtitle">Ambiances rapides</p>
+        </div>
+      </div>
+      <div class="scenes">
+        <button class="scene" data-scene="morning">
+          <div class="scene-art morning"></div>
+          <span>Matin</span>
+        </button>
+        <button class="scene" data-scene="cinema">
+          <div class="scene-art cinema"></div>
+          <span>Cinéma</span>
+        </button>
+        <button class="scene" data-scene="dinner">
+          <div class="scene-art dinner"></div>
+          <span>Dîner</span>
+        </button>
+        <button class="scene" data-scene="away">
+          <div class="scene-art away"></div>
+          <span>Absent</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ========= LUMIÈRES ========= -->
+    <section class="card card-lights">
+      <div class="card-head">
+        <div>
+          <h2>Lumières</h2>
+          <p class="subtitle">3 pièces actives</p>
+        </div>
+      </div>
+      <div class="lights">
+        <div class="light" data-room="salon">
+          <div class="light-bulb"></div>
+          <div class="light-info">
+            <span class="light-name">Salon</span>
+            <span class="light-detail"><span class="light-pct">68</span>% — chaud</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" checked />
+            <span class="track"></span>
+          </label>
+        </div>
+        <div class="light" data-room="cuisine">
+          <div class="light-bulb"></div>
+          <div class="light-info">
+            <span class="light-name">Cuisine</span>
+            <span class="light-detail"><span class="light-pct">100</span>% — froid</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" checked />
+            <span class="track"></span>
+          </label>
+        </div>
+        <div class="light" data-room="chambre">
+          <div class="light-bulb off"></div>
+          <div class="light-info">
+            <span class="light-name">Chambre</span>
+            <span class="light-detail"><span class="light-pct">0</span>% — éteint</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" />
+            <span class="track"></span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========= EPG (Guide TV — visionneuse) ========= -->
+    <section class="card card-epg">
+      <div class="card-head">
+        <div>
+          <h2>Guide TV — EPG</h2>
+          <p class="subtitle">Aperçu en direct · programmes diffusés &amp; à venir</p>
+        </div>
+        <div class="epg-toolbar">
+          <button class="ghost-btn small" id="epg-prev" title="Jour précédent">‹</button>
+          <button class="ghost-btn" id="epg-today">Aujourd'hui</button>
+          <button class="ghost-btn small" id="epg-next" title="Jour suivant">›</button>
+          <span class="epg-date" id="epg-date">—</span>
+        </div>
+      </div>
+
+      <div class="tv-viewer">
+        <!-- Bandeau supérieur façon décodeur -->
+        <div class="tv-bar">
+          <div class="tv-bar-left">
+            <span class="tv-bar-back">‹</span>
+            <span class="tv-bar-label">Groupe :</span>
+            <span class="tv-bar-dot"></span>
+            <span class="tv-bar-cat" id="tv-bar-cat">TV</span>
+            <span class="tv-bar-sep">|</span>
+            <span class="tv-bar-cat-name" id="tv-bar-cat-name">TOUTES</span>
+            <span class="tv-bar-count" id="tv-bar-count">(0)</span>
+          </div>
+          <button class="tv-bar-replay" id="tv-bar-replay">REPLAY ›</button>
+        </div>
+
+        <div class="tv-viewer-body">
+          <!-- Gauche : liste des chaînes (style décodeur) -->
+          <aside class="tv-channels-pane">
+            <input type="search" class="tv-search" id="epg-channel-search" placeholder="🔍  Filtrer les chaînes…" />
+            <ul class="tv-channels-list" id="epg-channels-list"></ul>
+          </aside>
+
+          <!-- Droite : détail de la chaîne sélectionnée -->
+          <div class="tv-detail">
+            <div class="tv-detail-top">
+              <span class="tv-detail-date" id="tv-detail-date">--:-- · ---</span>
+            </div>
+
+            <!-- Couverture du programme -->
+            <div class="tv-cover" id="tv-cover">
+              <div class="tv-cover-art" id="tv-cover-art"></div>
+              <div class="tv-cover-overlay">
+                <span class="tv-cover-cat" id="tv-cover-cat">—</span>
+                <span class="tv-cover-live" id="tv-cover-live">● EN DIRECT</span>
+              </div>
+            </div>
+
+            <!-- Infos chaîne -->
+            <div class="tv-channel-title" id="tv-channel-title">—</div>
+            <div class="tv-divider"></div>
+
+            <!-- Programme en cours -->
+            <div class="tv-current">
+              <span class="tv-current-time" id="tv-current-time">--:-- – --:--</span>
+              <span class="tv-current-title" id="tv-current-title">—</span>
+            </div>
+
+            <!-- Description -->
+            <p class="tv-desc" id="tv-desc">—</p>
+
+            <!-- Programmes à suivre -->
+            <ul class="tv-next" id="tv-next"></ul>
+
+            <!-- Boutons couleurs façon télécommande -->
+            <div class="tv-color-bar">
+              <button class="cbtn red"    id="cb-red"    title="Filtre / EPG arrière"><span class="cdot"></span><span class="cicon">▼</span></button>
+              <button class="cbtn green"  id="cb-green"  title="Rechercher"><span class="cdot"></span><span class="cicon">🔍</span></button>
+              <button class="cbtn yellow" id="cb-yellow" title="Verrouiller / Parental"><span class="cdot"></span><span class="cicon">🔒</span></button>
+              <button class="cbtn blue"   id="cb-blue"   title="Favori"><span class="cdot"></span><span class="cicon">★</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========= CHAÎNES & FAVORIS ========= -->
+    <section class="card card-channels">
+      <div class="card-head">
+        <div>
+          <h2>Chaînes &amp; favoris</h2>
+          <p class="subtitle">Groupes · catégories · canaux personnalisés</p>
+        </div>
+        <div class="card-head-actions">
+          <span class="badge soft" id="ch-count">0 chaînes</span>
+          <button class="ghost-btn" id="export-btn" title="Exporter la liste">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+            Exporter
+          </button>
+        </div>
+      </div>
+
+      <div class="channels-layout">
+        <!-- Sidebar groupes -->
+        <aside class="groups-pane">
+          <div class="groups-head">
+            <h3>Groupes</h3>
+            <button class="ghost-btn small" id="add-group-btn">＋</button>
+          </div>
+          <ul class="groups" id="groups-list"></ul>
+          <button class="add-group-row" id="add-group-row">
+            <span>＋</span> Nouveau groupe
+          </button>
+        </aside>
+
+        <!-- Canaux du groupe sélectionné -->
+        <div class="channels-pane">
+          <div class="channels-head">
+            <div class="channels-title">
+              <span class="group-color-dot" id="active-group-color"></span>
+              <h3 id="active-group-name">—</h3>
+              <span class="muted" id="active-group-count">0 canaux</span>
+            </div>
+            <div class="channels-actions">
+              <input type="search" class="search-input" id="channel-search" placeholder="Rechercher…" />
+              <button class="primary-btn" id="add-channel-btn">＋ Ajouter une chaîne</button>
+            </div>
+          </div>
+          <ul class="channels-list" id="channels-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========= COMPATIBILITÉ ========= -->
+    <section class="card card-compat">
+      <div class="card-head">
+        <div>
+          <h2>Appareils compatibles</h2>
+          <p class="subtitle">Toutes les télécommandes — un seul hub</p>
+        </div>
+        <button class="ghost-btn" id="scan-btn">
+          <svg viewBox="0 0 24 24"><path d="M21 21l-4.3-4.3M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>
+          Scanner
+        </button>
+      </div>
+
+      <div class="protocols">
+        <button class="proto active" data-proto="ir">
+          <span class="proto-ic">📡</span>
+          <span class="proto-name">IR universelle</span>
+          <span class="proto-desc">38 kHz · NEC · RC5 · RC6 · SIRC</span>
+          <span class="proto-state">Prêt</span>
+        </button>
+        <button class="proto active" data-proto="bt1">
+          <span class="proto-ic">🔵</span>
+          <span class="proto-name">Bluetooth Classic (BT1)</span>
+          <span class="proto-desc">v1.x · v2.x · SPP · HID</span>
+          <span class="proto-state">Prêt</span>
+        </button>
+        <button class="proto active" data-proto="bt2">
+          <span class="proto-ic">🔷</span>
+          <span class="proto-name">Bluetooth LE (BT2 / 4.x+)</span>
+          <span class="proto-desc">v4 · v5 · GATT · HOGP</span>
+          <span class="proto-state">Prêt</span>
+        </button>
+        <button class="proto" data-proto="wifi">
+          <span class="proto-ic">📶</span>
+          <span class="proto-name">Wi-Fi / MQTT</span>
+          <span class="proto-desc">2.4 GHz · 5 GHz · TLS</span>
+          <span class="proto-state">Veille</span>
+        </button>
+        <button class="proto" data-proto="zigbee">
+          <span class="proto-ic">🐝</span>
+          <span class="proto-name">Zigbee</span>
+          <span class="proto-desc">3.0 · mesh · 2.4 GHz</span>
+          <span class="proto-state">Veille</span>
+        </button>
+        <button class="proto" data-proto="rf">
+          <span class="proto-ic">📻</span>
+          <span class="proto-name">RF 433 / 868 MHz</span>
+          <span class="proto-desc">portails · stores · garages</span>
+          <span class="proto-state">Veille</span>
+        </button>
+      </div>
+
+      <div class="paired" id="paired-list">
+        <div class="paired-item">
+          <span class="paired-ic">📺</span>
+          <div class="paired-info">
+            <span class="paired-name">Samsung QLED 65"</span>
+            <span class="paired-meta">IR · NEC · apprise</span>
+          </div>
+          <span class="paired-rssi good">●●●</span>
+        </div>
+        <div class="paired-item">
+          <span class="paired-ic">🎮</span>
+          <div class="paired-info">
+            <span class="paired-name">Apple TV Remote</span>
+            <span class="paired-meta">BLE · HOGP</span>
+          </div>
+          <span class="paired-rssi good">●●●</span>
+        </div>
+        <div class="paired-item">
+          <span class="paired-ic">🚪</span>
+          <div class="paired-info">
+            <span class="paired-name">Portail Somfy</span>
+            <span class="paired-meta">RF · 433.92 MHz</span>
+          </div>
+          <span class="paired-rssi mid">●●○</span>
+        </div>
+        <div class="paired-item">
+          <span class="paired-ic">🔊</span>
+          <div class="paired-info">
+            <span class="paired-name">Sonos Beam</span>
+            <span class="paired-meta">Wi-Fi · MQTT</span>
+          </div>
+          <span class="paired-rssi good">●●●</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========= CODECS / MEDIA ========= -->
+    <section class="card card-codecs">
+      <div class="card-head">
+        <div>
+          <h2>Moteur média</h2>
+          <p class="subtitle">Tous les codecs · qualité maximale</p>
+        </div>
+        <div class="badge soft" id="codec-pipeline">Pipeline 4K HDR</div>
+      </div>
+
+      <div class="now-playing">
+        <div class="np-cover">
+          <div class="np-wave"><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="np-info">
+          <span class="np-title">Interstellar — Main Theme</span>
+          <span class="np-sub">Hans Zimmer · FLAC 24-bit / 192 kHz</span>
+          <div class="np-chips">
+            <span class="chip hi">Dolby Atmos</span>
+            <span class="chip hi">FLAC</span>
+            <span class="chip">192 kHz · 24-bit</span>
+            <span class="chip">7.1.4</span>
+          </div>
+        </div>
+        <div class="np-controls">
+          <button class="np-btn">⏮</button>
+          <button class="np-btn play">▶</button>
+          <button class="np-btn">⏭</button>
+        </div>
+      </div>
+
+      <div class="codec-groups">
+        <div class="codec-group">
+          <h3>Vidéo</h3>
+          <div class="codec-list">
+            <span class="codec best">AV1</span>
+            <span class="codec best">HEVC / H.265</span>
+            <span class="codec best">VVC / H.266</span>
+            <span class="codec">H.264 / AVC</span>
+            <span class="codec">VP9</span>
+            <span class="codec">VP8</span>
+            <span class="codec">MPEG-2</span>
+            <span class="codec">ProRes</span>
+          </div>
+        </div>
+
+        <div class="codec-group">
+          <h3>HDR &amp; image</h3>
+          <div class="codec-list">
+            <span class="codec best">Dolby Vision</span>
+            <span class="codec best">HDR10+</span>
+            <span class="codec">HDR10</span>
+            <span class="codec">HLG</span>
+            <span class="codec">Rec. 2020</span>
+            <span class="codec">DCI-P3</span>
+            <span class="codec">10-bit · 12-bit</span>
+          </div>
+        </div>
+
+        <div class="codec-group">
+          <h3>Audio surround</h3>
+          <div class="codec-list">
+            <span class="codec best">Dolby Atmos</span>
+            <span class="codec best">DTS:X</span>
+            <span class="codec best">Dolby TrueHD</span>
+            <span class="codec">DTS-HD MA</span>
+            <span class="codec">Dolby Digital+</span>
+            <span class="codec">DTS</span>
+            <span class="codec">Auro-3D</span>
+          </div>
+        </div>
+
+        <div class="codec-group">
+          <h3>Audio stéréo / sans perte</h3>
+          <div class="codec-list">
+            <span class="codec best">FLAC</span>
+            <span class="codec best">ALAC</span>
+            <span class="codec best">WavPack</span>
+            <span class="codec">DSD (SACD)</span>
+            <span class="codec">PCM 192/24</span>
+            <span class="codec">APE</span>
+          </div>
+        </div>
+
+        <div class="codec-group">
+          <h3>Audio avec perte</h3>
+          <div class="codec-list">
+            <span class="codec best">Opus</span>
+            <span class="codec">AAC / xHE-AAC</span>
+            <span class="codec">MP3</span>
+            <span class="codec">Vorbis</span>
+            <span class="codec">WMA</span>
+          </div>
+        </div>
+
+        <div class="codec-group">
+          <h3>Audio Bluetooth</h3>
+          <div class="codec-list">
+            <span class="codec best">LDAC</span>
+            <span class="codec best">aptX Adaptive</span>
+            <span class="codec best">aptX Lossless</span>
+            <span class="codec">aptX HD</span>
+            <span class="codec">aptX</span>
+            <span class="codec">LC3 / LE Audio</span>
+            <span class="codec">SBC</span>
+          </div>
+        </div>
+
+        <div class="codec-group">
+          <h3>Conteneurs</h3>
+          <div class="codec-list">
+            <span class="codec">MKV</span>
+            <span class="codec">MP4 / MOV</span>
+            <span class="codec">WebM</span>
+            <span class="codec">TS / M2TS</span>
+            <span class="codec">AVI</span>
+            <span class="codec">FLV</span>
+          </div>
+        </div>
+
+        <div class="codec-group">
+          <h3>Streaming</h3>
+          <div class="codec-list">
+            <span class="codec">HLS</span>
+            <span class="codec">MPEG-DASH</span>
+            <span class="codec">RTSP / RTP</span>
+            <span class="codec">SRT</span>
+            <span class="codec">WebRTC</span>
+            <span class="codec">AirPlay 2</span>
+            <span class="codec">Chromecast</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="codec-hw">
+        <div class="hw-card">
+          <div class="hw-title"><span class="hw-ic">⚡</span> Décodage matériel Android / Realtek</div>
+          <div class="hw-grid">
+            <span class="hw-pill best">4K @ 60 fps</span>
+            <span class="hw-pill best">AV1</span>
+            <span class="hw-pill best">H.265 / HEVC</span>
+            <span class="hw-pill">H.264 / AVC</span>
+            <span class="hw-pill">MPEG-2 / MPEG-4</span>
+            <span class="hw-pill">VC-1</span>
+            <span class="hw-pill">VP9</span>
+            <span class="hw-pill">10-bit · 12-bit</span>
+          </div>
+          <div class="hw-sub">SoC compatibles : Realtek RTD1319/1619, Amlogic S905X4, Allwinner H618 — décodage 100 % matériel, GPU déchargé.</div>
+        </div>
+        <div class="hw-card">
+          <div class="hw-title"><span class="hw-ic">▶</span> Lecteur interne MOL3 — chaînes en direct</div>
+          <div class="hw-grid">
+            <span class="hw-pill best">Live IPTV</span>
+            <span class="hw-pill best">HLS · DASH</span>
+            <span class="hw-pill">MPEG-TS</span>
+            <span class="hw-pill">UDP / RTP</span>
+            <span class="hw-pill">Timeshift</span>
+            <span class="hw-pill">Multi-audio</span>
+            <span class="hw-pill">Sous-titres</span>
+          </div>
+          <div class="hw-sub">Moteur natif optimisé pour le live : zapping &lt; 0,8 s, buffer adaptatif, reconnexion automatique.</div>
+        </div>
+      </div>
+
+      <div class="codec-foot">
+        <span><b id="codec-count">0</b> codecs disponibles</span>
+        <span class="dot-sep">·</span>
+        <span>Décodage matériel <b>activé</b></span>
+        <span class="dot-sep">·</span>
+        <span>Upscale IA <b>4K</b></span>
+      </div>
+    </section>
+
+    <!-- ========= JOURNAL ========= -->
+    <section class="card card-log">
+      <div class="card-head">
+        <div>
+          <h2>Activité</h2>
+          <p class="subtitle">Derniers événements</p>
+        </div>
+      </div>
+      <ul class="log" id="log">
+        <li><span class="log-time">--:--</span><span class="log-msg">En attente d'événements…</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <!-- ========= MODAL ========= -->
+  <div class="modal-overlay" id="modal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modal-title">Titre</h3>
+        <button class="panel-close" id="modal-close">×</button>
+      </div>
+      <form class="modal-body" id="modal-form"></form>
+      <div class="modal-foot">
+        <button type="button" class="panel-btn ghost" id="modal-cancel">Annuler</button>
+        <button type="button" class="panel-btn" id="modal-ok">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
