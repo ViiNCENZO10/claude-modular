@@ -115,10 +115,6 @@
               <span class="app-icon" style="background:conic-gradient(from 220deg at 50% 50%,#22c55e 0deg,#3b82f6 90deg,#ef4444 180deg,#fbbf24 270deg,#22c55e 360deg)">▶</span>
               <span class="app-name">Google<br>Play Store</span>
             </button>
-            <button class="app" data-app="kodi">
-              <span class="app-icon" style="background:linear-gradient(135deg,#3b82f6,#1e1b4b)">K</span>
-              <span class="app-name">Kodi</span>
-            </button>
           </div>
         </div>
 
@@ -392,56 +388,65 @@
         </div>
       </div>
 
-      <div class="epg-viewer">
-        <!-- Gauche : liste des chaînes -->
-        <aside class="epg-channels-pane">
-          <div class="epg-channels-head">
-            <h3>Chaînes</h3>
-            <input type="search" class="search-input" id="epg-channel-search" placeholder="Filtrer…" />
+      <div class="tv-viewer">
+        <!-- Bandeau supérieur façon décodeur -->
+        <div class="tv-bar">
+          <div class="tv-bar-left">
+            <span class="tv-bar-back">‹</span>
+            <span class="tv-bar-label">Groupe :</span>
+            <span class="tv-bar-dot"></span>
+            <span class="tv-bar-cat" id="tv-bar-cat">TV</span>
+            <span class="tv-bar-sep">|</span>
+            <span class="tv-bar-cat-name" id="tv-bar-cat-name">TOUTES</span>
+            <span class="tv-bar-count" id="tv-bar-count">(0)</span>
           </div>
-          <ul class="epg-channels-list" id="epg-channels-list"></ul>
-        </aside>
+          <button class="tv-bar-replay" id="tv-bar-replay">REPLAY ›</button>
+        </div>
 
-        <!-- Droite : aperçu + guide -->
-        <div class="epg-main">
-          <!-- Aperçu (petit écran) -->
-          <div class="epg-screen">
-            <div class="screen-frame">
-              <div class="screen-stage" id="screen-stage">
-                <div class="screen-wave"><span></span><span></span><span></span><span></span><span></span></div>
-                <div class="screen-overlay">
-                  <span class="live-tag">● EN DIRECT</span>
-                  <span class="screen-time" id="screen-time">--:--</span>
-                </div>
-                <div class="screen-bottom">
-                  <div class="screen-channel" id="screen-channel">—</div>
-                  <div class="screen-title" id="screen-title">—</div>
-                  <div class="screen-meta" id="screen-meta">—</div>
-                  <div class="screen-progress">
-                    <div class="screen-progress-bar" id="screen-progress-bar"></div>
-                  </div>
-                </div>
+        <div class="tv-viewer-body">
+          <!-- Gauche : liste des chaînes (style décodeur) -->
+          <aside class="tv-channels-pane">
+            <input type="search" class="tv-search" id="epg-channel-search" placeholder="🔍  Filtrer les chaînes…" />
+            <ul class="tv-channels-list" id="epg-channels-list"></ul>
+          </aside>
+
+          <!-- Droite : détail de la chaîne sélectionnée -->
+          <div class="tv-detail">
+            <div class="tv-detail-top">
+              <span class="tv-detail-date" id="tv-detail-date">--:-- · ---</span>
+            </div>
+
+            <!-- Couverture du programme -->
+            <div class="tv-cover" id="tv-cover">
+              <div class="tv-cover-art" id="tv-cover-art"></div>
+              <div class="tv-cover-overlay">
+                <span class="tv-cover-cat" id="tv-cover-cat">—</span>
+                <span class="tv-cover-live" id="tv-cover-live">● EN DIRECT</span>
               </div>
             </div>
-            <div class="screen-actions">
-              <button class="primary-btn" id="screen-play">▶ Regarder</button>
-              <button class="ghost-btn" id="screen-fav">☆ Favori</button>
-              <button class="ghost-btn" id="screen-record">⏺ Enregistrer</button>
-            </div>
-          </div>
 
-          <!-- Guide TV de la chaîne sélectionnée -->
-          <div class="epg-guide">
-            <div class="guide-head">
-              <h3>Programmes — <span id="guide-channel-name">—</span></h3>
-              <div class="guide-day-tabs" id="guide-day-tabs"></div>
+            <!-- Infos chaîne -->
+            <div class="tv-channel-title" id="tv-channel-title">—</div>
+            <div class="tv-divider"></div>
+
+            <!-- Programme en cours -->
+            <div class="tv-current">
+              <span class="tv-current-time" id="tv-current-time">--:-- – --:--</span>
+              <span class="tv-current-title" id="tv-current-title">—</span>
             </div>
-            <ul class="guide-list" id="guide-list"></ul>
-            <div class="epg-legend">
-              <span class="lg-item"><span class="lg-sw past"></span> Diffusé</span>
-              <span class="lg-item"><span class="lg-sw live"></span> En direct</span>
-              <span class="lg-item"><span class="lg-sw future"></span> À venir</span>
-              <span class="lg-item"><span class="lg-sw replay"></span> Replay dispo</span>
+
+            <!-- Description -->
+            <p class="tv-desc" id="tv-desc">—</p>
+
+            <!-- Programmes à suivre -->
+            <ul class="tv-next" id="tv-next"></ul>
+
+            <!-- Boutons couleurs façon télécommande -->
+            <div class="tv-color-bar">
+              <button class="cbtn red"    id="cb-red"    title="Filtre / EPG arrière"><span class="cdot"></span><span class="cicon">▼</span></button>
+              <button class="cbtn green"  id="cb-green"  title="Rechercher"><span class="cdot"></span><span class="cicon">🔍</span></button>
+              <button class="cbtn yellow" id="cb-yellow" title="Verrouiller / Parental"><span class="cdot"></span><span class="cicon">🔒</span></button>
+              <button class="cbtn blue"   id="cb-blue"   title="Favori"><span class="cdot"></span><span class="cicon">★</span></button>
             </div>
           </div>
         </div>
@@ -714,6 +719,36 @@
             <span class="codec">AirPlay 2</span>
             <span class="codec">Chromecast</span>
           </div>
+        </div>
+      </div>
+
+      <div class="codec-hw">
+        <div class="hw-card">
+          <div class="hw-title"><span class="hw-ic">⚡</span> Décodage matériel Android / Realtek</div>
+          <div class="hw-grid">
+            <span class="hw-pill best">4K @ 60 fps</span>
+            <span class="hw-pill best">AV1</span>
+            <span class="hw-pill best">H.265 / HEVC</span>
+            <span class="hw-pill">H.264 / AVC</span>
+            <span class="hw-pill">MPEG-2 / MPEG-4</span>
+            <span class="hw-pill">VC-1</span>
+            <span class="hw-pill">VP9</span>
+            <span class="hw-pill">10-bit · 12-bit</span>
+          </div>
+          <div class="hw-sub">SoC compatibles : Realtek RTD1319/1619, Amlogic S905X4, Allwinner H618 — décodage 100 % matériel, GPU déchargé.</div>
+        </div>
+        <div class="hw-card">
+          <div class="hw-title"><span class="hw-ic">▶</span> Lecteur interne MOL3 — chaînes en direct</div>
+          <div class="hw-grid">
+            <span class="hw-pill best">Live IPTV</span>
+            <span class="hw-pill best">HLS · DASH</span>
+            <span class="hw-pill">MPEG-TS</span>
+            <span class="hw-pill">UDP / RTP</span>
+            <span class="hw-pill">Timeshift</span>
+            <span class="hw-pill">Multi-audio</span>
+            <span class="hw-pill">Sous-titres</span>
+          </div>
+          <div class="hw-sub">Moteur natif optimisé pour le live : zapping &lt; 0,8 s, buffer adaptatif, reconnexion automatique.</div>
         </div>
       </div>
 

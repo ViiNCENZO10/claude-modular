@@ -434,7 +434,6 @@ const APP_CATALOG = {
   remote:      { name: "Remote Controller",  desc: "Télécommande universelle (IR · BT · Wi-Fi)", version: "v3.8.0" },
   filebrowser: { name: "FileBrowser",        desc: "Stockage interne · USB · carte SD · NAS SMB / NFS", version: "v2.7.0" },
   playstore:   { name: "Google Play Store",  desc: "Catalogue Android · mises à jour automatiques", version: "v38.6" },
-  kodi:        { name: "Kodi",               desc: "Centre média · tous codecs · plugins", version: "v21 Omega" },
 };
 
 document.querySelectorAll(".app").forEach(btn => {
@@ -1215,20 +1214,114 @@ const EPG_DAYS_FUTURE = 7;
 
 const epgChannelsList = document.getElementById("epg-channels-list");
 const epgChannelSearch = document.getElementById("epg-channel-search");
-const guideList = document.getElementById("guide-list");
-const guideDayTabs = document.getElementById("guide-day-tabs");
-const guideChannelName = document.getElementById("guide-channel-name");
 const epgDateEl = document.getElementById("epg-date");
 
-const screenChannelEl = document.getElementById("screen-channel");
-const screenTitleEl = document.getElementById("screen-title");
-const screenMetaEl = document.getElementById("screen-meta");
-const screenTimeEl = document.getElementById("screen-time");
-const screenProgressBar = document.getElementById("screen-progress-bar");
-const screenStage = document.getElementById("screen-stage");
+const tvBarCat       = document.getElementById("tv-bar-cat");
+const tvBarCatName   = document.getElementById("tv-bar-cat-name");
+const tvBarCount     = document.getElementById("tv-bar-count");
+const tvDetailDate   = document.getElementById("tv-detail-date");
+const tvCoverArt     = document.getElementById("tv-cover-art");
+const tvCoverCat     = document.getElementById("tv-cover-cat");
+const tvCoverLive    = document.getElementById("tv-cover-live");
+const tvChannelTitle = document.getElementById("tv-channel-title");
+const tvCurrentTime  = document.getElementById("tv-current-time");
+const tvCurrentTitle = document.getElementById("tv-current-title");
+const tvDesc         = document.getElementById("tv-desc");
+const tvNext         = document.getElementById("tv-next");
 
 let epgOffset = 0;        // 0 = aujourd'hui
 let selectedChannelId = null;
+
+const COVER_PALETTES = {
+  Football:  ["#16a34a", "#052e16"],
+  Cyclisme:  ["#0ea5e9", "#082f49"],
+  Tennis:    ["#fbbf24", "#7c2d12"],
+  Auto:      ["#ef4444", "#7f1d1d"],
+  Basket:    ["#f97316", "#7c2d12"],
+  Rugby:     ["#15803d", "#052e16"],
+  Magazine:  ["#7c3aed", "#1e1b4b"],
+  SF:        ["#1e3a8a", "#0c4a6e"],
+  Action:    ["#dc2626", "#0c0a09"],
+  Drame:     ["#7c2d12", "#1c1917"],
+  Crime:     ["#0f172a", "#020617"],
+  Fantasy:   ["#581c87", "#1e1b4b"],
+  Musical:   ["#db2777", "#581c87"],
+  Polar:     ["#1e293b", "#020617"],
+  Comédie:   ["#fb923c", "#7c2d12"],
+  Histor:    ["#78350f", "#1c1917"],
+  Histoire:  ["#78350f", "#1c1917"],
+  Info:      ["#0c4a6e", "#020617"],
+  Débat:     ["#1e3a8a", "#0c0a09"],
+  Talk:      ["#4338ca", "#1e1b4b"],
+  Politique: ["#1d4ed8", "#0c0a09"],
+  Météo:     ["#0ea5e9", "#082f49"],
+  Animation: ["#ec4899", "#581c87"],
+  Nature:    ["#15803d", "#052e16"],
+  Science:   ["#7c3aed", "#1e1b4b"],
+  Cinéma:    ["#7c2d12", "#0c0a09"],
+  Doc:       ["#0f766e", "#042f2e"],
+};
+function coverGradient(genre) {
+  const palette = COVER_PALETTES[genre] || ["#4338ca", "#0c4a6e"];
+  return `linear-gradient(135deg, ${palette[0]} 0%, ${palette[1]} 70%), ` +
+         `radial-gradient(circle at 25% 30%, rgba(255,255,255,.18), transparent 55%), ` +
+         `radial-gradient(circle at 75% 70%, rgba(255,255,255,.12), transparent 55%)`;
+}
+
+const PROGRAM_DESCRIPTIONS = {
+  "PSG vs Marseille":           "Le classique du championnat. Retrouvez en direct ce duel mythique qui oppose deux des plus grands clubs français, avec analyses tactiques, interviews d'avant-match et coulisses des vestiaires.",
+  "Tour de France — étape":      "Étape de montagne décisive sur les routes des Alpes. Suivez les meilleurs grimpeurs du peloton dans des paysages à couper le souffle, avec les commentaires des consultants vélo de la chaîne.",
+  "Roland-Garros":              "Quart de finale du tournoi parisien sur la mythique terre battue de la Porte d'Auteuil. Affrontement intense entre les deux têtes de série, plus de trois heures de tennis de très haut niveau.",
+  "F1 Grand Prix de Monaco":     "Course mythique dans les rues de la Principauté. Suivez en direct les essais, qualifications et la course, avec analyse pneus, stratégies d'arrêt aux stands et duels en piste.",
+  "NBA Finals — Game 4":         "Match décisif des finales NBA. Les deux franchises rivales s'affrontent en finale pour le titre de champion, retour sur les actions clés et les performances individuelles des superstars.",
+  "Top 14 — Toulouse / Bayonne": "Le derby du Sud-Ouest en direct. Affrontement musclé entre deux écoles de rugby, analyse mêlée et ligne arrière, commentaires de nos consultants.",
+  "Champions League — résumé":   "Tous les matchs de la soirée européenne en un seul programme : buts, occasions, analyses tactiques et déclarations d'après-match.",
+  "Stade 2":                    "Le magazine du sport du dimanche. Toute l'actualité de la semaine, reportages exclusifs et invités en plateau pour décrypter les enjeux du sport français et international.",
+  "Inception":                  "Dom Cobb est un voleur expérimenté capable de s'introduire dans les rêves pour y dérober des secrets. Une dernière mission lui est confiée : implanter une idée dans l'esprit d'un héritier.",
+  "Interstellar":               "La Terre se meurt. Une équipe d'explorateurs s'engage dans le voyage le plus important de l'humanité : franchir un trou de ver et trouver un nouveau monde habitable pour assurer la survie de l'espèce.",
+  "Dune — Partie 2":             "Paul Atréides rejoint les Fremen et part en guerre contre les responsables de la chute de sa famille. Adaptation magistrale du chef-d'œuvre de Frank Herbert.",
+  "Tenet":                      "Un agent secret doit empêcher la Troisième Guerre mondiale en manipulant le cours du temps. Un thriller hypnotique qui repousse les limites du blockbuster.",
+  "Le Parrain":                 "Don Vito Corleone, parrain de la mafia new-yorkaise, refuse d'investir dans le trafic de drogue. Sa famille et son empire vont en payer le prix.",
+  "Pulp Fiction":               "Plusieurs histoires s'entrecroisent dans le Los Angeles des années 90 : tueurs à gages, boxeur véreux, gangsters et petits truands. Un classique de Tarantino.",
+  "Le Seigneur des Anneaux":     "Le jeune hobbit Frodon doit détruire l'anneau unique forgé par Sauron en le jetant dans les flammes du mont Destin. Une épopée fantastique au cœur de la Terre du Milieu.",
+  "La La Land":                 "Une comédie musicale moderne sur les rêves et les ambitions de deux artistes à Los Angeles. Sublimé par les performances de Ryan Gosling et Emma Stone.",
+  "Breaking Bad — S5E14":       "Walter White poursuit sa lente descente aux enfers. Cet épisode déchirant marque un tournant tragique dans la série culte de Vince Gilligan.",
+  "Stranger Things — S4E7":     "À Hawkins, les pouvoirs d'Onze sont mis à l'épreuve dans le Monde à l'Envers. Eleven affronte ses pires souvenirs au laboratoire.",
+  "The Crown — S6E4":            "Les coulisses de la monarchie britannique dans les années 90. Un regard nuancé sur la vie privée de la famille royale, entre devoirs publics et drames intimes.",
+  "House of the Dragon":         "Préquelle de Game of Thrones. La guerre civile menace la maison Targaryen alors que la succession au Trône de Fer divise la dynastie.",
+  "Lupin — épisode 5":           "Assane Diop continue sa quête de vengeance contre la famille Pellegrini. Inspiré des aventures du gentleman cambrioleur d'Arsène Lupin.",
+  "Dix pour cent — S4E2":        "Les agents de l'agence ASK jonglent entre leurs stars capricieuses et leurs vies amoureuses chaotiques. Camille Cottin brille toujours autant.",
+  "Journal de 20h":              "Le rendez-vous incontournable de l'information du soir. Tour d'horizon de l'actualité nationale et internationale, reportages exclusifs et invités.",
+  "C dans l'air":                "Le débat de référence sur l'actualité politique et sociale. Cinq experts en plateau pour décrypter les enjeux du moment.",
+  "Quotidien":                  "Le talk-show humoristique et politique animé par Yann Barthès. Invités people, sketchs et chroniques sur l'actualité.",
+  "Le 19/20":                   "L'information régionale et nationale. Édition complète présentée par les journalistes de France 3.",
+  "Élysée 2032":                "Magazine politique sur les coulisses du pouvoir et les enjeux présidentiels. Reportages exclusifs et analyses de fond.",
+  "Météo France":               "Prévisions détaillées région par région, alertes orage et conseils pour les jours à venir.",
+  "Mickey Mouse Clubhouse":      "Mickey, Minnie, Donald et leurs amis vivent des aventures pleines de surprises pour résoudre des énigmes ludiques.",
+  "Bluey":                      "La petite chienne australienne joue avec sa famille. Une série tendre et drôle qui célèbre l'imagination des enfants.",
+  "Paw Patrol":                 "Ryder et ses chiots interviennent pour résoudre les problèmes de la Grande Vallée. Pas de mission trop difficile.",
+  "Pat'Patrouille — Film":      "Les six chiots préférés des enfants s'attaquent à un nouveau super-vilain dans Adventure City. Un film d'animation explosif.",
+  "Pokémon":                   "Sacha continue sa quête pour devenir Maître Pokémon, accompagné de Pikachu et de ses amis.",
+  "Spider-Man":                "Peter Parker doit jongler entre sa vie d'étudiant et ses responsabilités de super-héros. Action et émotion garanties.",
+  "Planète Bleue II — Profondeurs": "Plongez dans les abysses océaniques aux côtés de David Attenborough. Images sous-marines exceptionnelles et créatures fascinantes.",
+  "Cosmos — Voyage spatial":     "Neil deGrasse Tyson nous embarque pour un voyage à travers l'espace et le temps. De la naissance des étoiles aux confins de l'univers.",
+  "Apocalypse — Seconde Guerre": "Documentaire choc sur la Seconde Guerre mondiale, en images colorisées et restaurées. Témoignages exclusifs.",
+  "Tchernobyl, le silence":     "Reportage d'investigation sur la pire catastrophe nucléaire civile. Témoignages de liquidateurs et révélations.",
+  "Les abysses":                "Exploration des fonds marins inexplorés où vivent les espèces les plus étranges de la planète.",
+  "Volcans en fureur":           "Au cœur des éruptions les plus spectaculaires. Vulcanologues et caméras embarquées au plus près de la lave.",
+};
+const GENERIC_DESCRIPTIONS = [
+  "Plongez dans un univers captivant. Découvrez les meilleurs moments, des analyses en profondeur et des images exclusives spécialement préparées pour les téléspectateurs.",
+  "Une émission de qualité, soigneusement préparée par nos équipes éditoriales, avec invités, reportages et débats pour mieux comprendre le monde qui nous entoure.",
+  "Ne manquez pas ce programme phare de la grille. Tour d'horizon complet du sujet, témoignages d'experts et points de vue contradictoires pour un débat éclairé.",
+  "Une heure de divertissement intelligent. Suivez les meilleures séquences, les coulisses exclusives et les confidences des invités sur le plateau.",
+];
+
+function descriptionFor(slot) {
+  if (PROGRAM_DESCRIPTIONS[slot.title]) return PROGRAM_DESCRIPTIONS[slot.title];
+  const seed = [...slot.title].reduce((a, c) => a + c.charCodeAt(0), 0);
+  return GENERIC_DESCRIPTIONS[seed % GENERIC_DESCRIPTIONS.length];
+}
 
 function startOfDay(daysFromToday) {
   const d = new Date();
@@ -1290,21 +1383,27 @@ function renderEpgChannelsList() {
     selectedChannelId = channels[0]?.id || null;
   }
 
+  // bandeau supérieur : catégorie active + total
+  const selectedChannel = state.channels.find(c => c.id === selectedChannelId);
+  const groupOfSel = selectedChannel && state.groups.find(g => g.id === selectedChannel.groupId);
+  tvBarCat.textContent = "TV";
+  tvBarCatName.textContent = (groupOfSel?.name || "TOUTES").toUpperCase();
+  tvBarCount.textContent = `(${channels.length})`;
+
   epgChannelsList.innerHTML = "";
   for (const c of channels) {
     const groupOf = state.groups.find(g => g.id === c.groupId);
     const nowProg = currentProgramOf(c);
     const row = document.createElement("button");
     row.type = "button";
-    row.className = `epg-ch-row ${c.id === selectedChannelId ? "active" : ""}`;
+    row.className = `tv-ch-row ${c.id === selectedChannelId ? "active" : ""}`;
     row.innerHTML = `
-      <span class="epg-ch-logo" style="background:linear-gradient(135deg, ${groupOf?.color || "#7c9bff"}, #b48cff)">${escapeHTML(c.logo)}</span>
-      <span class="epg-ch-info">
-        <span class="epg-ch-num">Ch.${c.number}</span>
-        <span class="epg-ch-name">${escapeHTML(c.name)}</span>
-        <span class="epg-ch-now">${nowProg ? "▶ " + escapeHTML(nowProg.title) : ""}</span>
+      <span class="tv-ch-num">${c.number}</span>
+      <span class="tv-ch-logo" style="background:linear-gradient(135deg, ${groupOf?.color || "#7c9bff"}, #b48cff)">${escapeHTML(c.logo)}</span>
+      <span class="tv-ch-content">
+        <span class="tv-ch-name">${escapeHTML(c.name)}</span>
+        ${nowProg ? `<span class="tv-ch-dash">-</span><span class="tv-ch-prog">${escapeHTML(nowProg.title)}</span>` : ""}
       </span>
-      ${c.fav ? '<span class="epg-ch-fav">★</span>' : ""}
     `;
     row.addEventListener("click", () => {
       selectedChannelId = c.id;
@@ -1314,118 +1413,65 @@ function renderEpgChannelsList() {
   }
 }
 
-function renderGuideDayTabs() {
-  guideDayTabs.innerHTML = "";
-  for (let d = -EPG_DAYS_PAST; d <= EPG_DAYS_FUTURE; d++) {
-    const day = startOfDay(d);
-    const today = d === 0;
-    const isActive = d === epgOffset;
-    const name = today ? "Aujourd'hui" :
-                 d === -1 ? "Hier" :
-                 d === 1 ? "Demain" :
-                 day.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = `guide-day ${isActive ? "active" : ""} ${today ? "today" : ""}`;
-    btn.textContent = name;
-    btn.addEventListener("click", () => { epgOffset = d; renderEpgAll(); });
-    guideDayTabs.appendChild(btn);
-  }
-}
-
-function renderGuideList() {
-  guideList.innerHTML = "";
+function renderTvDetail() {
   const channel = state.channels.find(c => c.id === selectedChannelId);
+  // date / heure en haut à droite
+  const now = new Date();
+  tvDetailDate.textContent =
+    now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) +
+    " · " +
+    now.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+
   if (!channel) {
-    guideChannelName.textContent = "—";
-    guideList.innerHTML = `<div class="empty-state"><span class="empty-icon">📺</span><span class="empty-text">Sélectionne une chaîne dans la liste.</span></div>`;
+    tvChannelTitle.textContent = "—";
+    tvCurrentTime.textContent = "--:-- – --:--";
+    tvCurrentTitle.textContent = "—";
+    tvDesc.textContent = "—";
+    tvNext.innerHTML = "";
     return;
   }
-  guideChannelName.textContent = channel.name;
-  const schedule = buildDayScheduleAbs(channel, epgOffset);
-  const nowM = getNowMinutes();
 
-  for (const s of schedule) {
-    let cls = "guide-item";
-    let when;
-    if (epgOffset < 0) { cls += " past"; when = "past"; }
-    else if (epgOffset > 0) { cls += " future"; when = "future"; }
-    else {
-      if (s.endMin <= nowM) { cls += " past"; when = "past"; }
-      else if (s.startMin > nowM) { cls += " future"; when = "future"; }
-      else { cls += " live"; when = "live"; }
-    }
-    if (when === "past" && channel.catchup && Math.abs(epgOffset) <= (channel.catchupDays || 15)) {
-      cls += " replay";
-    }
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = cls;
-    const actionLabel = when === "live"  ? "▶ Regarder"
-                      : (when === "past" && cls.includes("replay")) ? "↺ Replay"
-                      : when === "past"  ? "Diffusé"
-                      :                    "🔔 Rappel";
-    item.innerHTML = `
-      <span class="guide-time">${hhmm(s.startMin)}</span>
-      <span class="guide-info">
-        <span class="guide-title">${escapeHTML(s.title)}</span>
-        <span class="guide-meta">${escapeHTML(s.genre)} · ${s.duration} min · termine à ${hhmm(s.endMin)}</span>
-      </span>
-      <span class="guide-action">${actionLabel}</span>
-    `;
-    item.addEventListener("click", () => openProgramDetail(channel, s, when));
-    guideList.appendChild(item);
-  }
-}
-
-function renderPreviewScreen() {
-  const channel = state.channels.find(c => c.id === selectedChannelId);
-  if (!channel) {
-    screenChannelEl.textContent = "—";
-    screenTitleEl.textContent = "Aucune chaîne sélectionnée";
-    screenMetaEl.textContent = "—";
-    screenProgressBar.style.width = "0%";
-    return;
-  }
   const groupOf = state.groups.find(g => g.id === channel.groupId);
   const nowM = getNowMinutes();
   const today = buildDayScheduleAbs(channel, 0);
-  const live = today.find(s => s.startMin <= nowM && s.endMin > nowM);
+  const liveIdx = today.findIndex(s => s.startMin <= nowM && s.endMin > nowM);
+  const live = today[liveIdx] || today[0];
 
-  screenChannelEl.textContent = `Ch.${channel.number} · ${channel.name}`;
-  screenTimeEl.textContent = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  // Couverture
+  tvCoverArt.style.background = coverGradient(live.genre);
+  tvCoverCat.textContent = (groupOf?.name || "TV").toUpperCase();
+  tvCoverLive.hidden = false;
 
-  if (live) {
-    screenTitleEl.textContent = live.title;
-    screenMetaEl.textContent = `${live.genre} · ${hhmm(live.startMin)} – ${hhmm(live.endMin)} · ${live.duration} min`;
-    const progress = ((nowM - live.startMin) / (live.endMin - live.startMin)) * 100;
-    screenProgressBar.style.width = Math.max(0, Math.min(100, progress)) + "%";
-  } else {
-    screenTitleEl.textContent = "Hors antenne";
-    screenMetaEl.textContent = "—";
-    screenProgressBar.style.width = "0%";
+  // Titre chaîne
+  tvChannelTitle.textContent = channel.name;
+
+  // Programme en cours
+  tvCurrentTime.textContent = `${hhmm(live.startMin)} - ${hhmm(live.endMin)}`;
+  tvCurrentTitle.textContent = live.title;
+  tvDesc.textContent = descriptionFor(live);
+
+  // Programmes à suivre (3 prochains)
+  tvNext.innerHTML = "";
+  const upcoming = today.slice(liveIdx + 1, liveIdx + 4);
+  for (const u of upcoming) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="tv-next-time">${hhmm(u.startMin)}</span><span>${escapeHTML(u.title)}</span>`;
+    tvNext.appendChild(li);
   }
 
-  // teinte de l'écran selon couleur du groupe
-  if (groupOf?.color) {
-    screenStage.style.background =
-      `linear-gradient(135deg, ${groupOf.color}33, #1e1b4b 50%, #0c4a6e)`;
-  }
-
-  // bouton favori : maj du label
-  const favBtn = document.getElementById("screen-fav");
-  if (favBtn) favBtn.textContent = channel.fav ? "★ Favori" : "☆ Favori";
+  // Bouton favori (bleu) — état actif
+  document.getElementById("cb-blue").classList.toggle("active", channel.fav);
 }
 
 function renderEpgAll() {
   const day = startOfDay(epgOffset);
-  epgDateEl.textContent = day.toLocaleDateString("fr-FR", {
-    weekday: "long", day: "numeric", month: "long",
-  });
+  if (epgDateEl) {
+    epgDateEl.textContent = day.toLocaleDateString("fr-FR", {
+      weekday: "long", day: "numeric", month: "long",
+    });
+  }
   renderEpgChannelsList();
-  renderGuideDayTabs();
-  renderGuideList();
-  renderPreviewScreen();
+  renderTvDetail();
 }
 
 function renderEpg() { renderEpgAll(); }
@@ -1489,26 +1535,27 @@ document.getElementById("epg-next").addEventListener("click", () => { epgOffset 
 document.getElementById("epg-today").addEventListener("click", () => { epgOffset = 0; renderEpgAll(); });
 epgChannelSearch.addEventListener("input", () => renderEpgChannelsList());
 
-document.getElementById("screen-play").addEventListener("click", () => {
+document.getElementById("tv-bar-replay").addEventListener("click", () => {
   const c = state.channels.find(x => x.id === selectedChannelId);
-  if (!c) return;
-  log(`▶ Lecture en direct sur ${c.name}.`);
+  if (!c) return log("Sélectionne une chaîne pour accéder au replay.");
+  if (!c.catchup) return log(`Replay indisponible sur ${c.name}.`);
+  openCatchup(c.id);
 });
-document.getElementById("screen-fav").addEventListener("click", () => {
-  if (selectedChannelId) {
-    toggleFav(selectedChannelId);
-    renderPreviewScreen();
-    renderEpgChannelsList();
-  }
+
+document.getElementById("cb-red").addEventListener("click", () => log("Bouton ROUGE — filtre EPG."));
+document.getElementById("cb-green").addEventListener("click", () => {
+  epgChannelSearch.focus();
+  log("Bouton VERT — recherche dans les chaînes.");
 });
-document.getElementById("screen-record").addEventListener("click", () => {
-  const c = state.channels.find(x => x.id === selectedChannelId);
-  if (!c) return;
-  log(`⏺ Enregistrement programmé sur ${c.name}.`);
+document.getElementById("cb-yellow").addEventListener("click", () => log("Bouton JAUNE — verrouillage parental."));
+document.getElementById("cb-blue").addEventListener("click", () => {
+  if (!selectedChannelId) return;
+  toggleFav(selectedChannelId);
+  renderEpgAll();
 });
 
 renderEpgAll();
-setInterval(() => { if (epgOffset === 0) { renderPreviewScreen(); renderGuideList(); } }, 60_000);
+setInterval(() => { if (epgOffset === 0) { renderTvDetail(); } }, 60_000);
 
 /* ---------- Export ---------- */
 document.getElementById("export-btn").addEventListener("click", () => {
