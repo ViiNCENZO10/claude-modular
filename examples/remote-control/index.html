@@ -397,6 +397,77 @@
       </div>
     </section>
 
+    <!-- ========= EPG (Guide TV — visionneuse) ========= -->
+    <section class="card card-epg">
+      <div class="card-head">
+        <div>
+          <h2>Guide TV — EPG</h2>
+          <p class="subtitle">Aperçu en direct · programmes diffusés &amp; à venir</p>
+        </div>
+        <div class="epg-toolbar">
+          <button class="ghost-btn small" id="epg-prev" title="Jour précédent">‹</button>
+          <button class="ghost-btn" id="epg-today">Aujourd'hui</button>
+          <button class="ghost-btn small" id="epg-next" title="Jour suivant">›</button>
+          <span class="epg-date" id="epg-date">—</span>
+        </div>
+      </div>
+
+      <div class="epg-viewer">
+        <!-- Gauche : liste des chaînes -->
+        <aside class="epg-channels-pane">
+          <div class="epg-channels-head">
+            <h3>Chaînes</h3>
+            <input type="search" class="search-input" id="epg-channel-search" placeholder="Filtrer…" />
+          </div>
+          <ul class="epg-channels-list" id="epg-channels-list"></ul>
+        </aside>
+
+        <!-- Droite : aperçu + guide -->
+        <div class="epg-main">
+          <!-- Aperçu (petit écran) -->
+          <div class="epg-screen">
+            <div class="screen-frame">
+              <div class="screen-stage" id="screen-stage">
+                <div class="screen-wave"><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="screen-overlay">
+                  <span class="live-tag">● EN DIRECT</span>
+                  <span class="screen-time" id="screen-time">--:--</span>
+                </div>
+                <div class="screen-bottom">
+                  <div class="screen-channel" id="screen-channel">—</div>
+                  <div class="screen-title" id="screen-title">—</div>
+                  <div class="screen-meta" id="screen-meta">—</div>
+                  <div class="screen-progress">
+                    <div class="screen-progress-bar" id="screen-progress-bar"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="screen-actions">
+              <button class="primary-btn" id="screen-play">▶ Regarder</button>
+              <button class="ghost-btn" id="screen-fav">☆ Favori</button>
+              <button class="ghost-btn" id="screen-record">⏺ Enregistrer</button>
+            </div>
+          </div>
+
+          <!-- Guide TV de la chaîne sélectionnée -->
+          <div class="epg-guide">
+            <div class="guide-head">
+              <h3>Programmes — <span id="guide-channel-name">—</span></h3>
+              <div class="guide-day-tabs" id="guide-day-tabs"></div>
+            </div>
+            <ul class="guide-list" id="guide-list"></ul>
+            <div class="epg-legend">
+              <span class="lg-item"><span class="lg-sw past"></span> Diffusé</span>
+              <span class="lg-item"><span class="lg-sw live"></span> En direct</span>
+              <span class="lg-item"><span class="lg-sw future"></span> À venir</span>
+              <span class="lg-item"><span class="lg-sw replay"></span> Replay dispo</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ========= CHAÎNES & FAVORIS ========= -->
     <section class="card card-channels">
       <div class="card-head">

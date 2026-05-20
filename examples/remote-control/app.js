@@ -1212,6 +1212,309 @@ function renderCatchup(c, daysBack) {
   `;
 }
 
+/* =========================================================
+ *  EPG (Guide TV — visionneuse) — chaînes + aperçu + programmes
+ * ========================================================= */
+const EPG_DAYS_PAST = 7;
+const EPG_DAYS_FUTURE = 7;
+
+const epgChannelsList = document.getElementById("epg-channels-list");
+const epgChannelSearch = document.getElementById("epg-channel-search");
+const guideList = document.getElementById("guide-list");
+const guideDayTabs = document.getElementById("guide-day-tabs");
+const guideChannelName = document.getElementById("guide-channel-name");
+const epgDateEl = document.getElementById("epg-date");
+
+const screenChannelEl = document.getElementById("screen-channel");
+const screenTitleEl = document.getElementById("screen-title");
+const screenMetaEl = document.getElementById("screen-meta");
+const screenTimeEl = document.getElementById("screen-time");
+const screenProgressBar = document.getElementById("screen-progress-bar");
+const screenStage = document.getElementById("screen-stage");
+
+let epgOffset = 0;        // 0 = aujourd'hui
+let selectedChannelId = null;
+
+function startOfDay(daysFromToday) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromToday);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function buildDayScheduleAbs(channel, daysFromToday) {
+  // construit la grille pour un jour donné avec heures de début absolues (minutes depuis minuit)
+  const programs = PROGRAM_LIBRARY[channel.groupId] || GENERIC_PROGRAMS;
+  const rnd = seededRand(
+    channel.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0) + daysFromToday * 31
+  );
+  const slots = [];
+  let cursor = 5 * 60; // 05:00
+  const end = 24 * 60;
+  while (cursor < end) {
+    const p = programs[Math.floor(rnd() * programs.length)];
+    let dur = p.duration + Math.floor(rnd() * 20 - 10);
+    dur = Math.max(15, Math.min(end - cursor, dur));
+    slots.push({
+      startMin: cursor,
+      endMin: cursor + dur,
+      title: p.title,
+      genre: p.genre,
+      duration: dur,
+    });
+    cursor += dur;
+  }
+  return slots;
+}
+
+function hhmm(m) {
+  return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+function getNowMinutes() {
+  const n = new Date();
+  return n.getHours() * 60 + n.getMinutes();
+}
+
+function currentProgramOf(channel) {
+  const nowM = getNowMinutes();
+  const today = buildDayScheduleAbs(channel, 0);
+  return today.find(s => s.startMin <= nowM && s.endMin > nowM) || today[0];
+}
+
+function renderEpgChannelsList() {
+  const filter = (epgChannelSearch?.value || "").toLowerCase().trim();
+  let channels = [...state.channels].sort((a, b) => (b.fav - a.fav) || ((a.number || 0) - (b.number || 0)));
+  if (filter) {
+    channels = channels.filter(c =>
+      c.name.toLowerCase().includes(filter) ||
+      String(c.number).includes(filter)
+    );
+  }
+  if (!selectedChannelId || !channels.find(c => c.id === selectedChannelId)) {
+    selectedChannelId = channels[0]?.id || null;
+  }
+
+  epgChannelsList.innerHTML = "";
+  for (const c of channels) {
+    const groupOf = state.groups.find(g => g.id === c.groupId);
+    const nowProg = currentProgramOf(c);
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = `epg-ch-row ${c.id === selectedChannelId ? "active" : ""}`;
+    row.innerHTML = `
+      <span class="epg-ch-logo" style="background:linear-gradient(135deg, ${groupOf?.color || "#7c9bff"}, #b48cff)">${escapeHTML(c.logo)}</span>
+      <span class="epg-ch-info">
+        <span class="epg-ch-num">Ch.${c.number}</span>
+        <span class="epg-ch-name">${escapeHTML(c.name)}</span>
+        <span class="epg-ch-now">${nowProg ? "▶ " + escapeHTML(nowProg.title) : ""}</span>
+      </span>
+      ${c.fav ? '<span class="epg-ch-fav">★</span>' : ""}
+    `;
+    row.addEventListener("click", () => {
+      selectedChannelId = c.id;
+      renderEpgAll();
+    });
+    epgChannelsList.appendChild(row);
+  }
+}
+
+function renderGuideDayTabs() {
+  guideDayTabs.innerHTML = "";
+  for (let d = -EPG_DAYS_PAST; d <= EPG_DAYS_FUTURE; d++) {
+    const day = startOfDay(d);
+    const today = d === 0;
+    const isActive = d === epgOffset;
+    const name = today ? "Aujourd'hui" :
+                 d === -1 ? "Hier" :
+                 d === 1 ? "Demain" :
+                 day.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `guide-day ${isActive ? "active" : ""} ${today ? "today" : ""}`;
+    btn.textContent = name;
+    btn.addEventListener("click", () => { epgOffset = d; renderEpgAll(); });
+    guideDayTabs.appendChild(btn);
+  }
+}
+
+function renderGuideList() {
+  guideList.innerHTML = "";
+  const channel = state.channels.find(c => c.id === selectedChannelId);
+  if (!channel) {
+    guideChannelName.textContent = "—";
+    guideList.innerHTML = `<div class="empty-state"><span class="empty-icon">📺</span><span class="empty-text">Sélectionne une chaîne dans la liste.</span></div>`;
+    return;
+  }
+  guideChannelName.textContent = channel.name;
+  const schedule = buildDayScheduleAbs(channel, epgOffset);
+  const nowM = getNowMinutes();
+
+  for (const s of schedule) {
+    let cls = "guide-item";
+    let when;
+    if (epgOffset < 0) { cls += " past"; when = "past"; }
+    else if (epgOffset > 0) { cls += " future"; when = "future"; }
+    else {
+      if (s.endMin <= nowM) { cls += " past"; when = "past"; }
+      else if (s.startMin > nowM) { cls += " future"; when = "future"; }
+      else { cls += " live"; when = "live"; }
+    }
+    if (when === "past" && channel.catchup && Math.abs(epgOffset) <= (channel.catchupDays || 15)) {
+      cls += " replay";
+    }
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = cls;
+    const actionLabel = when === "live"  ? "▶ Regarder"
+                      : (when === "past" && cls.includes("replay")) ? "↺ Replay"
+                      : when === "past"  ? "Diffusé"
+                      :                    "🔔 Rappel";
+    item.innerHTML = `
+      <span class="guide-time">${hhmm(s.startMin)}</span>
+      <span class="guide-info">
+        <span class="guide-title">${escapeHTML(s.title)}</span>
+        <span class="guide-meta">${escapeHTML(s.genre)} · ${s.duration} min · termine à ${hhmm(s.endMin)}</span>
+      </span>
+      <span class="guide-action">${actionLabel}</span>
+    `;
+    item.addEventListener("click", () => openProgramDetail(channel, s, when));
+    guideList.appendChild(item);
+  }
+}
+
+function renderPreviewScreen() {
+  const channel = state.channels.find(c => c.id === selectedChannelId);
+  if (!channel) {
+    screenChannelEl.textContent = "—";
+    screenTitleEl.textContent = "Aucune chaîne sélectionnée";
+    screenMetaEl.textContent = "—";
+    screenProgressBar.style.width = "0%";
+    return;
+  }
+  const groupOf = state.groups.find(g => g.id === channel.groupId);
+  const nowM = getNowMinutes();
+  const today = buildDayScheduleAbs(channel, 0);
+  const live = today.find(s => s.startMin <= nowM && s.endMin > nowM);
+
+  screenChannelEl.textContent = `Ch.${channel.number} · ${channel.name}`;
+  screenTimeEl.textContent = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+  if (live) {
+    screenTitleEl.textContent = live.title;
+    screenMetaEl.textContent = `${live.genre} · ${hhmm(live.startMin)} – ${hhmm(live.endMin)} · ${live.duration} min`;
+    const progress = ((nowM - live.startMin) / (live.endMin - live.startMin)) * 100;
+    screenProgressBar.style.width = Math.max(0, Math.min(100, progress)) + "%";
+  } else {
+    screenTitleEl.textContent = "Hors antenne";
+    screenMetaEl.textContent = "—";
+    screenProgressBar.style.width = "0%";
+  }
+
+  // teinte de l'écran selon couleur du groupe
+  if (groupOf?.color) {
+    screenStage.style.background =
+      `linear-gradient(135deg, ${groupOf.color}33, #1e1b4b 50%, #0c4a6e)`;
+  }
+
+  // bouton favori : maj du label
+  const favBtn = document.getElementById("screen-fav");
+  if (favBtn) favBtn.textContent = channel.fav ? "★ Favori" : "☆ Favori";
+}
+
+function renderEpgAll() {
+  const day = startOfDay(epgOffset);
+  epgDateEl.textContent = day.toLocaleDateString("fr-FR", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+  renderEpgChannelsList();
+  renderGuideDayTabs();
+  renderGuideList();
+  renderPreviewScreen();
+}
+
+function renderEpg() { renderEpgAll(); }
+
+function openProgramDetail(channel, slot, when) {
+  const hh = (m) => `${String(Math.floor(m / 60) % 24).padStart(2,"0")}:${String(m % 60).padStart(2,"0")}`;
+  const day = startOfDay(epgOffset);
+  const dayLabel = day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const statusBadge = when === "live"  ? `<span style="color:#86efac">● En direct</span>`
+                    : when === "past"  ? `<span style="color:var(--ink-dim)">⏪ Diffusé</span>`
+                    :                    `<span style="color:#7c9bff">⏩ À venir</span>`;
+  const canReplay = when === "past" && channel.catchup && Math.abs(epgOffset) <= (channel.catchupDays || 15);
+  const canReminder = when === "future";
+
+  modal.hidden = false;
+  modal.querySelector(".modal").classList.remove("modal-wide");
+  modalTitle.textContent = slot.title;
+  modalOk.hidden = true;
+  modalCancel.textContent = "Fermer";
+  modalForm.innerHTML = `
+    <div class="field">
+      <label>Chaîne</label>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="epg-channel-logo" style="background:linear-gradient(135deg, ${state.groups.find(g => g.id === channel.groupId)?.color || "#7c9bff"}, #b48cff)">${escapeHTML(channel.logo)}</span>
+        <span style="font-size:14px;color:var(--ink)">Ch.${channel.number} · ${escapeHTML(channel.name)}</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Date &amp; horaire</label>
+      <div style="font-size:14px;color:var(--ink);text-transform:capitalize">${dayLabel}, ${hh(slot.startMin)} – ${hh(slot.endMin)}</div>
+    </div>
+    <div class="field">
+      <label>Genre · durée</label>
+      <div style="font-size:14px;color:var(--ink-soft)">${escapeHTML(slot.genre)} · ${slot.duration} min</div>
+    </div>
+    <div class="field">
+      <label>Statut</label>
+      <div style="font-size:14px">${statusBadge}</div>
+    </div>
+    <div class="field" style="flex-direction:row;gap:10px;flex-wrap:wrap">
+      ${when === "live" ? `<button type="button" class="panel-btn" data-act="watch-live">▶ Regarder en direct</button>` : ""}
+      ${canReplay ? `<button type="button" class="panel-btn" data-act="watch-replay">↺ Revoir en replay</button>` : ""}
+      ${canReminder ? `<button type="button" class="panel-btn" data-act="set-reminder">🔔 Me rappeler</button>` : ""}
+      ${canReminder ? `<button type="button" class="panel-btn ghost" data-act="record">⏺ Programmer enregistrement</button>` : ""}
+    </div>
+  `;
+  modalForm.querySelectorAll("[data-act]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const act = btn.dataset.act;
+      if (act === "watch-live")    log(`▶ Lecture en direct : « ${slot.title} » sur ${channel.name}.`);
+      if (act === "watch-replay")  log(`↺ Replay : « ${slot.title} » (${channel.name}, ${dayLabel}).`);
+      if (act === "set-reminder")  log(`🔔 Rappel programmé : « ${slot.title} » à ${hh(slot.startMin)}.`);
+      if (act === "record")        log(`⏺ Enregistrement programmé : « ${slot.title} » sur ${channel.name}.`);
+      closeModal();
+    });
+  });
+}
+
+document.getElementById("epg-prev").addEventListener("click", () => { epgOffset = Math.max(-EPG_DAYS_PAST, epgOffset - 1); renderEpgAll(); });
+document.getElementById("epg-next").addEventListener("click", () => { epgOffset = Math.min(EPG_DAYS_FUTURE, epgOffset + 1); renderEpgAll(); });
+document.getElementById("epg-today").addEventListener("click", () => { epgOffset = 0; renderEpgAll(); });
+epgChannelSearch.addEventListener("input", () => renderEpgChannelsList());
+
+document.getElementById("screen-play").addEventListener("click", () => {
+  const c = state.channels.find(x => x.id === selectedChannelId);
+  if (!c) return;
+  log(`▶ Lecture en direct sur ${c.name}.`);
+});
+document.getElementById("screen-fav").addEventListener("click", () => {
+  if (selectedChannelId) {
+    toggleFav(selectedChannelId);
+    renderPreviewScreen();
+    renderEpgChannelsList();
+  }
+});
+document.getElementById("screen-record").addEventListener("click", () => {
+  const c = state.channels.find(x => x.id === selectedChannelId);
+  if (!c) return;
+  log(`⏺ Enregistrement programmé sur ${c.name}.`);
+});
+
+renderEpgAll();
+setInterval(() => { if (epgOffset === 0) { renderPreviewScreen(); renderGuideList(); } }, 60_000);
+
 /* ---------- Export ---------- */
 document.getElementById("export-btn").addEventListener("click", () => {
   const lines = ["#EXTM3U"];
