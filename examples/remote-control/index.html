@@ -397,6 +397,53 @@
       </div>
     </section>
 
+    <!-- ========= CHAÎNES & FAVORIS ========= -->
+    <section class="card card-channels">
+      <div class="card-head">
+        <div>
+          <h2>Chaînes &amp; favoris</h2>
+          <p class="subtitle">Groupes · catégories · canaux personnalisés</p>
+        </div>
+        <div class="card-head-actions">
+          <span class="badge soft" id="ch-count">0 chaînes</span>
+          <button class="ghost-btn" id="export-btn" title="Exporter la liste">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+            Exporter
+          </button>
+        </div>
+      </div>
+
+      <div class="channels-layout">
+        <!-- Sidebar groupes -->
+        <aside class="groups-pane">
+          <div class="groups-head">
+            <h3>Groupes</h3>
+            <button class="ghost-btn small" id="add-group-btn">＋</button>
+          </div>
+          <ul class="groups" id="groups-list"></ul>
+          <button class="add-group-row" id="add-group-row">
+            <span>＋</span> Nouveau groupe
+          </button>
+        </aside>
+
+        <!-- Canaux du groupe sélectionné -->
+        <div class="channels-pane">
+          <div class="channels-head">
+            <div class="channels-title">
+              <span class="group-color-dot" id="active-group-color"></span>
+              <h3 id="active-group-name">—</h3>
+              <span class="muted" id="active-group-count">0 canaux</span>
+            </div>
+            <div class="channels-actions">
+              <input type="search" class="search-input" id="channel-search" placeholder="Rechercher…" />
+              <button class="primary-btn" id="add-channel-btn">＋ Ajouter une chaîne</button>
+            </div>
+          </div>
+          <ul class="channels-list" id="channels-list"></ul>
+        </div>
+      </div>
+    </section>
+
     <!-- ========= COMPATIBILITÉ ========= -->
     <section class="card card-compat">
       <div class="card-head">
@@ -641,6 +688,21 @@
       </ul>
     </section>
   </main>
+
+  <!-- ========= MODAL ========= -->
+  <div class="modal-overlay" id="modal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modal-title">Titre</h3>
+        <button class="panel-close" id="modal-close">×</button>
+      </div>
+      <form class="modal-body" id="modal-form"></form>
+      <div class="modal-foot">
+        <button type="button" class="panel-btn ghost" id="modal-cancel">Annuler</button>
+        <button type="button" class="panel-btn" id="modal-ok">Enregistrer</button>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

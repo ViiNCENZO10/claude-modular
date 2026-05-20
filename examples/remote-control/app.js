@@ -645,8 +645,596 @@ function showMemoryClean() {
 }
 
 /* =========================================================
+ *  Chaînes, groupes & favoris
+ * ========================================================= */
+const FAV_GROUP_ID = "__fav";
+const STORAGE_KEY = "ml.channels.v1";
+
+const DEFAULT_STATE = {
+  groups: [
+    { id: "g1", name: "Sport",         color: "#22c55e" },
+    { id: "g2", name: "Films",         color: "#a855f7" },
+    { id: "g3", name: "Séries",        color: "#f59e0b" },
+    { id: "g4", name: "Information",   color: "#0ea5e9" },
+    { id: "g5", name: "Enfants",       color: "#ec4899" },
+    { id: "g6", name: "Documentaire",  color: "#14b8a6" },
+  ],
+  channels: [
+    { id: "c1",  name: "beIN Sports 1",      number: 41,  groupId: "g1", logo: "BS1", url: "iptv://bein/1",    fav: true,  catchup: true,  catchupDays: 15 },
+    { id: "c2",  name: "beIN Sports 2",      number: 42,  groupId: "g1", logo: "BS2", url: "iptv://bein/2",    fav: false, catchup: true,  catchupDays: 15 },
+    { id: "c3",  name: "Eurosport 1",        number: 43,  groupId: "g1", logo: "ES",  url: "iptv://eurosport", fav: false, catchup: true,  catchupDays: 7  },
+    { id: "c4",  name: "RMC Sport 1",        number: 44,  groupId: "g1", logo: "RMC", url: "iptv://rmc",       fav: true,  catchup: true,  catchupDays: 15 },
+    { id: "c5",  name: "Canal+ Cinéma",      number: 51,  groupId: "g2", logo: "C+",  url: "iptv://canal/cin", fav: true,  catchup: true,  catchupDays: 30 },
+    { id: "c6",  name: "OCS Max",            number: 52,  groupId: "g2", logo: "OCS", url: "iptv://ocs",       fav: false, catchup: true,  catchupDays: 30 },
+    { id: "c7",  name: "TCM Cinéma",         number: 53,  groupId: "g2", logo: "TCM", url: "iptv://tcm",       fav: false, catchup: true,  catchupDays: 15 },
+    { id: "c8",  name: "Netflix Originals",  number: 61,  groupId: "g3", logo: "NFX", url: "iptv://nflx",      fav: true,  catchup: false, catchupDays: 0  },
+    { id: "c9",  name: "13ᵉ Rue",            number: 62,  groupId: "g3", logo: "13",  url: "iptv://13rue",     fav: false, catchup: true,  catchupDays: 15 },
+    { id: "c10", name: "BFM TV",             number: 15,  groupId: "g4", logo: "BFM", url: "iptv://bfm",       fav: false, catchup: true,  catchupDays: 15 },
+    { id: "c11", name: "France Info",        number: 27,  groupId: "g4", logo: "F.I", url: "iptv://finfo",     fav: true,  catchup: true,  catchupDays: 15 },
+    { id: "c12", name: "Euronews",           number: 28,  groupId: "g4", logo: "EN",  url: "iptv://euronews",  fav: false, catchup: true,  catchupDays: 7  },
+    { id: "c13", name: "Gulli",              number: 71,  groupId: "g5", logo: "GUL", url: "iptv://gulli",     fav: false, catchup: true,  catchupDays: 15 },
+    { id: "c14", name: "Disney Channel",     number: 72,  groupId: "g5", logo: "DSN", url: "iptv://disney",    fav: false, catchup: true,  catchupDays: 15 },
+    { id: "c15", name: "National Geographic",number: 81,  groupId: "g6", logo: "NAT", url: "iptv://natgeo",    fav: true,  catchup: true,  catchupDays: 30 },
+    { id: "c16", name: "Discovery",          number: 82,  groupId: "g6", logo: "DSC", url: "iptv://disco",     fav: false, catchup: true,  catchupDays: 15 },
+    { id: "c17", name: "Planète+",           number: 83,  groupId: "g6", logo: "P+",  url: "iptv://planete",   fav: false, catchup: true,  catchupDays: 15 },
+  ],
+  activeGroupId: FAV_GROUP_ID,
+};
+
+const SWATCH_COLORS = ["#22c55e", "#a855f7", "#f59e0b", "#0ea5e9", "#ec4899", "#14b8a6", "#ef4444", "#6366f1", "#84cc16", "#06b6d4"];
+
+let state = loadState();
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return structuredClone(DEFAULT_STATE);
+}
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+}
+
+function genId(prefix) { return prefix + "_" + Math.random().toString(36).slice(2, 9); }
+
+/* ---------- Rendu ---------- */
+const groupsList = document.getElementById("groups-list");
+const channelsList = document.getElementById("channels-list");
+const channelSearch = document.getElementById("channel-search");
+const activeGroupName = document.getElementById("active-group-name");
+const activeGroupCount = document.getElementById("active-group-count");
+const activeGroupColor = document.getElementById("active-group-color");
+const chCount = document.getElementById("ch-count");
+
+function renderGroups() {
+  groupsList.innerHTML = "";
+  const favCount = state.channels.filter(c => c.fav).length;
+
+  const favRow = document.createElement("li");
+  favRow.innerHTML = `
+    <button class="group-row fav ${state.activeGroupId === FAV_GROUP_ID ? "active" : ""}" data-id="${FAV_GROUP_ID}">
+      <span class="group-color-dot"></span>
+      <span class="group-name">★ Favoris</span>
+      <span class="group-count">${favCount}</span>
+    </button>`;
+  groupsList.appendChild(favRow);
+
+  for (const g of state.groups) {
+    const count = state.channels.filter(c => c.groupId === g.id).length;
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <button class="group-row ${state.activeGroupId === g.id ? "active" : ""}" data-id="${g.id}">
+        <span class="group-color-dot" style="background:${g.color}"></span>
+        <span class="group-name">${escapeHTML(g.name)}</span>
+        <span class="group-actions">
+          <span class="icon-btn" data-act="edit-group" data-id="${g.id}" title="Renommer">✎</span>
+          <span class="icon-btn danger" data-act="del-group" data-id="${g.id}" title="Supprimer">🗑</span>
+        </span>
+        <span class="group-count">${count}</span>
+      </button>`;
+    groupsList.appendChild(li);
+  }
+}
+
+function renderChannels() {
+  const isFav = state.activeGroupId === FAV_GROUP_ID;
+  const group = state.groups.find(g => g.id === state.activeGroupId);
+  const filterText = (channelSearch.value || "").toLowerCase().trim();
+
+  let list = isFav
+    ? state.channels.filter(c => c.fav)
+    : state.channels.filter(c => c.groupId === state.activeGroupId);
+  if (filterText) list = list.filter(c => c.name.toLowerCase().includes(filterText) || String(c.number).includes(filterText));
+  list.sort((a, b) => (a.number || 0) - (b.number || 0));
+
+  activeGroupName.textContent = isFav ? "★ Favoris" : (group?.name || "—");
+  activeGroupColor.style.background = isFav ? "#fcd34d" : (group?.color || "transparent");
+  activeGroupCount.textContent = `${list.length} canal${list.length > 1 ? "x" : ""}`;
+  chCount.textContent = `${state.channels.length} chaînes`;
+
+  channelsList.innerHTML = "";
+  if (!list.length) {
+    channelsList.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">📺</span>
+        <span class="empty-text">${isFav ? "Aucun favori — clique ★ sur une chaîne." : "Aucune chaîne dans ce groupe."}</span>
+      </div>`;
+    return;
+  }
+  for (const c of list) {
+    const groupOf = state.groups.find(g => g.id === c.groupId);
+    const item = document.createElement("li");
+    item.className = "channel-item";
+    item.innerHTML = `
+      <span class="channel-logo" style="background:linear-gradient(135deg, ${groupOf?.color || "#7c9bff"}, #b48cff)">${escapeHTML(c.logo || c.name.slice(0,3).toUpperCase())}</span>
+      <span class="channel-info">
+        <span class="channel-name">${escapeHTML(c.name)}</span>
+        <span class="channel-meta">Ch.${c.number} · ${escapeHTML(groupOf?.name || "—")}</span>
+      </span>
+      <span class="channel-actions">
+        ${c.catchup ? `<button class="icon-btn catchup-btn" data-act="catchup" data-id="${c.id}" title="Replay (${c.catchupDays || 15} j)">↺</button>` : ""}
+        <button class="fav-star ${c.fav ? "on" : ""}" data-act="fav" data-id="${c.id}" title="Favori">${c.fav ? "★" : "☆"}</button>
+        <button class="icon-btn" data-act="edit-ch" data-id="${c.id}" title="Modifier">✎</button>
+        <button class="icon-btn danger" data-act="del-ch" data-id="${c.id}" title="Supprimer">🗑</button>
+      </span>`;
+    channelsList.appendChild(item);
+  }
+}
+
+function renderAll() { renderGroups(); renderChannels(); saveState(); }
+
+function escapeHTML(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ---------- Events ---------- */
+groupsList.addEventListener("click", e => {
+  const actBtn = e.target.closest("[data-act]");
+  if (actBtn) {
+    e.stopPropagation();
+    const id = actBtn.dataset.id;
+    if (actBtn.dataset.act === "edit-group") editGroup(id);
+    else if (actBtn.dataset.act === "del-group") deleteGroup(id);
+    return;
+  }
+  const row = e.target.closest(".group-row");
+  if (!row) return;
+  state.activeGroupId = row.dataset.id;
+  renderAll();
+});
+
+document.getElementById("add-group-btn").addEventListener("click", () => addGroup());
+document.getElementById("add-group-row").addEventListener("click", () => addGroup());
+document.getElementById("add-channel-btn").addEventListener("click", () => addChannel());
+channelSearch.addEventListener("input", () => renderChannels());
+
+channelsList.addEventListener("click", e => {
+  const btn = e.target.closest("[data-act]");
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const act = btn.dataset.act;
+  if (act === "fav") toggleFav(id);
+  else if (act === "edit-ch") editChannel(id);
+  else if (act === "del-ch") deleteChannel(id);
+  else if (act === "catchup") openCatchup(id);
+});
+
+function toggleFav(id) {
+  const c = state.channels.find(x => x.id === id);
+  if (!c) return;
+  c.fav = !c.fav;
+  log(`${c.fav ? "★" : "☆"} « ${c.name} » ${c.fav ? "ajoutée aux" : "retirée des"} favoris.`);
+  renderAll();
+}
+
+/* ---------- Modal ---------- */
+const modal = document.getElementById("modal");
+const modalTitle = document.getElementById("modal-title");
+const modalForm = document.getElementById("modal-form");
+const modalOk = document.getElementById("modal-ok");
+const modalCancel = document.getElementById("modal-cancel");
+const modalClose = document.getElementById("modal-close");
+
+function openModal(title, fieldsHTML, onSubmit) {
+  modalTitle.textContent = title;
+  modalForm.innerHTML = fieldsHTML;
+  modal.hidden = false;
+  modalForm.querySelectorAll(".swatch").forEach(sw => {
+    sw.addEventListener("click", () => {
+      modalForm.querySelectorAll(".swatch").forEach(x => x.classList.remove("active"));
+      sw.classList.add("active");
+      modalForm.querySelector("[name=color]").value = sw.dataset.color;
+    });
+  });
+  const first = modalForm.querySelector("input, select, textarea");
+  if (first) setTimeout(() => first.focus(), 50);
+
+  const handler = (e) => { e?.preventDefault(); onSubmit(new FormData(modalForm)); };
+  modalOk.onclick = handler;
+  modalForm.onsubmit = handler;
+}
+function closeModal() {
+  modal.hidden = true;
+  modalOk.onclick = null;
+  modalForm.onsubmit = null;
+  modalOk.hidden = false;
+  modalCancel.textContent = "Annuler";
+  modal.querySelector(".modal").classList.remove("modal-wide");
+}
+modalCancel.addEventListener("click", closeModal);
+modalClose.addEventListener("click", closeModal);
+modal.addEventListener("click", e => { if (e.target === modal) closeModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !modal.hidden) closeModal(); });
+
+function swatchHTML(active) {
+  return `<div class="swatches">` + SWATCH_COLORS.map(c =>
+    `<span class="swatch ${c === active ? "active" : ""}" data-color="${c}" style="background:${c}"></span>`
+  ).join("") + `</div><input type="hidden" name="color" value="${active}" />`;
+}
+
+/* ---------- CRUD groupes ---------- */
+function addGroup() {
+  openModal("Nouveau groupe", `
+    <div class="field">
+      <label>Nom du groupe</label>
+      <input name="name" required placeholder="ex. Musique, Adulte, International…" />
+    </div>
+    <div class="field">
+      <label>Couleur</label>
+      ${swatchHTML(SWATCH_COLORS[0])}
+    </div>
+  `, (form) => {
+    const name = (form.get("name") || "").trim();
+    if (!name) return;
+    const color = form.get("color") || SWATCH_COLORS[0];
+    const g = { id: genId("g"), name, color };
+    state.groups.push(g);
+    state.activeGroupId = g.id;
+    closeModal();
+    log(`Groupe « ${name} » créé.`);
+    renderAll();
+  });
+}
+
+function editGroup(id) {
+  const g = state.groups.find(x => x.id === id);
+  if (!g) return;
+  openModal("Modifier le groupe", `
+    <div class="field">
+      <label>Nom</label>
+      <input name="name" required value="${escapeHTML(g.name)}" />
+    </div>
+    <div class="field">
+      <label>Couleur</label>
+      ${swatchHTML(g.color)}
+    </div>
+  `, (form) => {
+    const name = (form.get("name") || "").trim();
+    if (!name) return;
+    g.name = name;
+    g.color = form.get("color") || g.color;
+    closeModal();
+    log(`Groupe renommé en « ${name} ».`);
+    renderAll();
+  });
+}
+
+function deleteGroup(id) {
+  const g = state.groups.find(x => x.id === id);
+  if (!g) return;
+  const count = state.channels.filter(c => c.groupId === id).length;
+  const ok = confirm(`Supprimer le groupe « ${g.name} » ?${count ? `\n${count} chaîne(s) seront également supprimées.` : ""}`);
+  if (!ok) return;
+  state.channels = state.channels.filter(c => c.groupId !== id);
+  state.groups = state.groups.filter(x => x.id !== id);
+  if (state.activeGroupId === id) state.activeGroupId = FAV_GROUP_ID;
+  log(`Groupe « ${g.name} » supprimé (${count} chaîne(s)).`);
+  renderAll();
+}
+
+/* ---------- CRUD chaînes ---------- */
+function channelFormHTML(c = {}) {
+  const groupOpts = state.groups.map(g =>
+    `<option value="${g.id}" ${g.id === c.groupId ? "selected" : ""}>${escapeHTML(g.name)}</option>`
+  ).join("");
+  return `
+    <div class="field">
+      <label>Nom de la chaîne</label>
+      <input name="name" required value="${escapeHTML(c.name || "")}" placeholder="ex. France 2, RMC Story…" />
+    </div>
+    <div class="field">
+      <label>Numéro</label>
+      <input name="number" type="number" min="1" value="${c.number ?? ""}" placeholder="ex. 12" />
+    </div>
+    <div class="field">
+      <label>Groupe</label>
+      <select name="groupId" required>${groupOpts || `<option value="">— créez d'abord un groupe —</option>`}</select>
+    </div>
+    <div class="field">
+      <label>Logo (3 lettres)</label>
+      <input name="logo" maxlength="4" value="${escapeHTML(c.logo || "")}" placeholder="ex. F2" />
+    </div>
+    <div class="field">
+      <label>URL du flux (facultatif)</label>
+      <input name="url" value="${escapeHTML(c.url || "")}" placeholder="ex. http://… .m3u8" />
+    </div>
+    <div class="field">
+      <label>Replay / Catchup</label>
+      <label class="checkbox-row">
+        <input type="checkbox" name="catchup" ${c.catchup !== false ? "checked" : ""} />
+        <span>Activer la rediffusion (catch-up)</span>
+      </label>
+    </div>
+    <div class="field">
+      <label>Durée du replay (jours)</label>
+      <input name="catchupDays" type="number" min="1" max="60" value="${c.catchupDays ?? 15}" />
+    </div>
+  `;
+}
+
+function addChannel() {
+  if (!state.groups.length) {
+    alert("Créez d'abord un groupe avant d'ajouter une chaîne.");
+    addGroup();
+    return;
+  }
+  openModal("Nouvelle chaîne", channelFormHTML({ groupId: state.activeGroupId !== FAV_GROUP_ID ? state.activeGroupId : state.groups[0].id }), (form) => {
+    const name = (form.get("name") || "").trim();
+    if (!name) return;
+    const c = {
+      id: genId("c"),
+      name,
+      number: parseInt(form.get("number"), 10) || nextChannelNumber(),
+      groupId: form.get("groupId"),
+      logo: (form.get("logo") || name.slice(0, 3)).toUpperCase(),
+      url:  form.get("url") || "",
+      fav: false,
+      catchup: !!form.get("catchup"),
+      catchupDays: Math.min(60, Math.max(1, parseInt(form.get("catchupDays"), 10) || 15)),
+    };
+    state.channels.push(c);
+    closeModal();
+    log(`Chaîne « ${name} » ajoutée (Ch.${c.number}${c.catchup ? `, replay ${c.catchupDays}j` : ""}).`);
+    renderAll();
+  });
+}
+
+function editChannel(id) {
+  const c = state.channels.find(x => x.id === id);
+  if (!c) return;
+  openModal("Modifier la chaîne", channelFormHTML(c), (form) => {
+    const name = (form.get("name") || "").trim();
+    if (!name) return;
+    c.name = name;
+    c.number = parseInt(form.get("number"), 10) || c.number;
+    c.groupId = form.get("groupId") || c.groupId;
+    c.logo = (form.get("logo") || c.logo).toUpperCase();
+    c.url = form.get("url") || "";
+    c.catchup = !!form.get("catchup");
+    c.catchupDays = Math.min(60, Math.max(1, parseInt(form.get("catchupDays"), 10) || 15));
+    closeModal();
+    log(`Chaîne « ${name} » mise à jour.`);
+    renderAll();
+  });
+}
+
+function deleteChannel(id) {
+  const c = state.channels.find(x => x.id === id);
+  if (!c) return;
+  if (!confirm(`Supprimer la chaîne « ${c.name} » ?`)) return;
+  state.channels = state.channels.filter(x => x.id !== id);
+  log(`Chaîne « ${c.name} » supprimée.`);
+  renderAll();
+}
+
+function nextChannelNumber() {
+  const used = new Set(state.channels.map(c => c.number));
+  for (let n = 1; n < 9999; n++) if (!used.has(n)) return n;
+  return 1;
+}
+
+/* ---------- Replay / Catchup (15 jours en arrière) ---------- */
+const PROGRAM_LIBRARY = {
+  g1: [ /* sport */
+    { title: "PSG vs Marseille",         genre: "Football",   duration: 120 },
+    { title: "Tour de France — étape",   genre: "Cyclisme",   duration: 240 },
+    { title: "Roland-Garros",            genre: "Tennis",     duration: 180 },
+    { title: "F1 Grand Prix de Monaco",  genre: "Auto",       duration: 150 },
+    { title: "NBA Finals — Game 4",      genre: "Basket",     duration: 150 },
+    { title: "Top 14 — Toulouse / Bayonne", genre: "Rugby",   duration: 120 },
+    { title: "Champions League — résumé",   genre: "Football", duration: 60 },
+    { title: "Stade 2",                   genre: "Magazine",  duration: 90 },
+  ],
+  g2: [ /* films */
+    { title: "Inception",              genre: "SF",      duration: 148 },
+    { title: "Interstellar",           genre: "SF",      duration: 169 },
+    { title: "Dune — Partie 2",        genre: "SF",      duration: 166 },
+    { title: "Tenet",                  genre: "Action",  duration: 150 },
+    { title: "Le Parrain",             genre: "Drame",   duration: 175 },
+    { title: "Pulp Fiction",           genre: "Crime",   duration: 154 },
+    { title: "Le Seigneur des Anneaux",genre: "Fantasy", duration: 178 },
+    { title: "La La Land",             genre: "Musical", duration: 128 },
+  ],
+  g3: [ /* séries */
+    { title: "Breaking Bad — S5E14",   genre: "Drame",   duration: 50 },
+    { title: "Stranger Things — S4E7", genre: "SF",      duration: 75 },
+    { title: "The Crown — S6E4",       genre: "Histor.", duration: 60 },
+    { title: "House of the Dragon",    genre: "Fantasy", duration: 65 },
+    { title: "Lupin — épisode 5",      genre: "Polar",   duration: 45 },
+    { title: "Dix pour cent — S4E2",   genre: "Comédie", duration: 50 },
+  ],
+  g4: [ /* info */
+    { title: "Journal de 20h",         genre: "Info",   duration: 35 },
+    { title: "C dans l'air",           genre: "Débat",  duration: 65 },
+    { title: "Quotidien",              genre: "Talk",   duration: 75 },
+    { title: "Le 19/20",               genre: "Info",   duration: 30 },
+    { title: "Élysée 2032",            genre: "Politique", duration: 90 },
+    { title: "Météo France",           genre: "Météo",  duration: 5 },
+  ],
+  g5: [ /* enfants */
+    { title: "Mickey Mouse Clubhouse", genre: "Animation", duration: 25 },
+    { title: "Bluey",                  genre: "Animation", duration: 20 },
+    { title: "Paw Patrol",             genre: "Animation", duration: 22 },
+    { title: "Pat'Patrouille — Film",  genre: "Animation", duration: 95 },
+    { title: "Pokémon",                genre: "Animation", duration: 25 },
+    { title: "Spider-Man",             genre: "Animation", duration: 25 },
+  ],
+  g6: [ /* doc */
+    { title: "Planète Bleue II — Profondeurs", genre: "Nature",  duration: 60 },
+    { title: "Cosmos — Voyage spatial",         genre: "Science", duration: 50 },
+    { title: "Apocalypse — Seconde Guerre",     genre: "Histoire",duration: 55 },
+    { title: "Tchernobyl, le silence",          genre: "Histoire",duration: 90 },
+    { title: "Les abysses",                     genre: "Nature",  duration: 60 },
+    { title: "Volcans en fureur",               genre: "Nature",  duration: 55 },
+  ],
+};
+const GENERIC_PROGRAMS = [
+  { title: "Magazine du soir", genre: "Magazine", duration: 50 },
+  { title: "Ciné-club",        genre: "Cinéma",   duration: 110 },
+  { title: "Documentaire",     genre: "Doc",      duration: 55 },
+  { title: "Talk-show",        genre: "Talk",     duration: 60 },
+];
+
+function seededRand(seed) {
+  let x = seed | 0;
+  return () => {
+    x = (x * 1664525 + 1013904223) | 0;
+    return ((x >>> 0) % 100000) / 100000;
+  };
+}
+
+function buildSchedule(channel, daysBack) {
+  const programs = PROGRAM_LIBRARY[channel.groupId] || GENERIC_PROGRAMS;
+  const rnd = seededRand(channel.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0) + daysBack);
+  const day = new Date();
+  day.setDate(day.getDate() - daysBack);
+  day.setHours(0, 0, 0, 0);
+
+  const slots = [];
+  let cursor = 6 * 60; // 06:00
+  const endOfDay = 26 * 60; // 02:00 day after
+  while (cursor < endOfDay) {
+    const p = programs[Math.floor(rnd() * programs.length)];
+    const dur = p.duration + Math.floor(rnd() * 15 - 7);
+    const h = Math.floor(cursor / 60) % 24;
+    const m = cursor % 60;
+    slots.push({
+      time: `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`,
+      title: p.title,
+      genre: p.genre,
+      duration: Math.max(15, dur),
+    });
+    cursor += Math.max(15, dur);
+  }
+  return slots;
+}
+
+let currentCatchup = { channel: null, day: 0 };
+
+function openCatchup(id) {
+  const c = state.channels.find(x => x.id === id);
+  if (!c || !c.catchup) return;
+  currentCatchup = { channel: c, day: 1 };
+  modal.hidden = false;
+  modal.querySelector(".modal").classList.add("modal-wide");
+  modalTitle.textContent = `Replay — ${c.name}`;
+  modalForm.innerHTML = renderCatchup(c, 1);
+  modalOk.hidden = true;
+  modalCancel.textContent = "Fermer";
+  modalForm.querySelectorAll(".day-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      const d = parseInt(tab.dataset.day, 10);
+      currentCatchup.day = d;
+      modalForm.innerHTML = renderCatchup(c, d);
+      attachCatchupHandlers(c);
+    });
+  });
+  attachCatchupHandlers(c);
+}
+
+function attachCatchupHandlers(c) {
+  modalForm.querySelectorAll(".day-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      const d = parseInt(tab.dataset.day, 10);
+      currentCatchup.day = d;
+      modalForm.innerHTML = renderCatchup(c, d);
+      attachCatchupHandlers(c);
+    });
+  });
+  modalForm.querySelectorAll(".prog-watch").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const title = btn.dataset.title;
+      const time = btn.dataset.time;
+      log(`▶ Lecture replay « ${title} » (${c.name}, ${formatDayLabel(currentCatchup.day)} ${time}).`);
+      btn.textContent = "✓ Lancé";
+      btn.disabled = true;
+    });
+  });
+}
+
+function formatDayLabel(daysBack) {
+  if (daysBack === 0) return "Aujourd'hui";
+  if (daysBack === 1) return "Hier";
+  const d = new Date();
+  d.setDate(d.getDate() - daysBack);
+  return d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+}
+
+function renderCatchup(c, daysBack) {
+  const maxDays = Math.max(1, c.catchupDays || 15);
+  const tabs = [];
+  for (let d = 1; d <= maxDays; d++) {
+    tabs.push(`<button type="button" class="day-tab ${d === daysBack ? "active" : ""}" data-day="${d}">${formatDayLabel(d)}</button>`);
+  }
+  const schedule = buildSchedule(c, daysBack);
+  const rows = schedule.map(s => `
+    <li class="prog-item">
+      <span class="prog-time">${s.time}</span>
+      <span class="prog-info">
+        <span class="prog-title">${escapeHTML(s.title)}</span>
+        <span class="prog-meta">${escapeHTML(s.genre)} · ${s.duration} min</span>
+      </span>
+      <button type="button" class="prog-watch" data-title="${escapeHTML(s.title)}" data-time="${s.time}">▶ Voir</button>
+    </li>
+  `).join("");
+
+  return `
+    <div class="catchup-head">
+      <div class="catchup-meta">
+        <span class="catchup-chan-logo">${escapeHTML(c.logo)}</span>
+        <div>
+          <div class="catchup-channel">Ch.${c.number} · ${escapeHTML(c.name)}</div>
+          <div class="catchup-sub">Replay disponible sur ${maxDays} jours en arrière</div>
+        </div>
+      </div>
+    </div>
+    <div class="day-tabs">${tabs.join("")}</div>
+    <ul class="prog-list">${rows}</ul>
+  `;
+}
+
+/* ---------- Export ---------- */
+document.getElementById("export-btn").addEventListener("click", () => {
+  const lines = ["#EXTM3U"];
+  for (const c of state.channels.sort((a, b) => a.number - b.number)) {
+    const g = state.groups.find(x => x.id === c.groupId);
+    lines.push(`#EXTINF:-1 tvg-num="${c.number}" group-title="${g?.name || ""}",${c.name}`);
+    lines.push(c.url || `iptv://channel/${c.id}`);
+  }
+  const blob = new Blob([lines.join("\n")], { type: "audio/x-mpegurl" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "playlist.m3u";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  log(`Liste exportée — ${state.channels.length} chaînes (.m3u).`);
+});
+
+renderAll();
+
+/* =========================================================
  *  Démarrage
  * ========================================================= */
 log("Hub démarré — 6 adaptateurs initialisés.");
 log(`Moteur média prêt : ${codecCount} codecs (AV1, HEVC, Dolby Vision, Atmos, FLAC, LDAC…).`);
 log("Système : Android 14 · One UI 6.0 · build UP1A.231005.007.");
+log(`Bibliothèque chargée : ${state.groups.length} groupes, ${state.channels.length} chaînes, ${state.channels.filter(c => c.fav).length} favoris.`);
