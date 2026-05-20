@@ -425,7 +425,7 @@ document.getElementById("scan-btn").addEventListener("click", async () => {
 });
 
 /* =========================================================
- *  Launcher Android 14 — Applications
+ *  Launcher Android 16 — Applications
  * ========================================================= */
 const APP_CATALOG = {
   ipremium:    { name: "iPremium TvOnline", desc: "IPTV premium · 12 000 chaînes · VOD 4K", version: "v4.2.1" },
@@ -453,7 +453,7 @@ function panelBodyForApp(id, meta) {
   body.innerHTML = `
     <div class="row"><span>Description</span><b>${meta.desc}</b></div>
     <div class="row"><span>Version</span><b>${meta.version}</b></div>
-    <div class="row"><span>Compatibilité</span><b>Android 14 · ARM64</b></div>
+    <div class="row"><span>Compatibilité</span><b>Android 16 · ARM64</b></div>
   `;
   if (id === "filebrowser") {
     body.innerHTML += `
@@ -484,15 +484,15 @@ function panelBodyForApp(id, meta) {
 }
 
 /* =========================================================
- *  Outils système Android 14
+ *  Outils système Android 16
  * ========================================================= */
 const panelEl = document.getElementById("tool-panel");
 const panelTitle = document.getElementById("panel-title");
 const panelBody = document.getElementById("panel-body");
 const SYSTEM = {
-  os: "Android 14",
-  build: "UP1A.231005.007",
-  oneui: "One UI 6.0",
+  os: "Android 16",
+  build: "BP1A.260401.006",
+  oneui: "One UI 8.0",
   chipset: "ARM Cortex-A78 octa-core @ 2,4 GHz",
   gpu: "Mali-G610 MC4",
   ram: { total: 8192, used: 3277 },
@@ -563,6 +563,7 @@ function showSoftwareUpdate() {
     <div class="row"><span>Build</span><b>${SYSTEM.build}</b></div>
     <div class="row"><span>Surcouche</span><b>${SYSTEM.oneui}</b></div>
     <div class="row"><span>Patch sécurité</span><b>1ᵉʳ mai 2026</b></div>
+    <div class="row"><span>Niveau API</span><b>API 36</b></div>
     <div class="row"><span>Statut</span><b style="color:#86efac">Système à jour</b></div>
     <button class="panel-btn" id="check-update">Vérifier les mises à jour</button>
   `);
@@ -1581,5 +1582,5 @@ renderAll();
  * ========================================================= */
 log("Hub démarré — 6 adaptateurs initialisés.");
 log(`Moteur média prêt : ${codecCount} codecs (AV1, HEVC, Dolby Vision, Atmos, FLAC, LDAC…).`);
-log("Système : Android 14 · One UI 6.0 · build UP1A.231005.007.");
+log("Système : Android 16 · One UI 8.0 · build BP1A.260401.006.");
 log(`Bibliothèque chargée : ${state.groups.length} groupes, ${state.channels.length} chaînes, ${state.channels.filter(c => c.fav).length} favoris.`);
