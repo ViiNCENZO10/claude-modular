@@ -433,24 +433,24 @@ public class ExoPlayerActivity extends AppCompatActivity {
     private void setupBottomMenu() {
         if (bottomMenuRow == null) return;
         bottomMenuRow.removeAllViews();
-        addMenuItem("🔊", "Audio", () -> showTrackDialog(C.TRACK_TYPE_AUDIO, "Pistes audio"));
-        addMenuItem("💬", "Sous-titres", () -> showTrackDialog(C.TRACK_TYPE_TEXT, "Sous-titres"));
-        addMenuItem("⛶", "Format", this::cycleAspectRatio);
-        addMenuItem("⏰", "Veille", this::showSleepTimerDialog);
-        addMenuItem("↻", "Redémarrer", () -> {
+        addMenuItem(R.drawable.ic_audio, "Audio", () -> showTrackDialog(C.TRACK_TYPE_AUDIO, "Pistes audio"));
+        addMenuItem(R.drawable.ic_subtitles, "Sous-titres", () -> showTrackDialog(C.TRACK_TYPE_TEXT, "Sous-titres"));
+        addMenuItem(R.drawable.ic_aspect, "Format", this::cycleAspectRatio);
+        addMenuItem(R.drawable.ic_timer, "Veille", this::showSleepTimerDialog);
+        addMenuItem(R.drawable.ic_restart, "Redémarrer", () -> {
             if (player != null) { player.seekTo(0); player.play(); }
             hideBottomMenu();
         });
-        addMenuItem("⏯", "Pause/Play", () -> {
+        addMenuItem(R.drawable.ic_pause_play, "Pause/Play", () -> {
             if (player != null) { if (player.isPlaying()) player.pause(); else player.play(); }
             hideBottomMenu();
         });
-        addMenuItem("⛔", "Arrêter", this::finish);
+        addMenuItem(R.drawable.ic_stop, "Arrêter", this::finish);
     }
 
-    private void addMenuItem(String icon, String label, Runnable action) {
+    private void addMenuItem(int iconRes, String label, Runnable action) {
         android.view.View item = LayoutInflater.from(this).inflate(R.layout.item_bottom_menu, bottomMenuRow, false);
-        ((TextView) item.findViewById(R.id.menu_icon)).setText(icon);
+        ((android.widget.ImageView) item.findViewById(R.id.menu_icon_img)).setImageResource(iconRes);
         ((TextView) item.findViewById(R.id.menu_label)).setText(label);
         item.setOnClickListener(v -> action.run());
         bottomMenuRow.addView(item);
@@ -604,17 +604,46 @@ public class ExoPlayerActivity extends AppCompatActivity {
         playerView.requestFocus();
     }
 
-    private void selectChannel(int position) {
+    private void selectChannel(final int position) {
         if (position < 0 || position >= sidebarChannels.size()) return;
-        JSONObject ch = sidebarChannels.get(position);
+        final JSONObject ch = sidebarChannels.get(position);
         String newUrl = ch.optString("url", "");
         if (newUrl.isEmpty()) {
-            // For Stalker/M3U with no pre-resolved URL: bail back to MainActivity
+            // No pre-resolved URL: bail back to MainActivity for JS re-resolution
             Intent result = new Intent();
             result.putExtra("switchToStreamId", ch.optString("stream_id"));
             result.putExtra("switchToIndex", position);
             setResult(RESULT_OK, result);
             finish();
+            return;
+        }
+
+        // If it's a Stalker create_link URL, resolve in background (current channel keeps playing)
+        if (newUrl.contains("create_link") && customCookies != null) {
+            final String apiUrl = newUrl;
+            Toast.makeText(this, "Résolution " + ch.optString("name") + "...", Toast.LENGTH_SHORT).show();
+            hideSidebar();
+            new Thread(new Runnable() {
+                @Override public void run() {
+                    final String resolved = resolveStalkerLink(apiUrl);
+                    runOnUiThread(new Runnable() {
+                        @Override public void run() {
+                            playUrlInPlace(position, ch, resolved);
+                        }
+                    });
+                }
+            }).start();
+            return;
+        }
+
+        playUrlInPlace(position, ch, newUrl);
+        hideSidebar();
+    }
+
+    @SuppressLint("UnsafeOptInUsageError")
+    private void playUrlInPlace(int position, JSONObject ch, String newUrl) {
+        if (newUrl == null || newUrl.isEmpty()) {
+            Toast.makeText(this, "Lien introuvable", Toast.LENGTH_SHORT).show();
             return;
         }
         sidebarCurrentIdx = position;
@@ -632,8 +661,53 @@ public class ExoPlayerActivity extends AppCompatActivity {
             player.prepare();
             player.play();
         }
-        hideSidebar();
         Toast.makeText(this, ch.optString("name"), Toast.LENGTH_SHORT).show();
+    }
+
+    private String resolveStalkerLink(String apiUrl) {
+        java.net.HttpURLConnection conn = null;
+        try {
+            java.net.URL u = new java.net.URL(apiUrl);
+            conn = (java.net.HttpURLConnection) u.openConnection();
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(10000);
+            conn.setInstanceFollowRedirects(true);
+            conn.setRequestProperty("User-Agent",
+                customUserAgent != null && !customUserAgent.isEmpty() ? customUserAgent :
+                "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 4 rev: 2116 Safari/533.3");
+            if (customCookies != null && !customCookies.isEmpty()) {
+                conn.setRequestProperty("Cookie", customCookies);
+            }
+            conn.setRequestProperty("X-User-Agent", "Model: MAG250; Link: WiFi");
+            int code = conn.getResponseCode();
+            if (code < 200 || code >= 400) return apiUrl;
+            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) sb.append(line);
+            br.close();
+            String raw = sb.toString();
+            // Parse JSON to extract js.cmd
+            JSONObject root = new JSONObject(raw);
+            JSONObject js = root.optJSONObject("js");
+            if (js == null) return apiUrl;
+            String cmd = js.optString("cmd", "");
+            if (cmd.isEmpty()) return apiUrl;
+            // Strip "ffmpeg " / "auto " prefix
+            cmd = cmd.replaceFirst("^(ffmpeg|auto)\\s+", "");
+            // Keep first URL token
+            String[] parts = cmd.split("\\s+");
+            for (String t : parts) {
+                if (t.startsWith("http://") || t.startsWith("https://") || t.startsWith("rtmp://") || t.startsWith("rtsp://")) {
+                    return t;
+                }
+            }
+            return cmd;
+        } catch (Exception e) {
+            return apiUrl;
+        } finally {
+            if (conn != null) try { conn.disconnect(); } catch (Exception ignored) {}
+        }
     }
 
     private static class ChannelAdapter extends ArrayAdapter<JSONObject> {
