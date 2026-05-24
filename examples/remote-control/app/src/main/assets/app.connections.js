@@ -195,16 +195,22 @@ function setLoginType(type) {
 }
 
 // ========== Modal to add a new portal (per type) ==========
+// Build the form INLINE inside the modal (no DOM moving = no bugs)
 function openAddPortalModal(type) {
-  // For 'web' (Ajout Web), open the Remote URL config + sync
   if (type === 'web') {
     openWebAddModal();
     return;
   }
 
-  // Reuse the original .login-container as the form, shown inside a modal
   var existing = document.getElementById('addPortalModal');
   if (existing) existing.remove();
+
+  var titles = {
+    xtream: 'Ajouter Xtream',
+    stalker: 'Ajouter un portail',
+    m3u: 'Ajouter une liste de lecture M3U'
+  };
+  var title = titles[type] || 'Ajouter un portail';
 
   var modal = document.createElement('div');
   modal.id = 'addPortalModal';
@@ -214,47 +220,182 @@ function openAddPortalModal(type) {
     '<div class="modal-content addportal-content">' +
       '<div class="addportal-header">' +
         '<button class="addportal-back focusable" id="addPortalBack" tabindex="0">↶</button>' +
-        '<h2 class="addportal-title">Ajouter un portail</h2>' +
+        '<h2 class="addportal-title">' + escapeHtmlSafe(title) + '</h2>' +
       '</div>' +
-      '<div class="addportal-body" id="addPortalBody"></div>' +
+      '<div class="addportal-body">' + buildPortalForm(type) + '</div>' +
     '</div>';
   document.body.appendChild(modal);
   modal.style.display = 'flex';
 
-  // Move the original login-container into the modal body (so doLogin still works on its existing fields)
-  var loginContainer = document.querySelector('#login .login-container');
-  if (loginContainer) {
-    document.getElementById('addPortalBody').appendChild(loginContainer);
-    loginContainer.style.display = '';
-  }
-
-  // Pre-select the right type
-  setLoginType(type);
-
   var close = function() {
-    try {
-      // Move login container back to its original location (hidden again)
-      var login = document.getElementById('login');
-      if (loginContainer && login) {
-        login.appendChild(loginContainer);
-        loginContainer.style.display = 'none';
-      }
-    } catch (e) {}
     try { modal.remove(); } catch (e) {}
-    // Re-render to reflect any new portals
     renderConnectionsView();
   };
   modal.querySelector('#addPortalBack').addEventListener('click', close);
   modal.querySelector('.modal-backdrop').addEventListener('click', close);
 
-  // Auto-close when login succeeds (showScreen('home') called)
-  var watcher = setInterval(function() {
-    if (AppState && AppState.activeScreen && AppState.activeScreen !== 'login') {
-      clearInterval(watcher);
-      try { modal.remove(); } catch (e) {}
+  // Wire up MAC detect button if present (Stalker form)
+  var detectBtn = modal.querySelector('#apDetectMac');
+  if (detectBtn) {
+    detectBtn.addEventListener('click', function() {
+      var deviceMac = '';
+      try {
+        if (window.AndroidBridge && typeof window.AndroidBridge.getDeviceMac === 'function') {
+          deviceMac = window.AndroidBridge.getDeviceMac();
+        }
+      } catch (e) {}
+      if (!deviceMac) { showToast && showToast('MAC non détectée'); return; }
+      if (typeof window.openMacSelector === 'function') {
+        window.openMacSelector(deviceMac, function(picked) {
+          modal.querySelector('#apMac').value = picked.match(/.{2}/g).join(':');
+        });
+      } else {
+        modal.querySelector('#apMac').value = deviceMac;
+      }
+    });
+  }
+
+  // Wire submit button
+  var submitBtn = modal.querySelector('#apSubmit');
+  if (submitBtn) {
+    submitBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      submitNewPortal(type, modal, close);
+    });
+  }
+
+  // Auto-focus first input
+  setTimeout(function() {
+    var firstInput = modal.querySelector('input');
+    if (firstInput) firstInput.focus();
+  }, 100);
+}
+
+function buildPortalForm(type) {
+  if (type === 'xtream') {
+    return '' +
+      '<div class="form-group">' +
+        '<label for="apName">Pseudo du portail</label>' +
+        '<input type="text" id="apName" placeholder="Mon compte" autocapitalize="off">' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label for="apServer">URL du serveur</label>' +
+        '<input type="url" id="apServer" placeholder="http://example.com:8080" autocapitalize="off" autocorrect="off">' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label for="apUser">Identifiant</label>' +
+        '<input type="text" id="apUser" autocapitalize="off" autocorrect="off">' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label for="apPass">Mot de passe</label>' +
+        '<input type="password" id="apPass" autocapitalize="off" autocorrect="off">' +
+      '</div>' +
+      '<div class="form-actions" style="margin-top:18px">' +
+        '<button type="button" class="btn btn-primary focusable" id="apSubmit" tabindex="0">SE CONNECTER</button>' +
+      '</div>';
+  }
+  if (type === 'stalker') {
+    return '' +
+      '<div class="form-group">' +
+        '<label for="apName">Pseudo du portail</label>' +
+        '<input type="text" id="apName" placeholder="Mon portail" autocapitalize="off">' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label for="apServer">URL du portail</label>' +
+        '<input type="url" id="apServer" placeholder="http://portal.com/c/" autocapitalize="off" autocorrect="off">' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label for="apMac">Adresse MAC (ID utilisateur)</label>' +
+        '<div class="mac-input-row">' +
+          '<input type="text" id="apMac" placeholder="00:1A:79:XX:XX:XX" autocapitalize="characters" autocorrect="off">' +
+          '<button type="button" class="btn btn-secondary btn-sm focusable" id="apDetectMac" tabindex="0">📡 Détecter</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="form-actions" style="margin-top:18px">' +
+        '<button type="button" class="btn btn-primary focusable" id="apSubmit" tabindex="0">SE CONNECTER</button>' +
+      '</div>';
+  }
+  if (type === 'm3u') {
+    return '' +
+      '<div class="form-group">' +
+        '<label for="apName">Pseudo de la liste</label>' +
+        '<input type="text" id="apName" placeholder="Ma playlist" autocapitalize="off">' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label for="apUrl">URL de la playlist (.m3u / .m3u8)</label>' +
+        '<input type="url" id="apUrl" placeholder="https://example.com/list.m3u" autocapitalize="off" autocorrect="off">' +
+      '</div>' +
+      '<div class="form-group">' +
+        '<label for="apEpgUrl">URL XMLTV EPG (optionnel)</label>' +
+        '<input type="url" id="apEpgUrl" placeholder="https://example.com/epg.xml" autocapitalize="off" autocorrect="off">' +
+      '</div>' +
+      '<div class="form-actions" style="margin-top:18px">' +
+        '<button type="button" class="btn btn-primary focusable" id="apSubmit" tabindex="0">CHARGER</button>' +
+      '</div>';
+  }
+  return '';
+}
+
+function submitNewPortal(type, modal, closeCallback) {
+  var name = (modal.querySelector('#apName') || { value: '' }).value.trim();
+  var portal = { type: type, name: name };
+
+  if (type === 'xtream') {
+    portal.server = (modal.querySelector('#apServer') || {}).value.trim();
+    portal.username = (modal.querySelector('#apUser') || {}).value.trim();
+    portal.password = (modal.querySelector('#apPass') || {}).value.trim();
+    if (!portal.server || !portal.username || !portal.password) {
+      showToast && showToast('URL + identifiant + mot de passe requis');
+      return;
     }
-    if (!document.body.contains(modal)) { clearInterval(watcher); }
-  }, 250);
+  } else if (type === 'stalker') {
+    portal.server = (modal.querySelector('#apServer') || {}).value.trim();
+    portal.mac = (modal.querySelector('#apMac') || {}).value.trim().toUpperCase();
+    if (!portal.server || !portal.mac) {
+      showToast && showToast('URL serveur + adresse MAC requis');
+      return;
+    }
+    // Normalize MAC: ensure colon-separated uppercase
+    var clean = portal.mac.replace(/[^0-9A-F]/g, '');
+    if (clean.length !== 12) {
+      showToast && showToast('MAC invalide (12 caractères hex requis)');
+      return;
+    }
+    portal.mac = clean.match(/.{2}/g).join(':');
+  } else if (type === 'm3u') {
+    portal.playlistUrl = (modal.querySelector('#apUrl') || {}).value.trim();
+    portal.epgUrl = (modal.querySelector('#apEpgUrl') || {}).value.trim();
+    portal.server = portal.playlistUrl;
+    if (!portal.playlistUrl) {
+      showToast && showToast('URL de la playlist requise');
+      return;
+    }
+  }
+
+  if (!portal.name) {
+    portal.name = portal.username || portal.mac || (portal.playlistUrl || '').substring(0, 24) || type;
+  }
+
+  // Save to portals list
+  var portals = [];
+  try { portals = JSON.parse(localStorage.getItem('iprem_portals') || '[]'); } catch (e) {}
+
+  var sig = function(p) {
+    return (p.type || 'xtream') + '|' + (p.server || p.playlistUrl || '') + '|' + (p.username || p.mac || '');
+  };
+  var dupe = portals.find(function(p) { return sig(p) === sig(portal); });
+  if (dupe) {
+    showToast && showToast('Portail déjà enregistré, connexion...');
+  } else {
+    portals.push(portal);
+    localStorage.setItem('iprem_portals', JSON.stringify(portals));
+  }
+
+  if (closeCallback) closeCallback();
+
+  // Connect to the portal
+  showToast && showToast('Connexion à ' + portal.name + '...');
+  setTimeout(function() { connectToPortal(portal); }, 200);
 }
 
 function openWebAddModal() {
