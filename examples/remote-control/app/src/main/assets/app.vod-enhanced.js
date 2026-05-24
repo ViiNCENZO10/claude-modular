@@ -18,8 +18,8 @@
       // Grid layout: bigger posters
       '.vod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:18px;padding:14px 20px;overflow-y:auto;align-content:start;animation:vodSlideIn .35s ease-out}' +
       '@keyframes vodSlideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}' +
-      // Each poster card
-      '.vod-grid > *{aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:#1e293b;position:relative;cursor:pointer;transition:transform .15s ease-out,box-shadow .15s ease-out;outline:none}' +
+      // Each poster card - with CSS containment for scroll perf
+      '.vod-grid > *{aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:#1e293b;position:relative;cursor:pointer;transition:transform .15s ease-out,box-shadow .15s ease-out;outline:none;contain:layout style paint;content-visibility:auto;contain-intrinsic-size:280px}' +
       '.vod-grid > *:focus, .vod-grid > *:hover{transform:scale(1.06);box-shadow:0 8px 24px rgba(0,0,0,.6);z-index:2}' +
       '.vod-grid > * img{width:100%;height:100%;object-fit:cover;display:block;background:#0f172a}' +
       '.vod-grid > * .vod-item-title{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.92) 30%,transparent);color:#fff;padding:24px 10px 8px 10px;font-size:13px;font-weight:600;line-height:1.2;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}' +
@@ -497,10 +497,27 @@
     var actors = [];
     if (tmdbId) {
       try {
-        var tmdbKey = localStorage.getItem('iprem_tmdb_key') || '4ef0d7355d9ffb5151e987764708ce96'; // common public test key (works for many calls)
-        var credRes = await fetch('https://api.themoviedb.org/3/movie/' + tmdbId + '/credits?language=fr&api_key=' + tmdbKey);
-        if (credRes.ok) {
-          var creds = await credRes.json();
+        var cacheKey = 'tmdb_credits_' + tmdbId + '_fr';
+        var cached = null;
+        try {
+          var raw = localStorage.getItem(cacheKey);
+          if (raw) {
+            var entry = JSON.parse(raw);
+            if (Date.now() - entry.t < 24 * 3600 * 1000) cached = entry.data;
+          }
+        } catch (e) {}
+
+        var creds = cached;
+        if (!creds) {
+          var tmdbKey = localStorage.getItem('iprem_tmdb_key') || '4ef0d7355d9ffb5151e987764708ce96';
+          var credRes = await fetch('https://api.themoviedb.org/3/movie/' + tmdbId + '/credits?language=fr&api_key=' + tmdbKey);
+          if (credRes.ok) {
+            creds = await credRes.json();
+            try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), data: creds })); } catch (e) {}
+          }
+        }
+
+        if (creds) {
           if (creds.cast && creds.cast.length > 0) {
             actors = creds.cast.slice(0, 12).map(function(c) {
               return {

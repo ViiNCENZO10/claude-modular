@@ -152,15 +152,18 @@ public class ExoPlayerActivity extends AppCompatActivity {
 
         DefaultLoadControl loadControl;
         if (isLive) {
-            // Aggressive buffer for live TV to minimize zap latency
+            // Live TV: 5s min buffer (vs 2s) for stable playback on weak networks,
+            // up to 20s max (vs 15s), faster playback start
             loadControl = new DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(2000, 15000, 1000, 1500)
+                    .setBufferDurationsMs(5000, 20000, 2000, 3000)
                     .setPrioritizeTimeOverSizeThresholds(true)
+                    .setBackBuffer(30000, true)
                     .build();
         } else {
-            // Bigger buffer for VOD
+            // VOD: bigger buffer + back buffer for smooth seek
             loadControl = new DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(15000, 60000, 2500, 5000)
+                    .setBufferDurationsMs(20000, 90000, 2500, 5000)
+                    .setBackBuffer(60000, true)
                     .build();
         }
 
@@ -178,7 +181,8 @@ public class ExoPlayerActivity extends AppCompatActivity {
         playerView.setPlayer(player);
         playerView.setUseController(true);
         playerView.setControllerAutoShow(true);
-        playerView.setControllerShowTimeoutMs(4000);
+        playerView.setControllerShowTimeoutMs(1500);
+        playerView.setControllerHideOnTouch(true);
         playerView.setKeepScreenOn(true);
         playerView.setResizeMode(androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT);
 
