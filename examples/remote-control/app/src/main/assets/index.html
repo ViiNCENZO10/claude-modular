@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>iPremTvOnline</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login" class="screen active">
+    <div class="login-container">
+      <div class="login-logo">
+        <div class="logo-icon">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" rx="14" fill="#3b82f6"/>
+            <path d="M16 18h8v28h-8zM28 18h8l8 14-8 14h-8l8-14z" fill="#fff"/>
+            <path d="M40 18h8v28h-8z" fill="#22d3ee"/>
+          </svg>
+        </div>
+        <h1 class="login-title">iPremTvOnline</h1>
+        <p class="login-subtitle">IPTV Streaming Platform</p>
+      </div>
+
+      <form id="loginForm" class="login-form" autocomplete="off">
+        <div class="form-group">
+          <label for="serverUrl">Server URL</label>
+          <input type="url" id="serverUrl" placeholder="http://example.com:port" required>
+        </div>
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" placeholder="Enter username" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="Enter password" required>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="btnAddPortal" class="btn btn-secondary">Add Portal</button>
+          <button type="submit" id="btnLogin" class="btn btn-primary">Login</button>
+        </div>
+      </form>
+
+      <div id="savedPortals" class="saved-portals">
+        <h3>Saved Portals</h3>
+        <ul id="portalList" class="portal-list"></ul>
+      </div>
+
+      <div id="loginError" class="error-message" style="display:none;"></div>
+      <div id="loginLoading" class="loading-overlay" style="display:none;">
+        <div class="spinner"></div>
+        <p>Connecting...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Home / Main Menu -->
+  <div id="home" class="screen">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <span class="portal-name" id="topPortalName"></span>
+      </div>
+      <div class="top-bar-center">
+        <span class="app-title">iPremTvOnline</span>
+      </div>
+      <div class="top-bar-right">
+        <span class="user-info" id="topUserInfo"></span>
+        <span class="clock" id="topClock"></span>
+      </div>
+    </div>
+    <div class="home-content">
+      <h2 class="home-greeting" id="homeGreeting">Welcome</h2>
+      <div class="nav-grid">
+        <div class="nav-card focusable" data-screen="live" tabindex="0">
+          <div class="nav-card-icon">
+            <svg viewBox="0 0 48 48" fill="none"><rect x="6" y="10" width="36" height="24" rx="3" stroke="currentColor" stroke-width="2.5"/><line x1="18" y1="38" x2="30" y2="38" stroke="currentColor" stroke-width="2.5"/><line x1="24" y1="34" x2="24" y2="38" stroke="currentColor" stroke-width="2.5"/><polygon points="20,17 20,29 31,23" fill="currentColor"/></svg>
+          </div>
+          <span class="nav-card-label">Live TV</span>
+        </div>
+        <div class="nav-card focusable" data-screen="vod" tabindex="0">
+          <div class="nav-card-icon">
+            <svg viewBox="0 0 48 48" fill="none"><rect x="8" y="6" width="32" height="36" rx="3" stroke="currentColor" stroke-width="2.5"/><circle cx="24" cy="22" r="8" stroke="currentColor" stroke-width="2"/><polygon points="22,19 22,25 27,22" fill="currentColor"/><line x1="14" y1="36" x2="34" y2="36" stroke="currentColor" stroke-width="2"/></svg>
+          </div>
+          <span class="nav-card-label">Movies</span>
+        </div>
+        <div class="nav-card focusable" data-screen="series" tabindex="0">
+          <div class="nav-card-icon">
+            <svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="16" height="22" rx="2" stroke="currentColor" stroke-width="2"/><rect x="16" y="12" width="16" height="22" rx="2" stroke="currentColor" stroke-width="2"/><rect x="28" y="16" width="16" height="22" rx="2" stroke="currentColor" stroke-width="2"/></svg>
+          </div>
+          <span class="nav-card-label">Series</span>
+        </div>
+        <div class="nav-card focusable" data-screen="catchup" tabindex="0">
+          <div class="nav-card-icon">
+            <svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="16" stroke="currentColor" stroke-width="2.5"/><polyline points="24,14 24,24 32,28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M10,8 L6,14" stroke="currentColor" stroke-width="2"/><path d="M38,8 L42,14" stroke="currentColor" stroke-width="2"/></svg>
+          </div>
+          <span class="nav-card-label">Catchup</span>
+        </div>
+        <div class="nav-card focusable" data-screen="epg" tabindex="0">
+          <div class="nav-card-icon">
+            <svg viewBox="0 0 48 48" fill="none"><rect x="6" y="8" width="36" height="32" rx="3" stroke="currentColor" stroke-width="2.5"/><line x1="6" y1="16" x2="42" y2="16" stroke="currentColor" stroke-width="2"/><line x1="18" y1="16" x2="18" y2="40" stroke="currentColor" stroke-width="2"/><rect x="20" y="19" width="10" height="5" rx="1" fill="currentColor" opacity="0.4"/><rect x="20" y="27" width="18" height="5" rx="1" fill="currentColor" opacity="0.4"/></svg>
+          </div>
+          <span class="nav-card-label">EPG Guide</span>
+        </div>
+        <div class="nav-card focusable" data-screen="settings" tabindex="0">
+          <div class="nav-card-icon">
+            <svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="8" stroke="currentColor" stroke-width="2.5"/><path d="M24,4 v6 M24,38 v6 M4,24 h6 M38,24 h6 M10.1,10.1 l4.2,4.2 M33.7,33.7 l4.2,4.2 M10.1,37.9 l4.2-4.2 M33.7,14.3 l4.2-4.2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </div>
+          <span class="nav-card-label">Settings</span>
+        </div>
+      </div>
+      <div class="home-info-bar">
+        <div class="info-item">
+          <span class="info-label">Status</span>
+          <span class="info-value" id="homeStatus">Active</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Expiry</span>
+          <span class="info-value" id="homeExpiry">--</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Connections</span>
+          <span class="info-value" id="homeConnections">--</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live TV -->
+  <div id="live" class="screen">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="btn-icon focusable back-btn" data-back tabindex="0">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <span class="screen-title">Live TV</span>
+      </div>
+      <div class="top-bar-right">
+        <span class="clock" id="liveClock"></span>
+      </div>
+    </div>
+    <div class="live-layout">
+      <div class="category-sidebar" id="liveCategorySidebar">
+        <div class="sidebar-header">Categories</div>
+        <ul class="category-list" id="liveCategoryList"></ul>
+      </div>
+      <div class="channel-list-panel" id="liveChannelPanel">
+        <div class="channel-list-header">
+          <span id="liveCategoryTitle">All Channels</span>
+          <span class="channel-count" id="liveChannelCount"></span>
+        </div>
+        <ul class="channel-list" id="liveChannelList"></ul>
+        <div class="loading-indicator" id="liveChannelLoading" style="display:none;">
+          <div class="spinner"></div>
+        </div>
+      </div>
+      <div class="channel-preview-panel" id="livePreviewPanel">
+        <div class="preview-placeholder">
+          <p>Select a channel to preview</p>
+        </div>
+        <div class="preview-content" id="livePreviewContent" style="display:none;">
+          <div class="preview-video-area">
+            <div class="preview-no-signal">
+              <svg viewBox="0 0 48 48" width="48" height="48"><rect x="6" y="10" width="36" height="24" rx="3" stroke="#3b82f6" stroke-width="2" fill="none"/><line x1="14" y1="18" x2="34" y2="28" stroke="#3b82f6" stroke-width="2"/><line x1="34" y1="18" x2="14" y2="28" stroke="#3b82f6" stroke-width="2"/></svg>
+              <span>Press OK to watch</span>
+            </div>
+          </div>
+          <div class="preview-info">
+            <h3 id="previewChannelName"></h3>
+            <p id="previewChannelNum" class="preview-num"></p>
+          </div>
+          <div class="mini-epg" id="miniEpg">
+            <h4>Program Guide</h4>
+            <ul id="miniEpgList"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <div class="color-btn red focusable" tabindex="0" id="btnEpg"><span class="color-dot"></span> EPG</div>
+      <div class="color-btn green focusable" tabindex="0" id="btnSearch"><span class="color-dot"></span> Search</div>
+      <div class="color-btn yellow focusable" tabindex="0" id="btnSort"><span class="color-dot"></span> Sort</div>
+      <div class="color-btn blue focusable" tabindex="0" id="btnFavorite"><span class="color-dot"></span> Favorite</div>
+    </div>
+  </div>
+
+  <!-- VOD / Movies -->
+  <div id="vod" class="screen">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="btn-icon focusable back-btn" data-back tabindex="0">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <span class="screen-title">Movies</span>
+      </div>
+      <div class="top-bar-right">
+        <span class="clock" id="vodClock"></span>
+      </div>
+    </div>
+    <div class="vod-layout">
+      <div class="category-sidebar" id="vodCategorySidebar">
+        <div class="sidebar-header">Categories</div>
+        <ul class="category-list" id="vodCategoryList"></ul>
+      </div>
+      <div class="vod-content">
+        <div class="vod-grid-header">
+          <span id="vodCategoryTitle">All Movies</span>
+          <span class="channel-count" id="vodCount"></span>
+        </div>
+        <div class="vod-grid" id="vodGrid"></div>
+        <div class="loading-indicator" id="vodLoading" style="display:none;">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOD Detail Modal -->
+  <div id="vodDetailModal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content vod-detail">
+      <button class="modal-close focusable" id="vodDetailClose" tabindex="0">&times;</button>
+      <div class="vod-detail-layout">
+        <div class="vod-detail-poster" id="vodDetailPoster"></div>
+        <div class="vod-detail-info">
+          <h2 id="vodDetailTitle"></h2>
+          <div class="vod-detail-meta">
+            <span id="vodDetailYear" class="badge"></span>
+            <span id="vodDetailRating" class="badge badge-accent"></span>
+            <span id="vodDetailDuration" class="badge"></span>
+            <span id="vodDetailGenre" class="badge"></span>
+          </div>
+          <p id="vodDetailPlot" class="vod-detail-plot"></p>
+          <div class="vod-detail-cast" id="vodDetailCast"></div>
+          <div class="vod-detail-actions">
+            <button class="btn btn-primary btn-lg focusable" id="vodPlayBtn" tabindex="0">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+              Play
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Series -->
+  <div id="series" class="screen">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="btn-icon focusable back-btn" data-back tabindex="0">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <span class="screen-title">Series</span>
+      </div>
+      <div class="top-bar-right">
+        <span class="clock" id="seriesClock"></span>
+      </div>
+    </div>
+    <div class="vod-layout">
+      <div class="category-sidebar" id="seriesCategorySidebar">
+        <div class="sidebar-header">Categories</div>
+        <ul class="category-list" id="seriesCategoryList"></ul>
+      </div>
+      <div class="vod-content">
+        <div class="vod-grid-header">
+          <span id="seriesCategoryTitle">All Series</span>
+          <span class="channel-count" id="seriesCount"></span>
+        </div>
+        <div class="vod-grid" id="seriesGrid"></div>
+        <div class="loading-indicator" id="seriesLoading" style="display:none;">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Series Detail Modal -->
+  <div id="seriesDetailModal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content series-detail">
+      <button class="modal-close focusable" id="seriesDetailClose" tabindex="0">&times;</button>
+      <div class="vod-detail-layout">
+        <div class="vod-detail-poster" id="seriesDetailPoster"></div>
+        <div class="vod-detail-info">
+          <h2 id="seriesDetailTitle"></h2>
+          <div class="vod-detail-meta">
+            <span id="seriesDetailYear" class="badge"></span>
+            <span id="seriesDetailRating" class="badge badge-accent"></span>
+            <span id="seriesDetailGenre" class="badge"></span>
+          </div>
+          <p id="seriesDetailPlot" class="vod-detail-plot"></p>
+          <div id="seriesDetailCast" class="vod-detail-cast"></div>
+          <div class="season-tabs" id="seasonTabs"></div>
+          <div class="episode-list" id="episodeList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Catchup -->
+  <div id="catchup" class="screen">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="btn-icon focusable back-btn" data-back tabindex="0">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <span class="screen-title">Catchup</span>
+      </div>
+      <div class="top-bar-right">
+        <span class="clock" id="catchupClock"></span>
+      </div>
+    </div>
+    <div class="catchup-layout">
+      <div class="category-sidebar" id="catchupChannelSidebar">
+        <div class="sidebar-header">Channels</div>
+        <ul class="category-list" id="catchupChannelList"></ul>
+      </div>
+      <div class="catchup-content">
+        <div class="date-selector" id="dateSelector"></div>
+        <div class="catchup-program-list" id="catchupProgramList">
+          <p class="placeholder-text">Select a channel and date</p>
+        </div>
+        <div class="loading-indicator" id="catchupLoading" style="display:none;">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EPG Guide -->
+  <div id="epg" class="screen">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="btn-icon focusable back-btn" data-back tabindex="0">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <span class="screen-title">EPG Guide</span>
+      </div>
+      <div class="top-bar-right">
+        <span class="clock" id="epgClock"></span>
+      </div>
+    </div>
+    <div class="epg-layout">
+      <div class="epg-timeline" id="epgTimeline"></div>
+      <div class="epg-grid" id="epgGrid">
+        <p class="placeholder-text">Loading EPG data...</p>
+      </div>
+      <div class="loading-indicator" id="epgLoading" style="display:none;">
+        <div class="spinner"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div id="settings" class="screen">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="btn-icon focusable back-btn" data-back tabindex="0">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <span class="screen-title">Settings</span>
+      </div>
+      <div class="top-bar-right">
+        <span class="clock" id="settingsClock"></span>
+      </div>
+    </div>
+    <div class="settings-layout">
+      <div class="settings-sections">
+        <div class="settings-section">
+          <h3>Player Settings</h3>
+          <div class="setting-row focusable" tabindex="0">
+            <span class="setting-label">Stream Type</span>
+            <select id="settingStreamType" class="setting-select">
+              <option value="m3u8">HLS (m3u8)</option>
+              <option value="ts">MPEG-TS (ts)</option>
+              <option value="rtmp">RTMP</option>
+            </select>
+          </div>
+          <div class="setting-row focusable" tabindex="0">
+            <span class="setting-label">Buffer Size</span>
+            <select id="settingBufferSize" class="setting-select">
+              <option value="1">1 second</option>
+              <option value="3" selected>3 seconds</option>
+              <option value="5">5 seconds</option>
+              <option value="10">10 seconds</option>
+            </select>
+          </div>
+          <div class="setting-row focusable" tabindex="0">
+            <span class="setting-label">EPG Timezone Offset</span>
+            <select id="settingTimezone" class="setting-select">
+              <option value="-12">UTC-12</option>
+              <option value="-11">UTC-11</option>
+              <option value="-10">UTC-10</option>
+              <option value="-9">UTC-9</option>
+              <option value="-8">UTC-8</option>
+              <option value="-7">UTC-7</option>
+              <option value="-6">UTC-6</option>
+              <option value="-5">UTC-5</option>
+              <option value="-4">UTC-4</option>
+              <option value="-3">UTC-3</option>
+              <option value="-2">UTC-2</option>
+              <option value="-1">UTC-1</option>
+              <option value="0" selected>UTC+0</option>
+              <option value="1">UTC+1</option>
+              <option value="2">UTC+2</option>
+              <option value="3">UTC+3</option>
+              <option value="4">UTC+4</option>
+              <option value="5">UTC+5</option>
+              <option value="6">UTC+6</option>
+              <option value="7">UTC+7</option>
+              <option value="8">UTC+8</option>
+              <option value="9">UTC+9</option>
+              <option value="10">UTC+10</option>
+              <option value="11">UTC+11</option>
+              <option value="12">UTC+12</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Security</h3>
+          <div class="setting-row focusable" tabindex="0">
+            <span class="setting-label">Parental PIN</span>
+            <input type="password" id="settingPin" class="setting-input" maxlength="4" placeholder="----">
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Account Information</h3>
+          <div class="setting-row">
+            <span class="setting-label">Username</span>
+            <span class="setting-value" id="settingUsername">--</span>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Status</span>
+            <span class="setting-value" id="settingStatus">--</span>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Expiry Date</span>
+            <span class="setting-value" id="settingExpiry">--</span>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Max Connections</span>
+            <span class="setting-value" id="settingMaxConn">--</span>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Active Connections</span>
+            <span class="setting-value" id="settingActiveConn">--</span>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Server</span>
+            <span class="setting-value" id="settingServer">--</span>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Data</h3>
+          <div class="setting-row">
+            <button class="btn btn-secondary focusable" id="btnClearFavorites" tabindex="0">Clear Favorites</button>
+          </div>
+          <div class="setting-row">
+            <button class="btn btn-secondary focusable" id="btnClearCache" tabindex="0">Clear Cache</button>
+          </div>
+          <div class="setting-row">
+            <button class="btn btn-danger focusable" id="btnLogout" tabindex="0">Logout</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>About</h3>
+          <div class="setting-row">
+            <span class="setting-label">Application</span>
+            <span class="setting-value">iPremTvOnline</span>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Version</span>
+            <span class="setting-value">3.0.0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Player (fullscreen overlay) -->
+  <div id="player" class="screen player-screen" style="display:none;">
+    <video id="videoPlayer" playsinline autoplay></video>
+
+    <div class="player-overlay" id="playerOverlay">
+      <div class="player-top-banner" id="playerBanner">
+        <div class="banner-left">
+          <span class="banner-channel-num" id="bannerChannelNum"></span>
+          <span class="banner-channel-name" id="bannerChannelName"></span>
+        </div>
+        <div class="banner-right">
+          <span class="banner-clock" id="bannerClock"></span>
+        </div>
+      </div>
+
+      <div class="player-epg-bar" id="playerEpgBar">
+        <div class="epg-now">
+          <span class="epg-label">Now</span>
+          <span class="epg-title" id="epgNowTitle">--</span>
+          <span class="epg-time" id="epgNowTime"></span>
+        </div>
+        <div class="epg-next">
+          <span class="epg-label">Next</span>
+          <span class="epg-title" id="epgNextTitle">--</span>
+          <span class="epg-time" id="epgNextTime"></span>
+        </div>
+        <div class="epg-progress-bar">
+          <div class="epg-progress-fill" id="epgProgressFill"></div>
+        </div>
+      </div>
+
+      <div class="player-controls">
+        <button class="player-btn focusable" id="btnPlayerStop" tabindex="0" title="Stop">
+          <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+        </button>
+        <button class="player-btn focusable" id="btnPlayerPrev" tabindex="0" title="Previous Channel">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button class="player-btn player-btn-main focusable" id="btnPlayerPlayPause" tabindex="0" title="Play/Pause">
+          <svg viewBox="0 0 24 24" fill="currentColor" id="iconPlay"><polygon points="5,3 19,12 5,21"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor" id="iconPause" style="display:none;"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+        </button>
+        <button class="player-btn focusable" id="btnPlayerNext" tabindex="0" title="Next Channel">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-2.5 6L5 6v12z"/></svg>
+        </button>
+        <div class="player-volume">
+          <button class="player-btn focusable" id="btnPlayerMute" tabindex="0" title="Mute">
+            <svg viewBox="0 0 24 24" fill="currentColor" id="iconVolumeOn"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0014 8.5v7a4.49 4.49 0 002.5-3.5zM14 3.23v2.06a7 7 0 010 13.42v2.06A9 9 0 0014 3.23z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor" id="iconVolumeOff" style="display:none;"><path d="M16.5 12A4.5 4.5 0 0014 8.5v2.09l2.41 2.41c.06-.31.09-.65.09-1zm2.5 0a7 7 0 01-.57 2.8l1.45 1.45A8.94 8.94 0 0021 12a9 9 0 00-7-8.77v2.06A7 7 0 0119 12zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+          </button>
+          <div class="volume-bar">
+            <div class="volume-fill" id="volumeFill" style="width:100%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="player-channel-osd" id="playerChannelOsd" style="display:none;">
+      <span class="osd-number" id="osdNumber"></span>
+    </div>
+  </div>
+
+  <!-- Search Modal -->
+  <div id="searchModal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content search-modal">
+      <button class="modal-close focusable" id="searchClose" tabindex="0">&times;</button>
+      <h2>Search</h2>
+      <div class="search-input-row">
+        <input type="text" id="searchInput" class="search-input focusable" placeholder="Search channels, movies, series..." tabindex="0">
+        <button class="btn btn-primary focusable" id="searchBtn" tabindex="0">Search</button>
+      </div>
+      <div class="search-filters">
+        <label class="search-filter focusable" tabindex="0">
+          <input type="checkbox" id="searchLive" checked> Live TV
+        </label>
+        <label class="search-filter focusable" tabindex="0">
+          <input type="checkbox" id="searchVod" checked> Movies
+        </label>
+        <label class="search-filter focusable" tabindex="0">
+          <input type="checkbox" id="searchSeries" checked> Series
+        </label>
+      </div>
+      <div class="search-results" id="searchResults">
+        <p class="placeholder-text">Enter a search term</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast" style="display:none;"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
