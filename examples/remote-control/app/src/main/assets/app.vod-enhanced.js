@@ -194,12 +194,35 @@
     if (typeof window.showVodDetail !== 'function') return;
     var orig = window.showVodDetail;
     window.showVodDetail = async function(vod) {
-      // Hide the original modal — we replace it entirely
       try {
         var origModal = document.getElementById('vodDetailModal');
         if (origModal) origModal.style.display = 'none';
       } catch (e) {}
       openCinematicDetail(vod);
+    };
+  }
+
+  // Same enhancement for Series
+  function patchShowSeriesDetail() {
+    if (typeof window.showSeriesDetail !== 'function') return;
+    var orig = window.showSeriesDetail;
+    window.showSeriesDetail = async function(series) {
+      try {
+        var origModal = document.getElementById('seriesDetailModal');
+        if (origModal) origModal.style.display = 'none';
+      } catch (e) {}
+      // Build a VOD-like object from series so openCinematicDetail can handle it
+      var fakeVod = {
+        stream_id: series.series_id || series.stream_id,
+        name: series.name,
+        stream_icon: series.cover || series.stream_icon,
+        rating: series.rating,
+        category_id: series.category_id,
+        added: series.last_modified || series.added,
+        _series: series, // keep ref for episode loading later
+        _type: 'series'
+      };
+      openCinematicDetail(fakeVod);
     };
   }
 
@@ -289,14 +312,40 @@
       if (e.target.id === 'cinBackdrop') close();
     });
 
-    // Watch button → play
-    overlay.querySelector('#cinBtnWatch').addEventListener('click', function() {
+    // Watch button → play (handles VOD and Series differently)
+    overlay.querySelector('#cinBtnWatch').addEventListener('click', async function() {
       try {
-        var ext = vod.container_extension || 'mp4';
-        var url = AppState.api.vodUrl(vod.stream_id, ext);
-        close();
-        if (typeof window.startPlayer === 'function') {
-          window.startPlayer(url, vod.name, '', 'vod', vod);
+        if (vod._type === 'series') {
+          // Play first available episode
+          var sInfo = info;
+          if (!sInfo || !sInfo.episodes) {
+            sInfo = await AppState.api.getSeriesInfo(vod.stream_id);
+          }
+          if (sInfo && sInfo.episodes) {
+            var seasonKeys = Object.keys(sInfo.episodes).sort(function(a, b) { return parseInt(a) - parseInt(b); });
+            if (seasonKeys.length > 0) {
+              var firstSeasonEps = sInfo.episodes[seasonKeys[0]];
+              if (firstSeasonEps && firstSeasonEps.length > 0) {
+                var ep = firstSeasonEps[0];
+                var ext = ep.container_extension || 'mp4';
+                var url = AppState.api.seriesUrl(ep.id, ext);
+                close();
+                if (typeof window.startPlayer === 'function') {
+                  window.startPlayer(url, vod.name + ' - S' + seasonKeys[0] + 'E' + (ep.episode_num || 1), '', 'series', vod);
+                }
+                return;
+              }
+            }
+          }
+          showToast && showToast('Aucun épisode disponible');
+        } else {
+          // VOD
+          var ext = vod.container_extension || 'mp4';
+          var url = AppState.api.vodUrl(vod.stream_id, ext);
+          close();
+          if (typeof window.startPlayer === 'function') {
+            window.startPlayer(url, vod.name, '', 'vod', vod);
+          }
         }
       } catch (e) { showToast && showToast('Lecture impossible'); }
     });
@@ -330,9 +379,14 @@
 
     // Now fetch detailed info (async)
     var info = null;
+    var isSeries = (vod._type === 'series');
     try {
-      if (AppState.api && AppState.api.getVodInfo) {
-        info = await AppState.api.getVodInfo(vod.stream_id);
+      if (AppState.api) {
+        if (isSeries && AppState.api.getSeriesInfo) {
+          info = await AppState.api.getSeriesInfo(vod.stream_id);
+        } else if (AppState.api.getVodInfo) {
+          info = await AppState.api.getVodInfo(vod.stream_id);
+        }
       }
     } catch (e) {}
     var movie = (info && info.info) ? info.info : {};
@@ -386,8 +440,18 @@
       overlay.querySelector('#cinAdded').innerHTML = '<strong>Date ajoutée :</strong> ' + addedTxt;
     }
 
-    // Plot
-    overlay.querySelector('#cinPlot').textContent = movie.plot || movie.description || movie.overview || vod.description || '';
+    // Plot - clean placeholder if empty
+    var plotText = movie.plot || movie.description || movie.overview || movie.synopsis || vod.description || '';
+    if (!plotText && info && info.seasons && info.seasons.length > 0) {
+      // For series without plot, show season/episode count
+      var totalEps = 0;
+      info.seasons.forEach(function(se) {
+        if (info.episodes && info.episodes[se.season_number]) totalEps += info.episodes[se.season_number].length;
+      });
+      plotText = info.seasons.length + ' saison' + (info.seasons.length > 1 ? 's' : '') + (totalEps > 0 ? ' • ' + totalEps + ' épisodes' : '');
+    }
+    if (!plotText) plotText = 'Aucune description disponible pour ce contenu.';
+    overlay.querySelector('#cinPlot').textContent = plotText;
 
     // Cast / Director
     var castParts = [];
@@ -516,6 +580,7 @@
       patchVodRenderer();
       patchSeriesRenderer();
       patchShowVodDetail();
+      patchShowSeriesDetail();
     }, 800);
   });
 
