@@ -46,6 +46,21 @@
     if (applyCaches() || attempts > 120) clearInterval(iv);
   }, 500);
 
+  // Expose cache invalidation helpers
+  window.ipremCache = window.ipremCache || {};
+  window.ipremCache.invalidate = function(methodPrefix) {
+    var keys = Object.keys(memCache);
+    var n = 0;
+    keys.forEach(function(k) {
+      if (!methodPrefix || k.indexOf(methodPrefix) === 0) { delete memCache[k]; n++; }
+    });
+    return n;
+  };
+  window.ipremCache.clearEpg = function() {
+    return (window.ipremCache.invalidate('getShortEPG') || 0) +
+           (window.ipremCache.invalidate('getFullEPG') || 0);
+  };
+
 
   // ===== Prefetch on channel focus =====
   // When user focuses a channel in the live list, fire-and-forget HEAD/GET to warm HTTP cache

@@ -12,6 +12,13 @@
   var slotsCount = 6;         // 6 slots = 3 hours visible
   var slotWidth = 200;        // px per slot
 
+  // Auto-refresh state
+  var nowLineInterval = null;     // updates the "now" line position every minute
+  var fullRefreshInterval = null; // re-fetches EPG data every 5 minutes
+  var lastBuildStart = null;      // tracks if grid start needs to advance
+  var FULL_REFRESH_MS = 5 * 60 * 1000; // 5 min
+  var NOW_LINE_MS = 30 * 1000;        // 30 sec
+
   function injectStyles() {
     if (document.getElementById('iprem-epg-styles')) return;
     var s = document.createElement('style');
@@ -134,10 +141,11 @@
     actions.innerHTML =
       '<div class="epgg-action focusable" tabindex="0" data-act="groups"><span class="dot gray"></span> Catégorie</div>' +
       '<div class="epgg-action focusable" tabindex="0" data-act="record"><span class="dot red"></span> Enregistrement</div>' +
-      '<div class="epgg-action focusable" tabindex="0" data-act="watchlist"><span class="dot green"></span> Ajouter à la watchlist</div>' +
+      '<div class="epgg-action focusable" tabindex="0" data-act="watchlist"><span class="dot green"></span> Watchlist</div>' +
       '<div class="epgg-action focusable" tabindex="0" data-act="now"><span class="dot yellow"></span> Maintenant</div>' +
       '<div class="epgg-action focusable" tabindex="0" data-act="prev-day"><span class="dot red"></span> -1 Jour</div>' +
-      '<div class="epgg-action focusable" tabindex="0" data-act="next-day"><span class="dot blue"></span> +1 Jour</div>';
+      '<div class="epgg-action focusable" tabindex="0" data-act="next-day"><span class="dot blue"></span> +1 Jour</div>' +
+      '<div class="epgg-action focusable" tabindex="0" data-act="refresh"><span class="dot gray"></span> ↻ Actualiser</div>';
     wrap.appendChild(actions);
 
     epg.appendChild(wrap);
@@ -153,7 +161,52 @@
     setTimeout(positionNowLine, 100);
 
     // Load channels + EPG
+    lastBuildStart = startDate;
     loadEpgData(startDate);
+
+    // Start auto-refresh timers
+    startAutoRefresh();
+  }
+
+  function startAutoRefresh() {
+    stopAutoRefresh();
+    // Move the "now" line every 30 seconds
+    nowLineInterval = setInterval(positionNowLine, NOW_LINE_MS);
+    // Full EPG re-fetch every 5 minutes (only if user is still on EPG screen)
+    fullRefreshInterval = setInterval(function() {
+      if (window.AppState && AppState.activeScreen === 'epg') {
+        invalidateEpgCache();
+        // If now has advanced past the visible grid, rebuild from scratch
+        if (lastBuildStart) {
+          var elapsedMin = (Date.now() - lastBuildStart.getTime()) / 60000;
+          if (elapsedMin >= slotsCount * slotMinutes - 30) {
+            buildEpgGrid();
+            return;
+          }
+        }
+        // Otherwise just reload EPG data for visible channels
+        if (lastBuildStart) loadEpgData(lastBuildStart);
+      } else {
+        // user left EPG → stop timers
+        stopAutoRefresh();
+      }
+    }, FULL_REFRESH_MS);
+  }
+
+  function stopAutoRefresh() {
+    if (nowLineInterval) { clearInterval(nowLineInterval); nowLineInterval = null; }
+    if (fullRefreshInterval) { clearInterval(fullRefreshInterval); fullRefreshInterval = null; }
+  }
+
+  function invalidateEpgCache() {
+    try {
+      if (window.ipremCache && typeof window.ipremCache.clearEpg === 'function') {
+        var n = window.ipremCache.clearEpg();
+        if (typeof showToast === 'function') showToast('EPG actualisé');
+        return n;
+      }
+    } catch (e) {}
+    return 0;
   }
 
   function positionNowLine() {
@@ -273,6 +326,10 @@
         dayOffset--; buildEpgGrid(); break;
       case 'next-day':
         dayOffset++; buildEpgGrid(); break;
+      case 'refresh':
+        invalidateEpgCache();
+        buildEpgGrid();
+        break;
     }
   }
 
@@ -281,7 +338,7 @@
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // Hook into showScreen('epg') to rebuild our grid
+  // Hook into showScreen('epg') to rebuild our grid + manage auto-refresh lifecycle
   window.addEventListener('DOMContentLoaded', function() {
     injectStyles();
     setTimeout(function() {
@@ -289,7 +346,12 @@
         var orig = window.showScreen;
         window.showScreen = function(id) {
           var r = orig.apply(this, arguments);
-          if (id === 'epg') setTimeout(buildEpgGrid, 100);
+          if (id === 'epg') {
+            setTimeout(buildEpgGrid, 100);
+          } else {
+            // Leaving EPG screen - stop auto-refresh
+            stopAutoRefresh();
+          }
           return r;
         };
       }
