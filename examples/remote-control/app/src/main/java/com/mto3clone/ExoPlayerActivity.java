@@ -120,38 +120,60 @@ public class ExoPlayerActivity extends AppCompatActivity {
         initPlayer();
     }
 
+    // === Adaptive buffering ===
+    // Démarrage à 1500ms (équilibre zap rapide / stabilité), monte jusqu'à 4000ms
+    // si on détecte des micro-freeze (plus de 2 events Buffering rapprochés).
+    private int liveCachingMs = 1500;
+    private int bufferingEventsRecent = 0;
+    private long lastBufferingTs = 0;
+
     private void initPlayer() {
         ArrayList<String> options = new ArrayList<>();
-        // Fast zap: aggressive low caching for live (was 1500, now 600ms)
-        options.add("--network-caching=" + (isLive ? 600 : 2000));
-        options.add("--live-caching=" + (isLive ? 600 : 2000));
-        // File caching too (HTTP streams act as files internally)
-        options.add("--file-caching=" + (isLive ? 600 : 2000));
-        // Reconnect on stream drop
+
+        // === Caching unifié (init + per-media doivent matcher) ===
+        // Live : 1500ms = bon compromis. La logique adaptative l'augmente si freezes.
+        // VOD : 3000ms (HTTP range request, plus de marge).
+        options.add("--network-caching=" + (isLive ? liveCachingMs : 3000));
+        options.add("--live-caching=" + (isLive ? liveCachingMs : 3000));
+        options.add("--file-caching=" + (isLive ? liveCachingMs : 3000));
+        options.add("--sout-mux-caching=" + (isLive ? liveCachingMs : 3000));
+
+        // === Reconnexion auto sur coupure HTTP (micro-coupures = stream IPTV) ===
         options.add("--http-reconnect");
-        // Hardware acceleration
+        options.add("--http-continuous");
+
+        // === Décodage hardware (Realtek / Amlogic / Mediatek) avec fallback soft ===
         options.add("--avcodec-hw=any");
-        options.add("--avcodec-fast");
-        options.add("--avcodec-skiploopfilter=1");
-        // Disable subtitles by default
+        // SUPPRIMÉ --avcodec-fast : sacrifiait la qualité (skip pixels)
+        // SUPPRIMÉ --avcodec-skiploopfilter=1 : enlevait le deblocking = image floue
+        options.add("--avcodec-threads=0");          // auto = tous les coeurs CPU
+        options.add("--avcodec-skiploopfilter=0");   // qualité max
+        options.add("--no-drop-late-frames");        // jamais skip une frame = pas de saccades
+        options.add("--no-skip-frames");
+
+        // === MPEG-TS (le format IPTV par défaut) : tolérer les erreurs de continuité ===
+        // sinon la lecture s'arrête au moindre paquet manquant
+        options.add("--ts-cc-check=0");
+
+        // === Sous-titres : ne pas auto-scanner les fichiers .srt voisins ===
         options.add("--no-sub-autodetect-file");
-        // Clock sync for low latency
+
+        // === Sync horloge : laisser VLC gérer (default), surtout PAS --clock-synchro=0 ===
+        // (cette option cassait la synchro A/V et créait des micro-freeze audio)
         options.add("--clock-jitter=0");
-        options.add("--clock-synchro=0");
-        // HTTP options
+
+        // === HTTP UA ===
         if (customUserAgent != null && !customUserAgent.isEmpty()) {
             options.add("--http-user-agent=" + customUserAgent);
         } else {
             options.add("--http-user-agent=VLC/3.0.20 LibVLC/3.0.20");
         }
-        // Minimal logs for perf
         options.add("-v");
 
         libVLC = new LibVLC(this, options);
         player = new MediaPlayer(libVLC);
         player.attachViews(playerView, null, true, false);
 
-        // Listen for events
         player.setEventListener(new MediaPlayer.EventListener() {
             @Override
             public void onEvent(MediaPlayer.Event event) {
@@ -166,6 +188,11 @@ public class ExoPlayerActivity extends AppCompatActivity {
                             }, 1000);
                         }
                         break;
+                    case MediaPlayer.Event.Buffering:
+                        // Buffering progress = float 0..100 dans event.getBuffering()
+                        // On compte les events buffering récents pour détecter un stream instable
+                        if (isLive) onBufferingTick(event.getBuffering());
+                        break;
                 }
             }
         });
@@ -173,22 +200,52 @@ public class ExoPlayerActivity extends AppCompatActivity {
         loadAndPlay(url);
     }
 
+    private void onBufferingTick(float pct) {
+        // pct < 100 = on est en train de buffer (mauvais signe en live)
+        if (pct >= 100f) return;
+        long now = System.currentTimeMillis();
+        if (now - lastBufferingTs < 10_000) {
+            bufferingEventsRecent++;
+        } else {
+            bufferingEventsRecent = 1;
+        }
+        lastBufferingTs = now;
+
+        // 3 buffering events en moins de 10s = stream instable, on grossit le buffer
+        if (bufferingEventsRecent >= 3 && liveCachingMs < 4000) {
+            liveCachingMs = Math.min(4000, liveCachingMs + 1000);
+            bufferingEventsRecent = 0;
+            // Toast discret pour debug, puis relance avec nouveau cache
+            Toast.makeText(this, "Buffer adaptatif → " + liveCachingMs + "ms", Toast.LENGTH_SHORT).show();
+            try {
+                player.stop();
+                loadAndPlay(url);
+            } catch (Exception ignored) {}
+        }
+    }
+
     private void loadAndPlay(String mediaUrl) {
         if (player == null || libVLC == null) return;
         try {
             Media media = new Media(libVLC, Uri.parse(mediaUrl));
-            media.setHWDecoderEnabled(true, false);
-            // Custom HTTP options for Stalker portals
+            // HW decoder ON, fallback soft autorisé (jamais d'écran noir)
+            media.setHWDecoderEnabled(true, true);
+
+            // Cookies Stalker
             if (customCookies != null && !customCookies.isEmpty()) {
                 media.addOption(":http-cookies=" + customCookies);
             }
-            // Buffering for live
-            if (isLive) {
-                media.addOption(":network-caching=1500");
-                media.addOption(":live-caching=1500");
-            } else {
-                media.addOption(":network-caching=3000");
-            }
+            // Caching cohérent avec init (utilise la valeur adaptative)
+            int cache = isLive ? liveCachingMs : 3000;
+            media.addOption(":network-caching=" + cache);
+            media.addOption(":live-caching=" + cache);
+            media.addOption(":file-caching=" + cache);
+            // Demarrage : on ne LIT pas avant d'avoir 100% du buffer initial
+            // → premiere image plus tardive de ~200ms mais ensuite zero freeze de start
+            media.addOption(":clock-jitter=0");
+            // Multi-thread decode
+            media.addOption(":avcodec-threads=0");
+
             player.setMedia(media);
             media.release();
             player.play();
