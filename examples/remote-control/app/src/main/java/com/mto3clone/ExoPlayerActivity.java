@@ -73,6 +73,9 @@ public class ExoPlayerActivity extends AppCompatActivity {
     private ListView groupListView;
     private List<JSONObject> sidebarGroups = new ArrayList<>();
     private boolean groupSidebarOpen = false;
+    // 404 fallback for VOD: try alternative extensions
+    private String[] altExtensions = null;
+    private int altExtIdx = 0;
 
     @Override
     @SuppressLint("UnsafeOptInUsageError")
@@ -93,6 +96,11 @@ public class ExoPlayerActivity extends AppCompatActivity {
         isLive = getIntent().getBooleanExtra("isLive", true);
         customCookies = getIntent().getStringExtra("cookies");
         customUserAgent = getIntent().getStringExtra("userAgent");
+        String altExtsCsv = getIntent().getStringExtra("altExts");
+        if (altExtsCsv != null && !altExtsCsv.isEmpty()) {
+            altExtensions = altExtsCsv.split(",");
+            altExtIdx = 0;
+        }
 
         // Channel sidebar setup
         channelSidebar = findViewById(R.id.channel_sidebar);
@@ -195,11 +203,28 @@ public class ExoPlayerActivity extends AppCompatActivity {
             public void onPlayerError(PlaybackException error) {
                 Throwable cause = error.getCause();
                 String detail = (cause != null && cause.getMessage() != null) ? cause.getMessage() : error.getMessage();
+                int code = error.errorCode;
+
+                // === VOD 404 fallback: try alternative file extensions ===
+                if (code == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS &&
+                    !isLive && altExtensions != null && altExtIdx < altExtensions.length) {
+                    String nextExt = altExtensions[altExtIdx++].trim();
+                    if (!nextExt.isEmpty()) {
+                        String newUrl = url.replaceAll("\\.[a-zA-Z0-9]+($|\\?)", "." + nextExt + "$1");
+                        Toast.makeText(ExoPlayerActivity.this, "Tentative ." + nextExt + "...", Toast.LENGTH_SHORT).show();
+                        url = newUrl;
+                        MediaItem item = new MediaItem.Builder().setUri(Uri.parse(newUrl)).build();
+                        player.setMediaItem(item);
+                        player.prepare();
+                        player.play();
+                        return;
+                    }
+                }
+
                 String msg = "[" + error.getErrorCodeName() + "] " + (detail != null ? detail : "unknown");
                 Toast.makeText(ExoPlayerActivity.this, msg, Toast.LENGTH_LONG).show();
 
                 // Auto-fallback to external player for parsing/codec errors
-                int code = error.errorCode;
                 boolean canFallback = (
                     code == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
                     code == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ||

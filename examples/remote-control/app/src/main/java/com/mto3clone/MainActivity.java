@@ -298,6 +298,11 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void playNativeAll(String url, String title, boolean isLive, String cookies, String userAgent, String channelsJson, int currentIdx, String groupsJson) {
+            playNativeUltimate(url, title, isLive, cookies, userAgent, channelsJson, currentIdx, groupsJson, null);
+        }
+
+        @JavascriptInterface
+        public void playNativeUltimate(String url, String title, boolean isLive, String cookies, String userAgent, String channelsJson, int currentIdx, String groupsJson, String altExtsCsv) {
             if (url == null || url.isEmpty()) return;
             Intent i = new Intent(MainActivity.this, ExoPlayerActivity.class);
             i.putExtra("url", url);
@@ -308,6 +313,7 @@ public class MainActivity extends AppCompatActivity {
             if (channelsJson != null && !channelsJson.isEmpty()) i.putExtra("channels", channelsJson);
             if (groupsJson != null && !groupsJson.isEmpty()) i.putExtra("groups", groupsJson);
             if (currentIdx >= 0) i.putExtra("currentChannelIdx", currentIdx);
+            if (altExtsCsv != null && !altExtsCsv.isEmpty()) i.putExtra("altExts", altExtsCsv);
             startActivityForResult(i, 1001);
         }
 

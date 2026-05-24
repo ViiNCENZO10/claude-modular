@@ -327,7 +327,6 @@
     overlay.querySelector('#cinBtnWatch').addEventListener('click', async function() {
       try {
         if (vod._type === 'series') {
-          // Play first available episode
           var sInfo = info;
           if (!sInfo || !sInfo.episodes) {
             sInfo = await AppState.api.getSeriesInfo(vod.stream_id);
@@ -350,10 +349,16 @@
           }
           showToast && showToast('Aucun épisode disponible');
         } else {
-          // VOD
-          var ext = vod.container_extension || 'mp4';
-          var url = AppState.api.vodUrl(vod.stream_id, ext);
+          // VOD - use container_extension from the API response (info.movie_data) which is authoritative
+          var serverExt = (moviedata && moviedata.container_extension) ||
+                          (info && info.movie_data && info.movie_data.container_extension) ||
+                          vod.container_extension || 'mp4';
+          var url = AppState.api.vodUrl(vod.stream_id, serverExt);
           close();
+          // Stash alt extensions on the VOD object for ExoPlayer 404 fallback
+          vod._altExts = ['mkv', 'avi', 'ts', 'mp4'].filter(function(e) { return e !== serverExt; });
+          // Ensure AppState.selectedVod points to this vod so the bridge can read _altExts
+          AppState.selectedVod = vod;
           if (typeof window.startPlayer === 'function') {
             window.startPlayer(url, vod.name, '', 'vod', vod);
           }

@@ -96,6 +96,16 @@ async function nativePlay(url, title, isLive) {
       ua = 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 4 rev: 2116 Safari/533.3';
     }
 
+    // Alt extensions for VOD 404 fallback
+    var altExts = '';
+    if (AppState && AppState.selectedVod && AppState.selectedVod._altExts) {
+      try { altExts = AppState.selectedVod._altExts.join(','); } catch (e) {}
+    }
+
+    if (typeof window.AndroidBridge.playNativeUltimate === 'function') {
+      window.AndroidBridge.playNativeUltimate(url || '', title || '', !!isLive, cookies, ua, channelsJson || '', currentIdx, groupsJson || '', altExts);
+      return true;
+    }
     if (typeof window.AndroidBridge.playNativeAll === 'function') {
       window.AndroidBridge.playNativeAll(url || '', title || '', !!isLive, cookies, ua, channelsJson || '', currentIdx, groupsJson || '');
       return true;
