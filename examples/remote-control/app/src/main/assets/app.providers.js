@@ -323,6 +323,146 @@ async function syncRemotePortals(silent) {
 }
 
 
+// ========== MAC Selector popup (iPremiumTv style) ==========
+// Shows 4 options: device MAC, two Infomir-prefix alternatives, custom entry
+function openMacSelector(deviceMac, onPick) {
+  // Clean device MAC to 12 hex chars
+  var clean = (deviceMac || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+  if (clean.length !== 12) {
+    showToast('Invalid device MAC');
+    return;
+  }
+  var last3 = clean.substring(6); // last 3 bytes (6 hex chars) of device MAC
+  var pairs = function(s) { return s.match(/.{2}/g).join(':'); };
+
+  // Build candidate MACs
+  var defaultMac = clean;                                       // device MAC unchanged
+  var altInfomir1 = '001A79' + last3;                           // 00:1A:79 + device suffix
+  var altInfomir2 = '001EB8' + last3;                           // 00:1E:B8 + device suffix
+
+  // Modal
+  var existing = document.getElementById('macSelectorModal');
+  if (existing) existing.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'macSelectorModal';
+  modal.className = 'modal mac-selector-modal';
+  modal.innerHTML =
+    '<div class="modal-backdrop"></div>' +
+    '<div class="modal-content mac-selector-content">' +
+      '<h2 class="mac-sel-title">' + (typeof t === 'function' ? t('Language') : 'MAC') + ' — ID utilisateur</h2>' +
+      '<ul class="mac-sel-list">' +
+        '<li class="mac-sel-item mac-sel-default focusable" tabindex="0" data-mac="' + defaultMac + '">' +
+          '<span class="mac-sel-label">Par défaut (' + pairs(defaultMac).substring(0, 8) + ')</span>' +
+          '<span class="mac-sel-full">' + pairs(defaultMac) + '</span>' +
+        '</li>' +
+        '<li class="mac-sel-item focusable" tabindex="0" data-mac="' + altInfomir1 + '">' +
+          '<span class="mac-sel-label">Alternative (00:1A:79)</span>' +
+          '<span class="mac-sel-full">' + pairs(altInfomir1) + '</span>' +
+        '</li>' +
+        '<li class="mac-sel-item focusable" tabindex="0" data-mac="' + altInfomir2 + '">' +
+          '<span class="mac-sel-label">Alternative (00:1E:B8)</span>' +
+          '<span class="mac-sel-full">' + pairs(altInfomir2) + '</span>' +
+        '</li>' +
+        '<li class="mac-sel-item focusable" tabindex="0" data-mac="custom">' +
+          '<span class="mac-sel-label">Personnalisé (AA:BB:CC)</span>' +
+          '<span class="mac-sel-full">Saisie libre</span>' +
+        '</li>' +
+      '</ul>' +
+      '<button class="modal-close focusable" id="macSelClose" tabindex="0">&times;</button>' +
+    '</div>';
+  document.body.appendChild(modal);
+  modal.style.display = 'flex';
+
+  // Save default selection
+  localStorage.setItem('iprem_mac_default_device', defaultMac);
+
+  var close = function() {
+    try { modal.remove(); } catch (e) {}
+  };
+
+  modal.querySelector('#macSelClose').addEventListener('click', close);
+  modal.querySelector('.modal-backdrop').addEventListener('click', close);
+
+  modal.querySelectorAll('.mac-sel-item').forEach(function(li) {
+    var pick = function() {
+      var mac = li.getAttribute('data-mac');
+      if (mac === 'custom') {
+        var prev = localStorage.getItem('iprem_mac_custom') || '';
+        var v = prompt('MAC personnalisée (12 chars hex, séparateurs optionnels) :', prev);
+        if (v) {
+          var c = v.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+          if (c.length === 12) {
+            localStorage.setItem('iprem_mac_custom', c);
+            close();
+            if (onPick) onPick(c);
+          } else {
+            showToast('MAC invalide');
+          }
+        }
+        return;
+      }
+      // Save as last-used
+      localStorage.setItem('iprem_mac_lastpick', mac);
+      close();
+      if (onPick) onPick(mac);
+    };
+    li.addEventListener('click', pick);
+    li.addEventListener('keydown', function(e) { if (e.key === 'Enter') pick(); });
+  });
+
+  // Focus first item
+  setTimeout(function() {
+    var first = modal.querySelector('.mac-sel-item');
+    if (first) first.focus();
+  }, 50);
+}
+
+
+// ========== Bottom info bar (Version | MAC | SN) - iPremiumTv style ==========
+function generateSerial(mac) {
+  // Deterministic 32-char hex serial number derived from MAC
+  // Format observed in iPremiumTv: "320d020100000000" + hash-of-mac
+  var clean = (mac || '').replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+  var hash = 0;
+  for (var i = 0; i < clean.length; i++) {
+    hash = ((hash << 5) - hash + clean.charCodeAt(i)) & 0xFFFFFFFF;
+  }
+  var hashHex = (hash >>> 0).toString(16).padStart(8, '0');
+  return ('320d020100000000' + hashHex + clean.padEnd(8, '0').substring(0, 8)).substring(0, 32);
+}
+
+function buildInfoBar() {
+  if (document.getElementById('iprem-info-bar')) return;
+  // Only on login screen
+  var login = document.getElementById('login');
+  if (!login) return;
+
+  var mac = '';
+  try {
+    if (window.AndroidBridge && typeof window.AndroidBridge.getDeviceMac === 'function') {
+      mac = window.AndroidBridge.getDeviceMac();
+    }
+  } catch (e) {}
+
+  var macClean = (mac || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+  var macDisplay = macClean.length === 12 ? macClean.match(/.{2}/g).join(':') : '--:--:--:--:--:--';
+  var sn = macClean ? generateSerial(macClean) : '--';
+  var version = (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '3.1.0';
+
+  var bar = document.createElement('div');
+  bar.id = 'iprem-info-bar';
+  bar.className = 'iprem-info-bar';
+  bar.innerHTML =
+    '<span class="info-item"><span class="info-label">Version:</span> <span class="info-value">' + version + '</span></span>' +
+    '<span class="info-sep">|</span>' +
+    '<span class="info-item"><span class="info-label">MAC:</span> <span class="info-value" id="infoBarMac">' + macDisplay + '</span></span>' +
+    '<span class="info-sep">|</span>' +
+    '<span class="info-item"><span class="info-label">SN:</span> <span class="info-value">' + sn + '</span></span>';
+  document.body.appendChild(bar);
+}
+
+
 // ========== Provider factory: choose based on portal.type ==========
 function buildProvider(portal) {
   const type = (portal.type || 'xtream').toLowerCase();
@@ -488,22 +628,23 @@ function buildLoginTypeTabs() {
     if (macInput.value) macInput.value = formatMac(macInput.value, fmtSelect.value);
   });
 
-  // Detect device MAC via native bridge
+  // Detect device MAC via native bridge → opens 4-option selector (iPremiumTv style)
   detectBtn.addEventListener('click', function() {
-    var mac = '';
+    var deviceMac = '';
     try {
       if (window.AndroidBridge && typeof window.AndroidBridge.getDeviceMac === 'function') {
-        mac = window.AndroidBridge.getDeviceMac();
+        deviceMac = window.AndroidBridge.getDeviceMac();
       }
     } catch (e) {}
-    if (!mac) {
+    if (!deviceMac) {
       showToast('Could not detect device MAC');
       detectedHint.textContent = '';
       return;
     }
-    macInput.value = formatMac(mac, fmtSelect.value);
-    detectedHint.textContent = '✓ Device: ' + formatMac(mac, 'colon-upper');
-    showToast('MAC detected');
+    openMacSelector(deviceMac, function(selectedMac) {
+      macInput.value = formatMac(selectedMac, fmtSelect.value);
+      detectedHint.textContent = '✓ ' + formatMac(selectedMac, 'colon-upper');
+    });
   });
 
   // Auto-reformat as user types
@@ -594,7 +735,22 @@ function injectProviderStyles() {
     '.mac-format-row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}' +
     '.mac-format-label{font-size:12px;color:#94a3b8}' +
     '.mac-format-select{padding:4px 8px;font-size:12px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px}' +
-    '.mac-detected-hint{font-size:11px;color:#22c55e}';
+    '.mac-detected-hint{font-size:11px;color:#22c55e}' +
+    // Bottom info bar (iPremiumTv style)
+    '.iprem-info-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(15,23,42,.85);color:#cbd5e1;padding:6px 16px;font-size:11px;display:flex;justify-content:flex-end;align-items:center;gap:14px;z-index:50;font-family:monospace;backdrop-filter:blur(4px);pointer-events:none}' +
+    '.iprem-info-bar .info-label{color:#94a3b8;margin-right:4px}' +
+    '.iprem-info-bar .info-value{color:#fff;font-weight:600}' +
+    '.iprem-info-bar .info-sep{color:#475569}' +
+    // MAC selector modal
+    '.mac-selector-modal .modal-content{max-width:520px;width:90%;background:#1e293b;border-radius:12px;padding:24px;position:relative}' +
+    '.mac-sel-title{font-size:18px;font-weight:600;color:#fff;margin:0 0 16px 0;text-align:center}' +
+    '.mac-sel-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}' +
+    '.mac-sel-item{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#334155;border-radius:30px;cursor:pointer;transition:all .15s;color:#e2e8f0}' +
+    '.mac-sel-item:hover, .mac-sel-item:focus{background:#3b82f6;color:#fff;outline:none;transform:scale(1.02)}' +
+    '.mac-sel-item.mac-sel-default{background:#3b82f6;color:#fff}' +
+    '.mac-sel-item.mac-sel-default:hover, .mac-sel-item.mac-sel-default:focus{background:#2563eb}' +
+    '.mac-sel-label{font-size:15px;font-weight:500}' +
+    '.mac-sel-full{font-family:monospace;font-size:12px;opacity:.85}';
   document.head.appendChild(s);
 }
 
@@ -622,4 +778,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
   // Auto-sync remote portals at startup (silent)
   setTimeout(function() { syncRemotePortals(true); }, 3000);
+
+  // Build bottom info bar (Version | MAC | SN) on login screen
+  setTimeout(buildInfoBar, 500);
 });
