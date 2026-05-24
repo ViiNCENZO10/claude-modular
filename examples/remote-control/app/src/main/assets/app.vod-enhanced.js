@@ -94,8 +94,36 @@
       '.cin-trailer-card:focus, .cin-trailer-card:hover{outline:2px solid #60a5fa}' +
       '.cin-trailer-card img{width:100%;height:100%;object-fit:cover;display:block}' +
       '.cin-trailer-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.85);color:#000;display:flex;align-items:center;justify-content:center;font-size:22px}' +
-      // Smaller screens
-      '@media (max-width:900px){.cin-title{font-size:38px}.cin-content{left:30px;max-width:75%}}';
+      // Cinematic scroll layout (hero + actors + similar + media)
+      '.cinematic-detail .cin-scroll{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth}' +
+      '.cinematic-detail .cin-hero{position:relative;min-height:100vh}' +
+      '.cinematic-detail .cin-trailer-row{display:none}' +
+      '.cin-section{padding:24px 60px 28px 60px;background:#0f172a;border-top:1px solid rgba(255,255,255,.05)}' +
+      '.cin-section-title{font-size:20px;font-weight:700;color:#fff;margin:0 0 14px 0;letter-spacing:.3px}' +
+      // Actors row
+      '.cin-actors-row{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x mandatory}' +
+      '.cin-actor-card{flex-shrink:0;width:140px;scroll-snap-align:start;outline:none;border-radius:10px;background:transparent;cursor:default}' +
+      '.cin-actor-card:focus{outline:2px solid #60a5fa;outline-offset:2px}' +
+      '.cin-actor-photo{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;background:#1e293b}' +
+      '.cin-actor-photo.no-photo{display:flex;align-items:center;justify-content:center;color:#475569;font-size:32px;font-weight:700;background:linear-gradient(135deg,#1e293b,#334155)}' +
+      '.cin-actor-name{color:#fff;font-size:14px;font-weight:600;margin-top:8px;line-height:1.2}' +
+      '.cin-actor-char{color:#94a3b8;font-size:12px;margin-top:2px;line-height:1.2}' +
+      // Similar row
+      '.cin-similar-row{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x mandatory}' +
+      '.cin-similar-card{flex-shrink:0;width:150px;scroll-snap-align:start;outline:none;cursor:pointer;transition:transform .12s}' +
+      '.cin-similar-card:focus, .cin-similar-card:hover{transform:scale(1.05)}' +
+      '.cin-similar-card:focus .cin-similar-poster{outline:2px solid #60a5fa}' +
+      '.cin-similar-poster{display:block;width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px;background:#1e293b}' +
+      '.cin-similar-poster.no-img{display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:12px;padding:10px;text-align:center}' +
+      '.cin-similar-name{color:#cbd5e1;font-size:12px;margin-top:6px;line-height:1.2;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}' +
+      // Media (trailer) row
+      '.cin-media-row{display:flex;gap:14px}' +
+      '.cin-media-row .cin-trailer-card{position:relative;width:280px;aspect-ratio:16/9;border-radius:8px;overflow:hidden;cursor:pointer;background:#1e293b;outline:none;text-decoration:none;display:block}' +
+      '.cin-media-row .cin-trailer-card:focus, .cin-media-row .cin-trailer-card:hover{outline:2px solid #60a5fa}' +
+      '.cin-media-row .cin-trailer-card img{width:100%;height:100%;object-fit:cover;display:block}' +
+      '.cin-media-row .cin-trailer-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.85);color:#000;display:flex;align-items:center;justify-content:center;font-size:24px}' +
+      '.cin-trailer-caption{position:absolute;bottom:8px;left:10px;color:#fff;font-size:12px;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.7)}' +
+      '@media (max-width:900px){.cin-title{font-size:38px}.cin-content{left:30px;max-width:75%}.cin-section{padding:18px 30px}}';
     document.head.appendChild(s);
   }
 
@@ -208,33 +236,45 @@
     overlay.id = 'cinematicDetail';
     overlay.className = 'cinematic-detail';
     overlay.innerHTML =
-      '<div class="cin-backdrop" id="cinBackdrop"></div>' +
-      '<div class="cin-gradient"></div>' +
-      '<button class="cin-close focusable" id="cinClose" tabindex="0" title="Fermer">&times;</button>' +
-      '<div class="cin-brand">↔ iPremTvOnline</div>' +
-      '<div class="cin-content">' +
-        '<h1 class="cin-title" id="cinTitle">' + escapeText(vod.name || '') + '</h1>' +
-        '<div class="cin-meta-line">' +
-          '<span id="cinYear" class="cin-meta-year">—</span>' +
-          '<span class="cin-dot">•</span>' +
-          '<span id="cinGenre" class="cin-meta-genre">—</span>' +
+      '<div class="cin-scroll">' +
+        '<div class="cin-hero">' +
+          '<div class="cin-backdrop" id="cinBackdrop"></div>' +
+          '<div class="cin-gradient"></div>' +
+          '<button class="cin-close focusable" id="cinClose" tabindex="0" title="Fermer">&times;</button>' +
+          '<div class="cin-brand">↔ iPremTvOnline</div>' +
+          '<div class="cin-content">' +
+            '<h1 class="cin-title" id="cinTitle">' + escapeText(vod.name || '') + '</h1>' +
+            '<div class="cin-meta-line">' +
+              '<span id="cinYear" class="cin-meta-year">—</span>' +
+              '<span class="cin-dot">•</span>' +
+              '<span id="cinGenre" class="cin-meta-genre">—</span>' +
+            '</div>' +
+            '<div class="cin-badges" id="cinBadges"></div>' +
+            '<div class="cin-added" id="cinAdded"></div>' +
+            '<p class="cin-plot" id="cinPlot">Chargement...</p>' +
+            '<div class="cin-cast" id="cinCast"></div>' +
+            '<div class="cin-actions">' +
+              '<button class="cin-btn-watch focusable" id="cinBtnWatch" tabindex="0" autofocus>' +
+                '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>' +
+                '<span>Regarder</span>' +
+              '</button>' +
+              '<button class="cin-btn-fav focusable" id="cinBtnFav" tabindex="0" title="Favori">' +
+                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15,9 22,9 17,14 19,21 12,17 5,21 7,14 2,9 9,9"/></svg>' +
+              '</button>' +
+            '</div>' +
+          '</div>' +
         '</div>' +
-        '<div class="cin-badges" id="cinBadges"></div>' +
-        '<div class="cin-added" id="cinAdded"></div>' +
-        '<p class="cin-plot" id="cinPlot">Chargement...</p>' +
-        '<div class="cin-cast" id="cinCast"></div>' +
-        '<div class="cin-actions">' +
-          '<button class="cin-btn-watch focusable" id="cinBtnWatch" tabindex="0" autofocus>' +
-            '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>' +
-            '<span>Regarder</span>' +
-          '</button>' +
-          '<button class="cin-btn-fav focusable" id="cinBtnFav" tabindex="0" title="Favori">' +
-            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15,9 22,9 17,14 19,21 12,17 5,21 7,14 2,9 9,9"/></svg>' +
-          '</button>' +
+        '<div class="cin-section" id="cinActorsSection" style="display:none">' +
+          '<h2 class="cin-section-title">Acteurs</h2>' +
+          '<div class="cin-actors-row" id="cinActorsRow"></div>' +
         '</div>' +
-        '<div class="cin-trailer-row" id="cinTrailerRow" style="display:none">' +
-          '<span class="cin-trailer-label">Bande-annonce</span>' +
-          '<div class="cin-trailer-card" id="cinTrailerCard"></div>' +
+        '<div class="cin-section" id="cinSimilarSection" style="display:none">' +
+          '<h2 class="cin-section-title" id="cinSimilarTitle">Similaires</h2>' +
+          '<div class="cin-similar-row" id="cinSimilarRow"></div>' +
+        '</div>' +
+        '<div class="cin-section" id="cinMediaSection" style="display:none">' +
+          '<h2 class="cin-section-title">Médias</h2>' +
+          '<div class="cin-media-row" id="cinMediaRow"></div>' +
         '</div>' +
       '</div>';
     document.body.appendChild(overlay);
@@ -369,11 +409,102 @@
     }
 
     if (tmdbId && (!ratingPct || ratingPct === 0)) {
-      // Still show TMDB badge even without score
       var bEl = overlay.querySelector('#cinBadges');
       if (bEl && !bEl.querySelector('.cin-badge-tmdb')) {
         bEl.insertAdjacentHTML('beforeend', '<span class="cin-badge cin-badge-tmdb" style="background:#22c55e">TMDb ' + tmdbId + '</span>');
       }
+    }
+
+    // ===== Actors section =====
+    // Try TMDB credits if we have tmdb_id and a configured key, otherwise fallback to cast string
+    var castStr = movie.cast || movie.actors || '';
+    var directorStr = movie.director || '';
+    var actors = [];
+    if (tmdbId) {
+      try {
+        var tmdbKey = localStorage.getItem('iprem_tmdb_key') || '4ef0d7355d9ffb5151e987764708ce96'; // common public test key (works for many calls)
+        var credRes = await fetch('https://api.themoviedb.org/3/movie/' + tmdbId + '/credits?language=fr&api_key=' + tmdbKey);
+        if (credRes.ok) {
+          var creds = await credRes.json();
+          if (creds.cast && creds.cast.length > 0) {
+            actors = creds.cast.slice(0, 12).map(function(c) {
+              return {
+                name: c.name,
+                character: c.character || '',
+                photo: c.profile_path ? ('https://image.tmdb.org/t/p/w185' + c.profile_path) : ''
+              };
+            });
+          }
+          if (!directorStr && creds.crew) {
+            var dir = creds.crew.find(function(p) { return p.job === 'Director'; });
+            if (dir) directorStr = dir.name;
+          }
+        }
+      } catch (e) {}
+    }
+    // Fallback to cast string
+    if (actors.length === 0 && castStr) {
+      actors = castStr.split(/,|;/).map(function(n) { return { name: n.trim(), character: '', photo: '' }; }).filter(function(a) { return a.name; }).slice(0, 12);
+    }
+    if (actors.length > 0) {
+      var actorsRow = overlay.querySelector('#cinActorsRow');
+      actorsRow.innerHTML = actors.map(function(a) {
+        return '<div class="cin-actor-card focusable" tabindex="0">' +
+          (a.photo
+            ? '<img class="cin-actor-photo" loading="lazy" src="' + a.photo.replace(/'/g, '%27') + '" alt="" onerror="this.style.display=\'none\';this.parentElement.classList.add(\'no-photo\')">'
+            : '<div class="cin-actor-photo no-photo"><span>' + escapeText(a.name.charAt(0)) + '</span></div>') +
+          '<div class="cin-actor-name">' + escapeText(a.name) + '</div>' +
+          (a.character ? '<div class="cin-actor-char">' + escapeText(a.character) + '</div>' : '') +
+        '</div>';
+      }).join('');
+      overlay.querySelector('#cinActorsSection').style.display = '';
+    }
+
+    // ===== Similar movies (same category in current portal) =====
+    try {
+      var sameCat = (AppState.vodStreams || []).filter(function(s) {
+        return s.stream_id !== vod.stream_id && (!vod.category_id || s.category_id === vod.category_id);
+      }).slice(0, 14);
+      if (sameCat.length > 0) {
+        var simRow = overlay.querySelector('#cinSimilarRow');
+        simRow.innerHTML = sameCat.map(function(s) {
+          var p = s.stream_icon || s.cover || '';
+          return '<div class="cin-similar-card focusable" tabindex="0" data-id="' + s.stream_id + '">' +
+            (p ? '<img class="cin-similar-poster" loading="lazy" src="' + p.replace(/'/g, '%27') + '" alt="" onerror="this.style.display=\'none\'">' : '<div class="cin-similar-poster no-img">' + escapeText(s.name) + '</div>') +
+            '<div class="cin-similar-name">' + escapeText(s.name) + '</div>' +
+          '</div>';
+        }).join('');
+        Array.from(simRow.querySelectorAll('.cin-similar-card')).forEach(function(card) {
+          card.addEventListener('click', function() {
+            var id = card.getAttribute('data-id');
+            var s = sameCat.find(function(x) { return String(x.stream_id) === String(id); });
+            if (s) {
+              try { overlay.remove(); } catch (e) {}
+              setTimeout(function() { openCinematicDetail(s); }, 50);
+            }
+          });
+        });
+        overlay.querySelector('#cinSimilarTitle').textContent = 'Dans la même catégorie';
+        overlay.querySelector('#cinSimilarSection').style.display = '';
+      }
+    } catch (e) {}
+
+    // ===== Trailer in Médias section =====
+    var youtube = movie.youtube_trailer || '';
+    if (youtube) {
+      var videoId = youtube;
+      var m = String(youtube).match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+      if (m) videoId = m[1];
+      var thumb = 'https://img.youtube.com/vi/' + videoId + '/mqdefault.jpg';
+      var ytLink = 'https://www.youtube.com/watch?v=' + videoId;
+      var mediaRow = overlay.querySelector('#cinMediaRow');
+      mediaRow.innerHTML =
+        '<a class="cin-trailer-card focusable" tabindex="0" href="' + ytLink + '" target="_blank" rel="noopener">' +
+          '<img src="' + thumb + '" alt="Bande-annonce">' +
+          '<span class="cin-trailer-play">▶</span>' +
+          '<span class="cin-trailer-caption">Bande-annonce</span>' +
+        '</a>';
+      overlay.querySelector('#cinMediaSection').style.display = '';
     }
   }
 
