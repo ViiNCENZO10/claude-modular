@@ -406,44 +406,110 @@ public class ExoPlayerActivity extends AppCompatActivity {
             .show();
     }
 
-    // ===== Bottom menu =====
+    // ===== Bottom menu (Formuler/iPremiumTv style) =====
+    // Each item: circular icon (white outline / black on focus), color dot, label visible on focus
     private void setupBottomMenu() {
         if (bottomMenuRow == null) return;
         bottomMenuRow.removeAllViews();
-        addMenuItem(R.drawable.ic_audio, "Audio", new Runnable() { @Override public void run() { showAudioTrackDialog(); } });
-        addMenuItem(R.drawable.ic_subtitles, "Sous-titres", new Runnable() { @Override public void run() { showSubtitleTrackDialog(); } });
-        addMenuItem(R.drawable.ic_aspect, "Format", new Runnable() { @Override public void run() { cycleAspectRatio(); } });
-        addMenuItem(R.drawable.ic_timer, "Veille", new Runnable() { @Override public void run() { showSleepTimerDialog(); } });
-        addMenuItem(R.drawable.ic_restart, "Redémarrer", new Runnable() {
-            @Override public void run() {
-                if (player != null) { player.setTime(0); player.play(); }
-                hideBottomMenu();
-            }
+        // Channels list (opens sidebar) - left side button
+        addMenuItem(R.drawable.ic_subtitles, "Chaînes", 0, new Runnable() {
+            @Override public void run() { hideBottomMenu(); if (sidebarChannels.size() > 0) showSidebar(); }
         });
-        addMenuItem(R.drawable.ic_pause_play, "Pause/Play", new Runnable() {
+        addMenuItem(R.drawable.ic_audio, "Audio", 0, new Runnable() { @Override public void run() { showAudioTrackDialog(); } });
+        addMenuItem(R.drawable.ic_subtitles, "Sous-titres", 0, new Runnable() { @Override public void run() { showSubtitleTrackDialog(); } });
+        addMenuItem(R.drawable.ic_aspect, "Format", 0, new Runnable() { @Override public void run() { cycleAspectRatio(); } });
+        // Search (green dot)
+        addMenuItem(R.drawable.ic_subtitles, "Rechercher", 0xFF22c55e, new Runnable() {
+            @Override public void run() { hideBottomMenu(); Toast.makeText(ExoPlayerActivity.this, "Recherche (à venir)", Toast.LENGTH_SHORT).show(); }
+        });
+        // Lock (yellow dot)
+        addMenuItem(R.drawable.ic_timer, "Verrou", 0xFFeab308, new Runnable() {
+            @Override public void run() { hideBottomMenu(); Toast.makeText(ExoPlayerActivity.this, "Code parental", Toast.LENGTH_SHORT).show(); }
+        });
+        // Favorite (blue dot)
+        addMenuItem(R.drawable.ic_subtitles, "Favori", 0xFF3b82f6, new Runnable() {
+            @Override public void run() { hideBottomMenu(); Toast.makeText(ExoPlayerActivity.this, "Favori (à venir)", Toast.LENGTH_SHORT).show(); }
+        });
+        // Record (red dot)
+        addMenuItem(R.drawable.ic_restart, "Enregistrer", 0xFFef4444, new Runnable() {
+            @Override public void run() { hideBottomMenu(); Toast.makeText(ExoPlayerActivity.this, "Enregistrement", Toast.LENGTH_SHORT).show(); }
+        });
+        addMenuItem(R.drawable.ic_timer, "Veille", 0, new Runnable() { @Override public void run() { showSleepTimerDialog(); } });
+        addMenuItem(R.drawable.ic_pause_play, "Pause/Play", 0, new Runnable() {
             @Override public void run() {
                 if (player != null) { if (player.isPlaying()) player.pause(); else player.play(); }
                 hideBottomMenu();
             }
         });
-        addMenuItem(R.drawable.ic_stop, "Arrêter", new Runnable() { @Override public void run() { finish(); } });
+        addMenuItem(R.drawable.ic_stop, "Arrêter", 0, new Runnable() { @Override public void run() { finish(); } });
     }
 
-    private void addMenuItem(int iconRes, String label, final Runnable action) {
-        View item = LayoutInflater.from(this).inflate(R.layout.item_bottom_menu, bottomMenuRow, false);
+    private void addMenuItem(int iconRes, final String label, int dotColor, final Runnable action) {
+        final View item = LayoutInflater.from(this).inflate(R.layout.item_bottom_menu, bottomMenuRow, false);
         ((android.widget.ImageView) item.findViewById(R.id.menu_icon_img)).setImageResource(iconRes);
-        ((TextView) item.findViewById(R.id.menu_label)).setText(label);
+        final TextView labelView = item.findViewById(R.id.menu_label);
+        labelView.setText(label);
+
+        View dotView = item.findViewById(R.id.color_dot);
+        if (dotColor != 0) {
+            dotView.setBackgroundColor(dotColor);
+            dotView.setVisibility(View.VISIBLE);
+        } else {
+            dotView.setVisibility(View.INVISIBLE);
+        }
+
+        // Show label only on focus (Formuler style)
+        item.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean hasFocus) {
+                labelView.setVisibility(hasFocus ? View.VISIBLE : View.INVISIBLE);
+            }
+        });
         item.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { action.run(); }
         });
         bottomMenuRow.addView(item);
     }
 
+    private void updateInfoRow() {
+        View infoRow = findViewById(R.id.info_row);
+        if (infoRow == null) return;
+        // Channel name
+        TextView nameView = findViewById(R.id.info_channel);
+        if (nameView != null) nameView.setText(title != null ? title : "");
+        // Group / number
+        TextView groupView = findViewById(R.id.info_group);
+        if (groupView != null) {
+            String num = "";
+            if (sidebarCurrentIdx >= 0) num = (sidebarCurrentIdx + 1) + " • ";
+            String groupName = getIntent().getStringExtra("currentGroupName");
+            if (groupName == null || groupName.isEmpty()) groupName = "Groupe : ⓅTV";
+            groupView.setText(num + groupName);
+        }
+        // Description - placeholder for now (will come from EPG later)
+        TextView descView = findViewById(R.id.info_description);
+        if (descView != null) descView.setText("Pas d'informations");
+        // Quality badge (FHD/HD based on title keywords)
+        TextView qBadge = findViewById(R.id.info_badge_quality);
+        if (qBadge != null && title != null) {
+            String tl = title.toLowerCase();
+            if (tl.contains("4k") || tl.contains("uhd")) {
+                qBadge.setText("4K"); qBadge.setVisibility(View.VISIBLE);
+            } else if (tl.contains("fhd")) {
+                qBadge.setText("FHD"); qBadge.setVisibility(View.VISIBLE);
+            } else if (tl.contains(" hd")) {
+                qBadge.setText("HD"); qBadge.setVisibility(View.VISIBLE);
+            } else {
+                qBadge.setVisibility(View.GONE);
+            }
+        }
+    }
+
     private void showBottomMenu() {
         if (bottomMenu == null) return;
+        updateInfoRow();
         bottomMenu.setVisibility(View.VISIBLE);
         AlphaAnimation a = new AlphaAnimation(0f, 1f);
-        a.setDuration(150);
+        a.setDuration(180);
         bottomMenu.startAnimation(a);
         bottomMenuOpen = true;
         if (bottomMenuRow.getChildCount() > 0) bottomMenuRow.getChildAt(0).requestFocus();

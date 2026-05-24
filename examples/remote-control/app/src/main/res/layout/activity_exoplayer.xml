@@ -13,34 +13,154 @@
         android:focusable="true"
         android:focusableInTouchMode="true" />
 
-    <!-- Bottom menu overlay (DPAD_DOWN to open) -->
-    <HorizontalScrollView
+    <!-- Bottom overlay (DPAD_DOWN to open) — Formuler/MyTVOnline3 style -->
+    <LinearLayout
         android:id="@+id/bottom_menu"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:background="@android:color/transparent"
-        android:padding="14dp"
-        android:visibility="gone"
-        android:fillViewport="true"
-        android:scrollbars="none">
+        android:orientation="vertical"
+        android:background="@drawable/overlay_gradient"
+        android:paddingTop="40dp"
+        android:paddingBottom="16dp"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:visibility="gone">
 
+        <!-- Channel info row: logo + group + channel name + description -->
         <LinearLayout
-            android:id="@+id/bottom_menu_row"
-            android:layout_width="wrap_content"
+            android:id="@+id/info_row"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center" />
-    </HorizontalScrollView>
+            android:gravity="center_vertical"
+            android:layout_marginBottom="14dp">
+
+            <FrameLayout
+                android:id="@+id/info_logo_box"
+                android:layout_width="60dp"
+                android:layout_height="50dp"
+                android:background="@drawable/info_logo_bg"
+                android:layout_marginEnd="14dp">
+
+                <TextView
+                    android:id="@+id/info_logo_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="TV"
+                    android:textColor="#ffffff"
+                    android:textStyle="bold"
+                    android:textSize="14sp" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/info_group"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#cbd5e1"
+                    android:textSize="11sp"
+                    android:text="• Groupe : ⓅTV" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="2dp">
+
+                    <TextView
+                        android:id="@+id/info_channel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="#ffffff"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:maxWidth="700dp" />
+
+                    <TextView
+                        android:id="@+id/info_badge_quality"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:textSize="9sp"
+                        android:textColor="#ffffff"
+                        android:textStyle="bold"
+                        android:background="@drawable/badge_bg"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/info_badge_cc"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:text="CC"
+                        android:textSize="9sp"
+                        android:textColor="#ffffff"
+                        android:textStyle="bold"
+                        android:background="@drawable/badge_bg" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/info_description"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#cbd5e1"
+                    android:textSize="12sp"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:layout_marginTop="4dp"
+                    android:text="Pas d'informations" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Thin separator -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#33ffffff"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Icon row -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fillViewport="true"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/bottom_menu_row"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center" />
+        </HorizontalScrollView>
+    </LinearLayout>
 
     <!-- Channel sidebar overlay (slides in from left, first LEFT press) -->
     <LinearLayout
         android:id="@+id/channel_sidebar"
-        android:layout_width="360dp"
+        android:layout_width="280dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:orientation="vertical"
-        android:background="#cc000000"
+        android:background="#99000000"
         android:padding="0dp"
         android:visibility="gone"
         android:clickable="true"
@@ -52,17 +172,19 @@
             android:layout_height="wrap_content"
             android:text="Chaînes"
             android:textColor="#ffffff"
-            android:textSize="18sp"
+            android:textSize="14sp"
             android:textStyle="bold"
-            android:padding="20dp"
-            android:background="#33000000" />
+            android:paddingTop="14dp"
+            android:paddingBottom="10dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp" />
 
         <ListView
             android:id="@+id/channel_list_view"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:divider="#22ffffff"
+            android:divider="#15ffffff"
             android:dividerHeight="1dp"
             android:background="@null"
             android:cacheColorHint="@android:color/transparent"
@@ -72,11 +194,11 @@
     <!-- Groups sidebar overlay (slides in further, second LEFT press) -->
     <LinearLayout
         android:id="@+id/group_sidebar"
-        android:layout_width="320dp"
+        android:layout_width="240dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:orientation="vertical"
-        android:background="#ee000000"
+        android:background="#cc000000"
         android:padding="0dp"
         android:visibility="gone"
         android:clickable="true"
@@ -87,17 +209,19 @@
             android:layout_height="wrap_content"
             android:text="Groupes / Pays"
             android:textColor="#ffffff"
-            android:textSize="18sp"
+            android:textSize="14sp"
             android:textStyle="bold"
-            android:padding="20dp"
-            android:background="#33000000" />
+            android:paddingTop="14dp"
+            android:paddingBottom="10dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp" />
 
         <ListView
             android:id="@+id/group_list_view"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:divider="#22ffffff"
+            android:divider="#15ffffff"
             android:dividerHeight="1dp"
             android:background="@null"
             android:cacheColorHint="@android:color/transparent"
@@ -106,13 +230,13 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Pour réordonner : menu → Modifier la catégorie"
-            android:textColor="#88ffffff"
-            android:textSize="11sp"
-            android:paddingTop="12dp"
-            android:paddingBottom="12dp"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
+            android:text="Réordonner : menu → Modifier la catégorie"
+            android:textColor="#77ffffff"
+            android:textSize="10sp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
             android:gravity="center" />
     </LinearLayout>
 
