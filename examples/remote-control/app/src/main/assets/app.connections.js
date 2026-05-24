@@ -236,6 +236,26 @@ function openAddPortalModal(type) {
 
   // Wire up MAC detect button if present (Stalker form)
   var detectBtn = modal.querySelector('#apDetectMac');
+  var macInputEl = modal.querySelector('#apMac');
+
+  // AUTO-DETECT MAC on form open (Stalker only) - no click needed
+  if (type === 'stalker' && macInputEl) {
+    setTimeout(function() {
+      try {
+        if (!macInputEl.value && window.AndroidBridge && typeof window.AndroidBridge.getDeviceMac === 'function') {
+          var d = window.AndroidBridge.getDeviceMac();
+          if (d) {
+            var c = d.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+            if (c.length === 12) {
+              macInputEl.value = c.match(/.{2}/g).join(':');
+              showToast && showToast('MAC détectée : ' + macInputEl.value);
+            }
+          }
+        }
+      } catch (e) {}
+    }, 150);
+  }
+
   if (detectBtn) {
     detectBtn.addEventListener('click', function() {
       var deviceMac = '';

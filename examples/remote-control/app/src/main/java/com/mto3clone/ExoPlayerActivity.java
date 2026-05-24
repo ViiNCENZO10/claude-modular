@@ -40,6 +40,8 @@ public class ExoPlayerActivity extends AppCompatActivity {
     private String url;
     private String title;
     private boolean isLive;
+    private String customCookies;
+    private String customUserAgent;
 
     @Override
     @SuppressLint("UnsafeOptInUsageError")
@@ -58,6 +60,8 @@ public class ExoPlayerActivity extends AppCompatActivity {
         url = getIntent().getStringExtra("url");
         title = getIntent().getStringExtra("title");
         isLive = getIntent().getBooleanExtra("isLive", true);
+        customCookies = getIntent().getStringExtra("cookies");
+        customUserAgent = getIntent().getStringExtra("userAgent");
 
         if (url == null || url.isEmpty()) {
             Toast.makeText(this, "No URL", Toast.LENGTH_SHORT).show();
@@ -70,12 +74,23 @@ public class ExoPlayerActivity extends AppCompatActivity {
 
     @SuppressLint("UnsafeOptInUsageError")
     private void initPlayer() {
+        String effectiveUA = (customUserAgent != null && !customUserAgent.isEmpty())
+                ? customUserAgent
+                : "VLC/3.0.20 LibVLC/3.0.20";
+
         DefaultHttpDataSource.Factory httpFactory = new DefaultHttpDataSource.Factory()
-                .setUserAgent("VLC/3.0.20 LibVLC/3.0.20")
+                .setUserAgent(effectiveUA)
                 .setAllowCrossProtocolRedirects(true)
                 .setConnectTimeoutMs(20000)
                 .setReadTimeoutMs(20000)
                 .setKeepPostFor302Redirects(true);
+
+        // Pass custom cookies (e.g. MAC=... for Stalker portals)
+        if (customCookies != null && !customCookies.isEmpty()) {
+            java.util.Map<String, String> headers = new java.util.HashMap<>();
+            headers.put("Cookie", customCookies);
+            httpFactory.setDefaultRequestProperties(headers);
+        }
 
         // Detect stream type and use the right MediaSource
         // - /live/ or .m3u8 → HLS

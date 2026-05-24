@@ -13,6 +13,14 @@ function isNativePlayerEnabled() {
 
 function nativePlay(url, title, isLive) {
   try {
+    var isStalker = AppState && AppState.api && AppState.api.providerType === 'stalker';
+    if (isStalker && typeof window.AndroidBridge.playNativeWithAuth === 'function') {
+      var mac = AppState.api.mac || '';
+      var cookies = 'mac=' + encodeURIComponent(mac) + '; stb_lang=en; timezone=Europe%2FParis; adid=' + mac.replace(/:/g, '').toLowerCase();
+      var ua = 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 4 rev: 2116 Safari/533.3';
+      window.AndroidBridge.playNativeWithAuth(url || '', title || '', !!isLive, cookies, ua);
+      return true;
+    }
     window.AndroidBridge.playNative(url || '', title || '', !!isLive);
     return true;
   } catch (e) {

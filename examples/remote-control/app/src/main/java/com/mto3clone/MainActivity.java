@@ -266,11 +266,18 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void playNative(String url, String title, boolean isLive) {
+            playNativeWithAuth(url, title, isLive, null, null);
+        }
+
+        @JavascriptInterface
+        public void playNativeWithAuth(String url, String title, boolean isLive, String cookies, String userAgent) {
             if (url == null || url.isEmpty()) return;
             Intent i = new Intent(MainActivity.this, ExoPlayerActivity.class);
             i.putExtra("url", url);
             i.putExtra("title", title != null ? title : "");
             i.putExtra("isLive", isLive);
+            if (cookies != null && !cookies.isEmpty()) i.putExtra("cookies", cookies);
+            if (userAgent != null && !userAgent.isEmpty()) i.putExtra("userAgent", userAgent);
             startActivity(i);
         }
 
