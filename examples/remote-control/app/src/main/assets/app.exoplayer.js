@@ -179,16 +179,25 @@ function buildNativePlayerToggle() {
   var layout = document.querySelector('#settings .settings-sections');
   if (!layout) return;
 
+  var forceVlc = false;
+  try {
+    if (typeof window.AndroidBridge.getForceVlc === 'function') forceVlc = window.AndroidBridge.getForceVlc();
+  } catch (e) {}
+
   var section = document.createElement('div');
   section.className = 'settings-section';
   section.innerHTML =
-    '<h3>Native Player</h3>' +
+    '<h3>Lecteur vidéo</h3>' +
     '<div class="setting-row focusable" tabindex="0">' +
-      '<span class="setting-label">Hardware Decoder (HEVC / Dolby AC3·EAC3 / DTS)</span>' +
+      '<span class="setting-label">Décodeur hardware ExoPlayer (HEVC / VP9 / AAC)</span>' +
       '<label class="iprem-switch"><input type="checkbox" id="settingNativePlayer"><span class="iprem-slider"></span></label>' +
     '</div>' +
+    '<div class="setting-row focusable" tabindex="0">' +
+      '<span class="setting-label">Forcer VLC pour TOUT (AC3, DTS, AVI, formats exotiques)</span>' +
+      '<label class="iprem-switch"><input type="checkbox" id="settingForceVlc"' + (forceVlc ? ' checked' : '') + '><span class="iprem-slider"></span></label>' +
+    '</div>' +
     '<div class="setting-row">' +
-      '<span class="setting-help" style="font-size:12px;color:#888">ON: ExoPlayer natif (Realtek RTD129x/RTD131x hardware). OFF: WebView HTML5 (fallback)</span>' +
+      '<span class="setting-help" style="font-size:12px;color:#888">ON: tous les flux passent par VLC (universel, codecs exotiques). OFF: ExoPlayer (rapide, hardware) avec auto-fallback VLC en cas d\'erreur. Auto-bascule VLC pour AVI/MOV/WMV.</span>' +
     '</div>';
   layout.appendChild(section);
 
@@ -196,8 +205,20 @@ function buildNativePlayerToggle() {
   cb.checked = isNativePlayerEnabled();
   cb.addEventListener('change', function() {
     localStorage.setItem('iprem_native_player', cb.checked ? 'true' : 'false');
-    showToast('Native player ' + (cb.checked ? 'ON' : 'OFF'));
+    showToast('Décodeur hardware ' + (cb.checked ? 'ON' : 'OFF'));
   });
+
+  var fvCb = document.getElementById('settingForceVlc');
+  if (fvCb) {
+    fvCb.addEventListener('change', function() {
+      try {
+        if (typeof window.AndroidBridge.setForceVlc === 'function') {
+          window.AndroidBridge.setForceVlc(fvCb.checked);
+        }
+        showToast('Forcer VLC ' + (fvCb.checked ? 'ON' : 'OFF'));
+      } catch (e) {}
+    });
+  }
 }
 
 // Inject CSS for switch

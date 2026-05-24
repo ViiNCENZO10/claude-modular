@@ -48,6 +48,7 @@ import androidx.media3.common.Format;
 import androidx.appcompat.app.AlertDialog;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.extractor.DefaultExtractorsFactory;
@@ -121,6 +122,20 @@ public class ExoPlayerActivity extends AppCompatActivity {
 
     @SuppressLint("UnsafeOptInUsageError")
     private void initPlayer() {
+        // Quick pre-check: for formats known to be poorly supported by ExoPlayer,
+        // immediately fall through to external player (VLC) to save the user time
+        String lowerUrl = url != null ? url.toLowerCase() : "";
+        boolean prefersExternal = lowerUrl.endsWith(".avi") || lowerUrl.endsWith(".mov") ||
+                                  lowerUrl.endsWith(".wmv") || lowerUrl.endsWith(".rmvb") ||
+                                  lowerUrl.endsWith(".flv");
+        boolean forceVlc = getSharedPreferences("iprem", MODE_PRIVATE).getBoolean("force_vlc", false);
+        if (prefersExternal || forceVlc) {
+            String reason = forceVlc ? "VLC forcé" : "Format mieux supporté par VLC";
+            Toast.makeText(this, reason + "...", Toast.LENGTH_SHORT).show();
+            launchExternalAndFinish();
+            return;
+        }
+
         String effectiveUA = (customUserAgent != null && !customUserAgent.isEmpty())
                 ? customUserAgent
                 : "VLC/3.0.20 LibVLC/3.0.20";
@@ -175,7 +190,11 @@ public class ExoPlayerActivity extends AppCompatActivity {
                     .build();
         }
 
-        player = new ExoPlayer.Builder(this)
+        DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(this)
+                .setEnableDecoderFallback(true)                                       // fallback hw → sw if hw fails
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER); // use ffmpeg ext if present
+
+        player = new ExoPlayer.Builder(this, renderersFactory)
                 .setMediaSourceFactory(msf)
                 .setLoadControl(loadControl)
                 .build();
@@ -266,19 +285,8 @@ public class ExoPlayerActivity extends AppCompatActivity {
                 );
 
                 if (canFallback) {
-                    Toast.makeText(ExoPlayerActivity.this, "Bascule vers lecteur externe...", Toast.LENGTH_SHORT).show();
-                    try {
-                        Intent vlc = new Intent(Intent.ACTION_VIEW);
-                        Uri u = Uri.parse(url);
-                        String mime = url.toLowerCase().contains(".m3u8") || url.toLowerCase().contains("/live/")
-                            ? "application/x-mpegURL" : "video/*";
-                        vlc.setDataAndType(u, mime);
-                        vlc.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(Intent.createChooser(vlc, "Ouvrir avec"));
-                    } catch (Exception ignored) { }
-                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                        @Override public void run() { finish(); }
-                    }, 1500);
+                    Toast.makeText(ExoPlayerActivity.this, "Bascule vers VLC...", Toast.LENGTH_SHORT).show();
+                    launchExternalAndFinish();
                 } else if (code != PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED) {
                     new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                         @Override public void run() { finish(); }
@@ -397,6 +405,30 @@ public class ExoPlayerActivity extends AppCompatActivity {
                 break;
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+    private void launchExternalAndFinish() {
+        try {
+            Intent vlc = new Intent(Intent.ACTION_VIEW);
+            Uri u = Uri.parse(url);
+            String mime = url.toLowerCase().contains(".m3u8") || url.toLowerCase().contains("/live/")
+                ? "application/x-mpegURL" : "video/*";
+            vlc.setDataAndType(u, mime);
+            vlc.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (title != null) vlc.putExtra("title", title);
+            try {
+                getPackageManager().getPackageInfo("org.videolan.vlc", 0);
+                vlc.setPackage("org.videolan.vlc");
+                startActivity(vlc);
+            } catch (Exception ignored) {
+                startActivity(Intent.createChooser(vlc, "Ouvrir avec"));
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Aucun lecteur disponible : " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override public void run() { finish(); }
+        }, 800);
     }
 
     // ===== Channel sidebar =====

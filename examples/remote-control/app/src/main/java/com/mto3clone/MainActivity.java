@@ -321,6 +321,16 @@ public class MainActivity extends AppCompatActivity {
         public boolean hasNativePlayer() { return true; }
 
         @JavascriptInterface
+        public void setForceVlc(boolean force) {
+            getSharedPreferences("iprem", MODE_PRIVATE).edit().putBoolean("force_vlc", force).apply();
+        }
+
+        @JavascriptInterface
+        public boolean getForceVlc() {
+            return getSharedPreferences("iprem", MODE_PRIVATE).getBoolean("force_vlc", false);
+        }
+
+        @JavascriptInterface
         public int getVersionCode() {
             try {
                 return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
