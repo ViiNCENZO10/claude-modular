@@ -113,11 +113,27 @@ class StalkerProvider {
     return arr.map(function(g) { return { category_id: String(g.id), category_name: g.title }; });
   }
 
+  async _paginate(type, action, extraParams, maxPages) {
+    var all = [];
+    var page = 1;
+    maxPages = maxPages || 50; // safety cap (50 pages × 14 = 700 items)
+    while (page <= maxPages) {
+      var params = Object.assign({ type: type, action: action, p: page }, extraParams || {});
+      var r = await this._portal(params);
+      var batch = (r && r.js && r.js.data) ? r.js.data : [];
+      if (!Array.isArray(batch) || batch.length === 0) break;
+      all = all.concat(batch);
+      var total = r && r.js && (r.js.total_items || r.js.max_page_items);
+      if (total && all.length >= total) break;
+      if (batch.length < 14) break; // last page (less than full page size)
+      page++;
+    }
+    return all;
+  }
+
   async getLiveStreams(categoryId) {
-    const params = { type: 'itv', action: 'get_ordered_list', p: 1, JsHttpRequest: '1-xml' };
-    if (categoryId) params.genre = categoryId;
-    const r = await this._portal(params);
-    const list = (r && r.js && r.js.data) ? r.js.data : [];
+    var extra = categoryId ? { genre: categoryId } : {};
+    var list = await this._paginate('itv', 'get_ordered_list', extra);
     var self = this;
     return list.map(function(c) {
       if (c.cmd) self._liveCmdMap[c.id] = c.cmd;
@@ -143,10 +159,8 @@ class StalkerProvider {
 
   async getVodStreams(categoryId) {
     try {
-      const params = { type: 'vod', action: 'get_ordered_list', p: 1 };
-      if (categoryId) params.category = categoryId;
-      const r = await this._portal(params);
-      const list = (r && r.js && r.js.data) ? r.js.data : [];
+      var extra = categoryId ? { category: categoryId } : {};
+      var list = await this._paginate('vod', 'get_ordered_list', extra);
       var self = this;
       return list.map(function(v) {
         if (v.cmd) self._vodCmdMap[v.id] = v.cmd;
@@ -173,10 +187,8 @@ class StalkerProvider {
 
   async getSeries(categoryId) {
     try {
-      const params = { type: 'series', action: 'get_ordered_list', p: 1 };
-      if (categoryId) params.category = categoryId;
-      const r = await this._portal(params);
-      const list = (r && r.js && r.js.data) ? r.js.data : [];
+      var extra = categoryId ? { category: categoryId } : {};
+      var list = await this._paginate('series', 'get_ordered_list', extra);
       var self = this;
       return list.map(function(s) {
         if (s.cmd) self._seriesCmdMap[s.id] = s.cmd;
