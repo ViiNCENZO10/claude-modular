@@ -8,15 +8,28 @@ android {
 
     defaultConfig {
         applicationId = "com.mto3clone"
-        minSdk = 24
+        minSdk = 21
         targetSdk = 34
-        versionCode = 2
-        versionName = "3.1.0"
+        versionCode = 3
+        versionName = "3.1.1"
+    }
+
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -31,6 +44,12 @@ android {
 
     buildFeatures {
         viewBinding = false
+    }
+
+    packaging {
+        resources {
+            excludes += listOf("META-INF/DEPENDENCIES", "META-INF/LICENSE", "META-INF/NOTICE")
+        }
     }
 }
 
