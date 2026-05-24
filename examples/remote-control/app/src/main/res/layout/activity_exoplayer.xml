@@ -5,15 +5,13 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <androidx.media3.ui.PlayerView
+    <org.videolan.libvlc.util.VLCVideoLayout
         android:id="@+id/player_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:keepScreenOn="true"
-        app:use_controller="true"
-        app:show_buffering="when_playing"
-        app:resize_mode="fit"
-        app:auto_show="true" />
+        android:focusable="true"
+        android:focusableInTouchMode="true" />
 
     <!-- Bottom menu overlay (DPAD_DOWN to open) -->
     <HorizontalScrollView

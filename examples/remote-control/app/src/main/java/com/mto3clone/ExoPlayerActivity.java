@@ -31,59 +31,51 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 
-import androidx.annotation.OptIn;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.media3.common.AudioAttributes;
-import androidx.media3.common.C;
-import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
-import androidx.media3.common.PlaybackException;
-import androidx.media3.common.Player;
-import androidx.media3.common.TrackGroup;
-import androidx.media3.common.TrackSelectionOverride;
-import androidx.media3.common.TrackSelectionParameters;
-import androidx.media3.common.Tracks;
-import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.Format;
 import androidx.appcompat.app.AlertDialog;
-import androidx.media3.datasource.DefaultHttpDataSource;
-import androidx.media3.exoplayer.DefaultLoadControl;
-import androidx.media3.exoplayer.DefaultRenderersFactory;
-import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
-import androidx.media3.extractor.DefaultExtractorsFactory;
-import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory;
-import androidx.media3.ui.PlayerView;
+import androidx.appcompat.app.AppCompatActivity;
 
-@OptIn(markerClass = UnstableApi.class)
+import org.videolan.libvlc.LibVLC;
+import org.videolan.libvlc.Media;
+import org.videolan.libvlc.MediaPlayer;
+import org.videolan.libvlc.util.VLCVideoLayout;
+
+/**
+ * Universal player powered by libVLC.
+ * Supports virtually all codecs/containers (AVI, MOV, MKV, MP4, AC3, DTS, DivX, etc.)
+ * with hardware acceleration via Android MediaCodec on Realtek/Amlogic SoCs.
+ */
 public class ExoPlayerActivity extends AppCompatActivity {
 
-    private PlayerView playerView;
-    private ExoPlayer player;
+    private VLCVideoLayout playerView;
+    private LibVLC libVLC;
+    private MediaPlayer player;
     private String url;
     private String title;
     private boolean isLive;
     private String customCookies;
     private String customUserAgent;
-    private android.view.View bottomMenu;
+
+    private View bottomMenu;
     private LinearLayout bottomMenuRow;
     private boolean bottomMenuOpen = false;
     private android.os.CountDownTimer sleepTimer;
+
     private LinearLayout channelSidebar;
     private ListView channelListView;
     private List<JSONObject> sidebarChannels = new ArrayList<>();
     private int sidebarCurrentIdx = -1;
     private boolean sidebarOpen = false;
+
     private LinearLayout groupSidebar;
     private ListView groupListView;
     private List<JSONObject> sidebarGroups = new ArrayList<>();
     private boolean groupSidebarOpen = false;
-    // 404 fallback for VOD: try alternative extensions
+
     private String[] altExtensions = null;
     private int altExtIdx = 0;
+    private long mLastBackPressTime = 0;
 
     @Override
-    @SuppressLint("UnsafeOptInUsageError")
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -107,7 +99,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
             altExtIdx = 0;
         }
 
-        // Channel sidebar setup
+        // Sidebars + bottom menu
         channelSidebar = findViewById(R.id.channel_sidebar);
         channelListView = findViewById(R.id.channel_list_view);
         groupSidebar = findViewById(R.id.group_sidebar);
@@ -119,195 +111,104 @@ public class ExoPlayerActivity extends AppCompatActivity {
         setupBottomMenu();
 
         if (url == null || url.isEmpty()) {
-            Toast.makeText(this, "No URL", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "URL manquante", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
 
+        // Forced VLC always? Currently libVLC IS our player, so this preference is no longer used.
         initPlayer();
     }
 
-    @SuppressLint("UnsafeOptInUsageError")
     private void initPlayer() {
-        // Quick pre-check: for formats known to be poorly supported by ExoPlayer,
-        // immediately fall through to external player (VLC) to save the user time
-        String lowerUrl = url != null ? url.toLowerCase() : "";
-        boolean prefersExternal = lowerUrl.endsWith(".avi") || lowerUrl.endsWith(".mov") ||
-                                  lowerUrl.endsWith(".wmv") || lowerUrl.endsWith(".rmvb") ||
-                                  lowerUrl.endsWith(".flv");
-        boolean forceVlc = getSharedPreferences("iprem", MODE_PRIVATE).getBoolean("force_vlc", false);
-        if (prefersExternal || forceVlc) {
-            String reason = forceVlc ? "VLC forcé" : "Format mieux supporté par VLC";
-            Toast.makeText(this, reason + "...", Toast.LENGTH_SHORT).show();
-            launchExternalAndFinish();
-            return;
-        }
-
-        String effectiveUA = (customUserAgent != null && !customUserAgent.isEmpty())
-                ? customUserAgent
-                : "VLC/3.0.20 LibVLC/3.0.20";
-
-        DefaultHttpDataSource.Factory httpFactory = new DefaultHttpDataSource.Factory()
-                .setUserAgent(effectiveUA)
-                .setAllowCrossProtocolRedirects(true)
-                .setConnectTimeoutMs(20000)
-                .setReadTimeoutMs(20000)
-                .setKeepPostFor302Redirects(true);
-
-        // Pass custom cookies (e.g. MAC=... for Stalker portals)
-        if (customCookies != null && !customCookies.isEmpty()) {
-            java.util.Map<String, String> headers = new java.util.HashMap<>();
-            headers.put("Cookie", customCookies);
-            httpFactory.setDefaultRequestProperties(headers);
-        }
-
-        // Detect stream type and use the right MediaSource
-        // - /live/ or .m3u8 → HLS
-        // - .ts → MPEG-TS (Progressive with TsExtractor)
-        // - others → DefaultMediaSourceFactory (auto)
-        String lower = url.toLowerCase();
-        boolean isHls = lower.contains("/live/") || lower.contains(".m3u8") || lower.contains("/hls/");
-        boolean isTs  = lower.endsWith(".ts") || lower.contains(".ts?");
-
-        MediaItem.Builder itemBuilder = new MediaItem.Builder().setUri(Uri.parse(url));
-        if (isHls) itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8);
-        else if (isTs) itemBuilder.setMimeType(MimeTypes.VIDEO_MP2T);
-        MediaItem mediaItem = itemBuilder.build();
-
-        DefaultExtractorsFactory exFactory = new DefaultExtractorsFactory()
-                .setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES);
-
-        DefaultMediaSourceFactory msf = new DefaultMediaSourceFactory(this, exFactory)
-                .setDataSourceFactory(httpFactory);
-
-        DefaultLoadControl loadControl;
-        if (isLive) {
-            // Live TV: 5s min buffer (vs 2s) for stable playback on weak networks,
-            // up to 20s max (vs 15s), faster playback start
-            loadControl = new DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(5000, 20000, 2000, 3000)
-                    .setPrioritizeTimeOverSizeThresholds(true)
-                    .setBackBuffer(30000, true)
-                    .build();
+        ArrayList<String> options = new ArrayList<>();
+        // Network buffering (in microseconds)
+        options.add("--network-caching=" + (isLive ? 1500 : 3000));
+        options.add("--live-caching=" + (isLive ? 1500 : 3000));
+        // Reconnect on stream drop
+        options.add("--http-reconnect");
+        // Hardware acceleration
+        options.add("--avcodec-hw=any");
+        options.add("--avcodec-fast");
+        // Disable subtitles by default (user can enable via menu)
+        options.add("--no-sub-autodetect-file");
+        // Clock sync for low latency
+        options.add("--clock-jitter=0");
+        options.add("--clock-synchro=0");
+        // HTTP options
+        if (customUserAgent != null && !customUserAgent.isEmpty()) {
+            options.add("--http-user-agent=" + customUserAgent);
         } else {
-            // VOD: bigger buffer + back buffer for smooth seek
-            loadControl = new DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(20000, 90000, 2500, 5000)
-                    .setBackBuffer(60000, true)
-                    .build();
+            options.add("--http-user-agent=VLC/3.0.20 LibVLC/3.0.20");
         }
+        // Reduce verbose logs
+        options.add("-vv");
 
-        DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(this)
-                .setEnableDecoderFallback(true)                                       // fallback hw → sw if hw fails
-                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER); // use ffmpeg ext if present
+        libVLC = new LibVLC(this, options);
+        player = new MediaPlayer(libVLC);
+        player.attachViews(playerView, null, true, false);
 
-        player = new ExoPlayer.Builder(this, renderersFactory)
-                .setMediaSourceFactory(msf)
-                .setLoadControl(loadControl)
-                .build();
-
-        AudioAttributes audioAttrs = new AudioAttributes.Builder()
-                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                .setUsage(C.USAGE_MEDIA)
-                .build();
-        player.setAudioAttributes(audioAttrs, true);
-
-        playerView.setPlayer(player);
-        playerView.setUseController(true);
-        playerView.setControllerAutoShow(true);
-        playerView.setControllerShowTimeoutMs(1500);
-        playerView.setControllerHideOnTouch(true);
-        playerView.setKeepScreenOn(true);
-        playerView.setResizeMode(androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT);
-
-        player.setMediaItem(mediaItem);
-        player.setPlayWhenReady(true);
-        player.prepare();
-
-        player.addListener(new Player.Listener() {
+        // Listen for events
+        player.setEventListener(new MediaPlayer.EventListener() {
             @Override
-            public void onPlayerError(PlaybackException error) {
-                Throwable cause = error.getCause();
-                String detail = (cause != null && cause.getMessage() != null) ? cause.getMessage() : error.getMessage();
-                int code = error.errorCode;
-
-                // === VOD 404 fallback: try alternative file extensions ===
-                if (code == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS &&
-                    !isLive && altExtensions != null && altExtIdx < altExtensions.length) {
-                    String nextExt = altExtensions[altExtIdx++].trim();
-                    if (!nextExt.isEmpty()) {
-                        String newUrl = url.replaceAll("\\.[a-zA-Z0-9]+($|\\?)", "." + nextExt + "$1");
-                        Toast.makeText(ExoPlayerActivity.this, "Tentative ." + nextExt + "...", Toast.LENGTH_SHORT).show();
-                        url = newUrl;
-                        MediaItem item = new MediaItem.Builder().setUri(Uri.parse(newUrl)).build();
-                        player.setMediaItem(item);
-                        player.prepare();
-                        player.play();
-                        return;
-                    }
-                }
-
-                // === HTTP error 404 / 5xx after exhausted retries: offer external player (VLC) ===
-                if (code == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS) {
-                    Toast.makeText(ExoPlayerActivity.this, "Bascule vers VLC (URL : " + url + ")", Toast.LENGTH_LONG).show();
-                    try {
-                        Intent vlc = new Intent(Intent.ACTION_VIEW);
-                        Uri u = Uri.parse(url);
-                        vlc.setDataAndType(u, "video/*");
-                        vlc.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        if (title != null) vlc.putExtra("title", title);
-                        // Prefer VLC if installed
-                        try {
-                            getPackageManager().getPackageInfo("org.videolan.vlc", 0);
-                            vlc.setPackage("org.videolan.vlc");
-                        } catch (Exception ignored) {
-                            // Not installed, let chooser handle
+            public void onEvent(MediaPlayer.Event event) {
+                switch (event.type) {
+                    case MediaPlayer.Event.EncounteredError:
+                        handlePlayerError();
+                        break;
+                    case MediaPlayer.Event.EndReached:
+                        if (!isLive) {
+                            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                                @Override public void run() { finish(); }
+                            }, 1000);
                         }
-                        startActivity(vlc);
-                    } catch (Exception ignored) {
-                        try {
-                            Intent vlc2 = new Intent(Intent.ACTION_VIEW);
-                            vlc2.setDataAndType(Uri.parse(url), "video/*");
-                            vlc2.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            startActivity(Intent.createChooser(vlc2, "Ouvrir avec"));
-                        } catch (Exception ignored2) {}
-                    }
-                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                        @Override public void run() { finish(); }
-                    }, 1500);
-                    return;
-                }
-
-                String msg = "[" + error.getErrorCodeName() + "] " + (detail != null ? detail : "unknown");
-                Toast.makeText(ExoPlayerActivity.this, msg, Toast.LENGTH_LONG).show();
-
-                // Auto-fallback to external player for parsing/codec errors
-                boolean canFallback = (
-                    code == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
-                    code == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ||
-                    code == PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED ||
-                    code == PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED ||
-                    code == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
-                    code == PlaybackException.ERROR_CODE_DECODING_FAILED
-                );
-
-                if (canFallback) {
-                    Toast.makeText(ExoPlayerActivity.this, "Bascule vers VLC...", Toast.LENGTH_SHORT).show();
-                    launchExternalAndFinish();
-                } else if (code != PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED) {
-                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                        @Override public void run() { finish(); }
-                    }, 4000);
-                }
-            }
-
-            @Override
-            public void onPlaybackStateChanged(int state) {
-                if (state == Player.STATE_ENDED && !isLive) {
-                    finish();
+                        break;
                 }
             }
         });
+
+        loadAndPlay(url);
+    }
+
+    private void loadAndPlay(String mediaUrl) {
+        if (player == null || libVLC == null) return;
+        try {
+            Media media = new Media(libVLC, Uri.parse(mediaUrl));
+            media.setHWDecoderEnabled(true, false);
+            // Custom HTTP options for Stalker portals
+            if (customCookies != null && !customCookies.isEmpty()) {
+                media.addOption(":http-cookies=" + customCookies);
+            }
+            // Buffering for live
+            if (isLive) {
+                media.addOption(":network-caching=1500");
+                media.addOption(":live-caching=1500");
+            } else {
+                media.addOption(":network-caching=3000");
+            }
+            player.setMedia(media);
+            media.release();
+            player.play();
+        } catch (Exception e) {
+            Toast.makeText(this, "Erreur lecture: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void handlePlayerError() {
+        // Try alt extensions for VOD 404
+        if (!isLive && altExtensions != null && altExtIdx < altExtensions.length) {
+            String nextExt = altExtensions[altExtIdx++].trim();
+            if (!nextExt.isEmpty()) {
+                String newUrl = url.replaceAll("\\.[a-zA-Z0-9]+($|\\?)", "." + nextExt + "$1");
+                Toast.makeText(this, "Tentative ." + nextExt + "...", Toast.LENGTH_SHORT).show();
+                url = newUrl;
+                loadAndPlay(newUrl);
+                return;
+            }
+        }
+        // Else: fallback to external player
+        Toast.makeText(this, "Erreur lecture - bascule externe", Toast.LENGTH_SHORT).show();
+        launchExternalAndFinish();
     }
 
     private void hideSystemUi() {
@@ -326,15 +227,13 @@ public class ExoPlayerActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         hideSystemUi();
-        if (player != null) player.play();
+        if (player != null && !player.isPlaying()) player.play();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (player != null && !isInPipMode()) {
-            player.pause();
-        }
+        if (player != null && !isInPipMode()) player.pause();
     }
 
     private boolean isInPipMode() {
@@ -345,7 +244,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (player == null) return super.onKeyDown(keyCode, event);
 
-        // Bottom menu open → DPAD_UP / BACK closes it, LEFT/RIGHT navigate handled by HorizontalScrollView
+        // Bottom menu open → UP/BACK closes
         if (bottomMenuOpen) {
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_BACK) {
                 hideBottomMenu();
@@ -354,23 +253,16 @@ public class ExoPlayerActivity extends AppCompatActivity {
             return super.onKeyDown(keyCode, event);
         }
 
-        // DPAD_DOWN during normal playback → open bottom menu
+        // DPAD_DOWN opens bottom menu
         if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && !sidebarOpen && !groupSidebarOpen) {
             showBottomMenu();
             return true;
         }
 
-        // Group sidebar open → handle its keys
+        // Group sidebar open
         if (groupSidebarOpen) {
-            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                hideGroupSidebar(); // back to channels sidebar
-                return true;
-            }
-            if (keyCode == KeyEvent.KEYCODE_BACK) {
-                hideGroupSidebar();
-                hideSidebar();
-                return true;
-            }
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) { hideGroupSidebar(); return true; }
+            if (keyCode == KeyEvent.KEYCODE_BACK) { hideGroupSidebar(); hideSidebar(); return true; }
             return super.onKeyDown(keyCode, event);
         }
 
@@ -384,7 +276,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
                 showGroupSidebar();
                 return true;
             }
-            return super.onKeyDown(keyCode, event); // ListView consumes up/down/enter
+            return super.onKeyDown(keyCode, event);
         }
 
         switch (keyCode) {
@@ -395,112 +287,198 @@ public class ExoPlayerActivity extends AppCompatActivity {
             case KeyEvent.KEYCODE_MEDIA_STOP:
                 finish();
                 return true;
-            case 185: // KEYCODE_PROG_YELLOW: audio tracks
+            case 185: // PROG_YELLOW
             case KeyEvent.KEYCODE_A:
-                showTrackDialog(C.TRACK_TYPE_AUDIO, "Pistes audio");
+                showAudioTrackDialog();
                 return true;
-            case 186: // KEYCODE_PROG_BLUE: subtitle tracks
+            case 186: // PROG_BLUE
             case KeyEvent.KEYCODE_S:
-                showTrackDialog(C.TRACK_TYPE_TEXT, "Sous-titres");
+                showSubtitleTrackDialog();
                 return true;
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
-                if (!isLive) player.seekTo(player.getCurrentPosition() + 10000);
+                if (!isLive) player.setTime(player.getTime() + 10000);
                 return true;
             case KeyEvent.KEYCODE_DPAD_RIGHT:
-                if (!isLive) {
-                    player.seekTo(player.getCurrentPosition() + 10000);
-                    return true;
-                }
+                if (!isLive) { player.setTime(player.getTime() + 10000); return true; }
                 break;
             case KeyEvent.KEYCODE_MEDIA_REWIND:
-                if (!isLive) player.seekTo(Math.max(0, player.getCurrentPosition() - 10000));
+                if (!isLive) player.setTime(Math.max(0, player.getTime() - 10000));
                 return true;
             case KeyEvent.KEYCODE_DPAD_LEFT:
-                if (isLive && sidebarChannels.size() > 0) {
-                    showSidebar();
-                    return true;
-                }
-                if (!isLive) {
-                    player.seekTo(Math.max(0, player.getCurrentPosition() - 10000));
-                    return true;
-                }
+                if (isLive && sidebarChannels.size() > 0) { showSidebar(); return true; }
+                if (!isLive) { player.setTime(Math.max(0, player.getTime() - 10000)); return true; }
                 break;
         }
         return super.onKeyDown(keyCode, event);
     }
 
-    // ===== Bottom menu (DPAD_DOWN) =====
+    @Override
+    public void onBackPressed() {
+        long now = System.currentTimeMillis();
+        if (now - mLastBackPressTime < 1500) {
+            super.onBackPressed();
+        } else {
+            mLastBackPressTime = now;
+            Toast.makeText(this, "Appuyez encore pour quitter la lecture", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                && getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+                && player != null && player.isPlaying()) {
+            try {
+                android.app.PictureInPictureParams params = new android.app.PictureInPictureParams.Builder()
+                        .setAspectRatio(new Rational(16, 9)).build();
+                enterPictureInPictureMode(params);
+            } catch (Exception ignored) { }
+        }
+    }
+
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (sleepTimer != null) { sleepTimer.cancel(); sleepTimer = null; }
+        if (player != null) {
+            try { player.stop(); } catch (Exception ignored) {}
+            try { player.detachViews(); } catch (Exception ignored) {}
+            try { player.release(); } catch (Exception ignored) {}
+            player = null;
+        }
+        if (libVLC != null) {
+            try { libVLC.release(); } catch (Exception ignored) {}
+            libVLC = null;
+        }
+        super.onDestroy();
+    }
+
+    // ===== Audio / Subtitle track dialogs =====
+    private void showAudioTrackDialog() {
+        if (player == null) return;
+        MediaPlayer.TrackDescription[] tracks = player.getAudioTracks();
+        if (tracks == null || tracks.length == 0) {
+            Toast.makeText(this, "Aucune piste audio disponible", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        showTrackDialogVlc("Pistes audio", tracks, player.getAudioTrack(), new TrackSetter() {
+            @Override public void set(int id) { player.setAudioTrack(id); }
+        });
+    }
+
+    private void showSubtitleTrackDialog() {
+        if (player == null) return;
+        MediaPlayer.TrackDescription[] tracks = player.getSpuTracks();
+        if (tracks == null || tracks.length == 0) {
+            Toast.makeText(this, "Aucun sous-titre disponible", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        showTrackDialogVlc("Sous-titres", tracks, player.getSpuTrack(), new TrackSetter() {
+            @Override public void set(int id) { player.setSpuTrack(id); }
+        });
+    }
+
+    interface TrackSetter { void set(int id); }
+
+    private void showTrackDialogVlc(String title, MediaPlayer.TrackDescription[] tracks, int currentId, final TrackSetter setter) {
+        String[] labels = new String[tracks.length];
+        final int[] ids = new int[tracks.length];
+        int selected = 0;
+        for (int i = 0; i < tracks.length; i++) {
+            labels[i] = tracks[i].name != null ? tracks[i].name : ("Piste " + tracks[i].id);
+            ids[i] = tracks[i].id;
+            if (tracks[i].id == currentId) selected = i;
+        }
+        new AlertDialog.Builder(this, R.style.TransparentTrackDialog)
+            .setTitle(title)
+            .setSingleChoiceItems(labels, selected, new android.content.DialogInterface.OnClickListener() {
+                @Override public void onClick(android.content.DialogInterface dialog, int which) {
+                    setter.set(ids[which]);
+                    dialog.dismiss();
+                }
+            })
+            .setNegativeButton("Annuler", null)
+            .show();
+    }
+
+    // ===== Bottom menu =====
     private void setupBottomMenu() {
         if (bottomMenuRow == null) return;
         bottomMenuRow.removeAllViews();
-        addMenuItem(R.drawable.ic_audio, "Audio", () -> showTrackDialog(C.TRACK_TYPE_AUDIO, "Pistes audio"));
-        addMenuItem(R.drawable.ic_subtitles, "Sous-titres", () -> showTrackDialog(C.TRACK_TYPE_TEXT, "Sous-titres"));
-        addMenuItem(R.drawable.ic_aspect, "Format", this::cycleAspectRatio);
-        addMenuItem(R.drawable.ic_timer, "Veille", this::showSleepTimerDialog);
-        addMenuItem(R.drawable.ic_restart, "Redémarrer", () -> {
-            if (player != null) { player.seekTo(0); player.play(); }
-            hideBottomMenu();
+        addMenuItem(R.drawable.ic_audio, "Audio", new Runnable() { @Override public void run() { showAudioTrackDialog(); } });
+        addMenuItem(R.drawable.ic_subtitles, "Sous-titres", new Runnable() { @Override public void run() { showSubtitleTrackDialog(); } });
+        addMenuItem(R.drawable.ic_aspect, "Format", new Runnable() { @Override public void run() { cycleAspectRatio(); } });
+        addMenuItem(R.drawable.ic_timer, "Veille", new Runnable() { @Override public void run() { showSleepTimerDialog(); } });
+        addMenuItem(R.drawable.ic_restart, "Redémarrer", new Runnable() {
+            @Override public void run() {
+                if (player != null) { player.setTime(0); player.play(); }
+                hideBottomMenu();
+            }
         });
-        addMenuItem(R.drawable.ic_pause_play, "Pause/Play", () -> {
-            if (player != null) { if (player.isPlaying()) player.pause(); else player.play(); }
-            hideBottomMenu();
+        addMenuItem(R.drawable.ic_pause_play, "Pause/Play", new Runnable() {
+            @Override public void run() {
+                if (player != null) { if (player.isPlaying()) player.pause(); else player.play(); }
+                hideBottomMenu();
+            }
         });
-        addMenuItem(R.drawable.ic_stop, "Arrêter", this::finish);
+        addMenuItem(R.drawable.ic_stop, "Arrêter", new Runnable() { @Override public void run() { finish(); } });
     }
 
-    private void addMenuItem(int iconRes, String label, Runnable action) {
-        android.view.View item = LayoutInflater.from(this).inflate(R.layout.item_bottom_menu, bottomMenuRow, false);
+    private void addMenuItem(int iconRes, String label, final Runnable action) {
+        View item = LayoutInflater.from(this).inflate(R.layout.item_bottom_menu, bottomMenuRow, false);
         ((android.widget.ImageView) item.findViewById(R.id.menu_icon_img)).setImageResource(iconRes);
         ((TextView) item.findViewById(R.id.menu_label)).setText(label);
-        item.setOnClickListener(v -> action.run());
+        item.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { action.run(); }
+        });
         bottomMenuRow.addView(item);
     }
 
     private void showBottomMenu() {
         if (bottomMenu == null) return;
-        // Hide the ExoPlayer default controls to avoid overlap
-        if (playerView != null) {
-            playerView.hideController();
-            playerView.setUseController(false);
-        }
         bottomMenu.setVisibility(View.VISIBLE);
         AlphaAnimation a = new AlphaAnimation(0f, 1f);
         a.setDuration(150);
         bottomMenu.startAnimation(a);
         bottomMenuOpen = true;
-        if (bottomMenuRow.getChildCount() > 0) {
-            bottomMenuRow.getChildAt(0).requestFocus();
-        }
+        if (bottomMenuRow.getChildCount() > 0) bottomMenuRow.getChildAt(0).requestFocus();
     }
 
     private void hideBottomMenu() {
         if (bottomMenu == null) return;
         bottomMenu.setVisibility(View.GONE);
         bottomMenuOpen = false;
-        // Restore ExoPlayer controls
-        if (playerView != null) {
-            playerView.setUseController(true);
-        }
-        playerView.requestFocus();
+        if (playerView != null) playerView.requestFocus();
     }
 
-    @SuppressLint("UnsafeOptInUsageError")
     private void cycleAspectRatio() {
-        if (playerView == null) return;
-        int current = playerView.getResizeMode();
-        int next;
+        if (player == null) return;
+        // libVLC aspect ratio cycle: auto → 16:9 → 4:3 → 1:1 → fill → auto
+        String current = player.getAspectRatio();
+        String next;
         String label;
-        switch (current) {
-            case androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT:
-                next = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL; label = "Étirer (Fill)"; break;
-            case androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL:
-                next = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM; label = "Zoom (rempli)"; break;
-            case androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM:
-                next = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH; label = "Largeur fixe"; break;
-            default:
-                next = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT; label = "Ajusté 16:9"; break;
+        if (current == null) {
+            next = "16:9"; label = "16:9";
+        } else if ("16:9".equals(current)) {
+            next = "4:3"; label = "4:3";
+        } else if ("4:3".equals(current)) {
+            next = "1:1"; label = "1:1";
+        } else if ("1:1".equals(current)) {
+            // Switch to fill mode via scale
+            player.setAspectRatio(null);
+            player.setScale(1f);
+            Toast.makeText(this, "Remplir", Toast.LENGTH_SHORT).show();
+            return;
+        } else {
+            next = null; label = "Auto";
+            player.setScale(0f);
         }
-        playerView.setResizeMode(next);
+        player.setAspectRatio(next);
         Toast.makeText(this, label, Toast.LENGTH_SHORT).show();
     }
 
@@ -508,76 +486,55 @@ public class ExoPlayerActivity extends AppCompatActivity {
         String[] options = new String[] { "Annuler veille", "15 min", "30 min", "60 min", "90 min", "120 min" };
         new AlertDialog.Builder(this, R.style.TransparentTrackDialog)
             .setTitle("Veille programmée")
-            .setItems(options, (dialog, which) -> {
-                if (sleepTimer != null) { sleepTimer.cancel(); sleepTimer = null; }
-                if (which == 0) {
-                    Toast.makeText(this, "Veille annulée", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                int[] mins = new int[] { 0, 15, 30, 60, 90, 120 };
-                long durationMs = mins[which] * 60L * 1000L;
-                sleepTimer = new android.os.CountDownTimer(durationMs, 60000) {
-                    @Override public void onTick(long ms) {}
-                    @Override public void onFinish() {
-                        Toast.makeText(ExoPlayerActivity.this, "Veille - lecture arrêtée", Toast.LENGTH_SHORT).show();
-                        finish();
+            .setItems(options, new android.content.DialogInterface.OnClickListener() {
+                @Override public void onClick(android.content.DialogInterface dialog, int which) {
+                    if (sleepTimer != null) { sleepTimer.cancel(); sleepTimer = null; }
+                    if (which == 0) {
+                        Toast.makeText(ExoPlayerActivity.this, "Veille annulée", Toast.LENGTH_SHORT).show();
+                        return;
                     }
-                }.start();
-                Toast.makeText(this, "Veille dans " + mins[which] + " min", Toast.LENGTH_SHORT).show();
+                    int[] mins = new int[] { 0, 15, 30, 60, 90, 120 };
+                    long durationMs = mins[which] * 60L * 1000L;
+                    sleepTimer = new android.os.CountDownTimer(durationMs, 60000) {
+                        @Override public void onTick(long ms) {}
+                        @Override public void onFinish() {
+                            Toast.makeText(ExoPlayerActivity.this, "Veille - arrêt", Toast.LENGTH_SHORT).show();
+                            finish();
+                        }
+                    }.start();
+                    Toast.makeText(ExoPlayerActivity.this, "Veille dans " + mins[which] + " min", Toast.LENGTH_SHORT).show();
+                }
             })
             .setNegativeButton("Annuler", null)
             .show();
         hideBottomMenu();
     }
 
-    private void launchExternalAndFinish() {
-        try {
-            Intent vlc = new Intent(Intent.ACTION_VIEW);
-            Uri u = Uri.parse(url);
-            String mime = url.toLowerCase().contains(".m3u8") || url.toLowerCase().contains("/live/")
-                ? "application/x-mpegURL" : "video/*";
-            vlc.setDataAndType(u, mime);
-            vlc.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            if (title != null) vlc.putExtra("title", title);
-            try {
-                getPackageManager().getPackageInfo("org.videolan.vlc", 0);
-                vlc.setPackage("org.videolan.vlc");
-                startActivity(vlc);
-            } catch (Exception ignored) {
-                startActivity(Intent.createChooser(vlc, "Ouvrir avec"));
-            }
-        } catch (Exception e) {
-            Toast.makeText(this, "Aucun lecteur disponible : " + e.getMessage(), Toast.LENGTH_LONG).show();
-        }
-        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override public void run() { finish(); }
-        }, 800);
-    }
-
-    // ===== Channel sidebar =====
+    // ===== Channel sidebar (LEFT key) =====
     private void setupChannelSidebar() {
         String channelsJson = getIntent().getStringExtra("channels");
         sidebarCurrentIdx = getIntent().getIntExtra("currentChannelIdx", -1);
-
         if (channelsJson == null || channelsJson.isEmpty()) return;
         try {
             JSONArray arr = new JSONArray(channelsJson);
             for (int i = 0; i < arr.length(); i++) sidebarChannels.add(arr.getJSONObject(i));
-        } catch (Exception e) {
-            sidebarChannels.clear();
-        }
+        } catch (Exception e) { sidebarChannels.clear(); }
         if (sidebarChannels.isEmpty()) return;
 
         ChannelAdapter adapter = new ChannelAdapter(this, sidebarChannels);
         channelListView.setAdapter(adapter);
-        channelListView.setOnItemClickListener((parent, view, position, id) -> selectChannel(position));
+        channelListView.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener() {
+            @Override public void onItemClick(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                selectChannel(position);
+            }
+        });
         if (sidebarCurrentIdx >= 0 && sidebarCurrentIdx < sidebarChannels.size()) {
             channelListView.setItemChecked(sidebarCurrentIdx, true);
         }
     }
 
     private void showSidebar() {
-        if (channelSidebar == null) return;
+        if (channelSidebar == null || sidebarChannels.isEmpty()) return;
         channelSidebar.setVisibility(View.VISIBLE);
         AlphaAnimation a = new AlphaAnimation(0f, 1f);
         a.setDuration(180);
@@ -585,9 +542,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
         sidebarOpen = true;
         channelListView.requestFocus();
         int sel = sidebarCurrentIdx >= 0 ? sidebarCurrentIdx : 0;
-        if (sel < sidebarChannels.size()) {
-            channelListView.setSelection(sel);
-        }
+        if (sel < sidebarChannels.size()) channelListView.setSelection(sel);
     }
 
     private void hideSidebar() {
@@ -601,7 +556,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
         });
         channelSidebar.startAnimation(a);
         sidebarOpen = false;
-        playerView.requestFocus();
+        if (playerView != null) playerView.requestFocus();
     }
 
     private void selectChannel(final int position) {
@@ -609,7 +564,6 @@ public class ExoPlayerActivity extends AppCompatActivity {
         final JSONObject ch = sidebarChannels.get(position);
         String newUrl = ch.optString("url", "");
         if (newUrl.isEmpty()) {
-            // No pre-resolved URL: bail back to MainActivity for JS re-resolution
             Intent result = new Intent();
             result.putExtra("switchToStreamId", ch.optString("stream_id"));
             result.putExtra("switchToIndex", position);
@@ -617,30 +571,25 @@ public class ExoPlayerActivity extends AppCompatActivity {
             finish();
             return;
         }
-
-        // If it's a Stalker create_link URL, resolve in background (current channel keeps playing)
+        // Stalker URL? Resolve in background, keep current channel playing meanwhile
         if (newUrl.contains("create_link") && customCookies != null) {
             final String apiUrl = newUrl;
-            Toast.makeText(this, "Résolution " + ch.optString("name") + "...", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Chargement " + ch.optString("name") + "...", Toast.LENGTH_SHORT).show();
             hideSidebar();
             new Thread(new Runnable() {
                 @Override public void run() {
                     final String resolved = resolveStalkerLink(apiUrl);
                     runOnUiThread(new Runnable() {
-                        @Override public void run() {
-                            playUrlInPlace(position, ch, resolved);
-                        }
+                        @Override public void run() { playUrlInPlace(position, ch, resolved); }
                     });
                 }
             }).start();
             return;
         }
-
         playUrlInPlace(position, ch, newUrl);
         hideSidebar();
     }
 
-    @SuppressLint("UnsafeOptInUsageError")
     private void playUrlInPlace(int position, JSONObject ch, String newUrl) {
         if (newUrl == null || newUrl.isEmpty()) {
             Toast.makeText(this, "Lien introuvable", Toast.LENGTH_SHORT).show();
@@ -650,16 +599,8 @@ public class ExoPlayerActivity extends AppCompatActivity {
         title = ch.optString("name", title);
         url = newUrl;
         if (player != null) {
-            MediaItem.Builder b = new MediaItem.Builder().setUri(Uri.parse(newUrl));
-            String lower = newUrl.toLowerCase();
-            if (lower.contains("/live/") || lower.contains(".m3u8") || lower.contains("/hls/")) {
-                b.setMimeType(MimeTypes.APPLICATION_M3U8);
-            } else if (lower.endsWith(".ts") || lower.contains(".ts?")) {
-                b.setMimeType(MimeTypes.VIDEO_MP2T);
-            }
-            player.setMediaItem(b.build());
-            player.prepare();
-            player.play();
+            try { player.stop(); } catch (Exception ignored) {}
+            loadAndPlay(newUrl);
         }
         Toast.makeText(this, ch.optString("name"), Toast.LENGTH_SHORT).show();
     }
@@ -686,18 +627,13 @@ public class ExoPlayerActivity extends AppCompatActivity {
             String line;
             while ((line = br.readLine()) != null) sb.append(line);
             br.close();
-            String raw = sb.toString();
-            // Parse JSON to extract js.cmd
-            JSONObject root = new JSONObject(raw);
+            JSONObject root = new JSONObject(sb.toString());
             JSONObject js = root.optJSONObject("js");
             if (js == null) return apiUrl;
-            String cmd = js.optString("cmd", "");
+            String cmd = js.optString("cmd", "").trim();
             if (cmd.isEmpty()) return apiUrl;
-            // Strip "ffmpeg " / "auto " prefix
             cmd = cmd.replaceFirst("^(ffmpeg|auto)\\s+", "");
-            // Keep first URL token
-            String[] parts = cmd.split("\\s+");
-            for (String t : parts) {
+            for (String t : cmd.split("\\s+")) {
                 if (t.startsWith("http://") || t.startsWith("https://") || t.startsWith("rtmp://") || t.startsWith("rtsp://")) {
                     return t;
                 }
@@ -725,21 +661,22 @@ public class ExoPlayerActivity extends AppCompatActivity {
         }
     }
 
-    // ===== Group sidebar =====
+    // ===== Group sidebar (LEFT 2x) =====
     private void setupGroupSidebar() {
         String groupsJson = getIntent().getStringExtra("groups");
         if (groupsJson == null || groupsJson.isEmpty()) return;
         try {
             JSONArray arr = new JSONArray(groupsJson);
             for (int i = 0; i < arr.length(); i++) sidebarGroups.add(arr.getJSONObject(i));
-        } catch (Exception e) {
-            sidebarGroups.clear();
-        }
+        } catch (Exception e) { sidebarGroups.clear(); }
         if (sidebarGroups.isEmpty()) return;
-
         ChannelAdapter adapter = new ChannelAdapter(this, sidebarGroups);
         groupListView.setAdapter(adapter);
-        groupListView.setOnItemClickListener((parent, view, position, id) -> selectGroup(position));
+        groupListView.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener() {
+            @Override public void onItemClick(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                selectGroup(position);
+            }
+        });
     }
 
     private void showGroupSidebar() {
@@ -767,78 +704,9 @@ public class ExoPlayerActivity extends AppCompatActivity {
         channelListView.requestFocus();
     }
 
-    @SuppressLint("UnsafeOptInUsageError")
-    private void showTrackDialog(int trackType, String title) {
-        if (player == null) return;
-        Tracks tracks = player.getCurrentTracks();
-        if (tracks == null || tracks.isEmpty()) {
-            Toast.makeText(this, "Aucune piste disponible", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        List<Tracks.Group> typeGroups = new ArrayList<>();
-        for (Tracks.Group g : tracks.getGroups()) {
-            if (g.getType() == trackType) typeGroups.add(g);
-        }
-        if (typeGroups.isEmpty()) {
-            Toast.makeText(this, "Aucune piste pour ce type", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        List<String> labels = new ArrayList<>();
-        List<TrackSelectionOverride> overrides = new ArrayList<>();
-        int selectedIdx = 0;
-        int currentIdx = 0;
-
-        // Auto / Disable option
-        labels.add(trackType == C.TRACK_TYPE_TEXT ? "Désactivés" : "Auto");
-        overrides.add(null);
-
-        for (Tracks.Group group : typeGroups) {
-            TrackGroup tg = group.getMediaTrackGroup();
-            for (int i = 0; i < tg.length; i++) {
-                Format fmt = tg.getFormat(i);
-                String label = "";
-                if (fmt.language != null && !fmt.language.equals("und")) label = fmt.language.toUpperCase();
-                if (fmt.label != null && !fmt.label.isEmpty()) label = (label.isEmpty() ? "" : label + " · ") + fmt.label;
-                if (label.isEmpty()) label = "Piste " + (i + 1);
-                if (fmt.codecs != null) label += " (" + fmt.codecs.split("\\.")[0] + ")";
-                labels.add(label);
-                overrides.add(new TrackSelectionOverride(tg, i));
-                if (group.isTrackSelected(i)) selectedIdx = labels.size() - 1;
-            }
-        }
-
-        String[] arr = labels.toArray(new String[0]);
-        new AlertDialog.Builder(this, R.style.TransparentTrackDialog)
-            .setTitle(title)
-            .setSingleChoiceItems(arr, selectedIdx, (dialog, which) -> {
-                TrackSelectionParameters.Builder pb = player.getTrackSelectionParameters().buildUpon();
-                if (which == 0) {
-                    // Disable / auto
-                    if (trackType == C.TRACK_TYPE_TEXT) {
-                        pb.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true);
-                    } else {
-                        pb.clearOverridesOfType(trackType);
-                        pb.setTrackTypeDisabled(trackType, false);
-                    }
-                } else {
-                    TrackSelectionOverride override = overrides.get(which);
-                    pb.clearOverridesOfType(trackType);
-                    pb.setTrackTypeDisabled(trackType, false);
-                    if (override != null) pb.addOverride(override);
-                }
-                player.setTrackSelectionParameters(pb.build());
-                dialog.dismiss();
-            })
-            .setNegativeButton("Annuler", null)
-            .show();
-    }
-
     private void selectGroup(int position) {
         if (position < 0 || position >= sidebarGroups.size()) return;
         JSONObject group = sidebarGroups.get(position);
-        // Signal MainActivity to switch to this group then play first channel
         Intent result = new Intent();
         result.putExtra("switchToGroupId", group.optString("category_id"));
         result.putExtra("switchToGroupName", group.optString("category_name"));
@@ -846,34 +714,28 @@ public class ExoPlayerActivity extends AppCompatActivity {
         finish();
     }
 
-    @Override
-    public void onUserLeaveHint() {
-        super.onUserLeaveHint();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                && getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-                && player != null && player.isPlaying()) {
+    // ===== External player fallback =====
+    private void launchExternalAndFinish() {
+        try {
+            Intent vlc = new Intent(Intent.ACTION_VIEW);
+            Uri u = Uri.parse(url);
+            String mime = url.toLowerCase().contains(".m3u8") || url.toLowerCase().contains("/live/")
+                ? "application/x-mpegURL" : "video/*";
+            vlc.setDataAndType(u, mime);
+            vlc.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (title != null) vlc.putExtra("title", title);
             try {
-                android.app.PictureInPictureParams params = new android.app.PictureInPictureParams.Builder()
-                        .setAspectRatio(new Rational(16, 9)).build();
-                enterPictureInPictureMode(params);
-            } catch (Exception ignored) { }
+                getPackageManager().getPackageInfo("org.videolan.vlc", 0);
+                vlc.setPackage("org.videolan.vlc");
+                startActivity(vlc);
+            } catch (Exception ignored) {
+                startActivity(Intent.createChooser(vlc, "Ouvrir avec"));
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Aucun lecteur disponible : " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
-    }
-
-    @Override
-    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
-        if (playerView != null) {
-            playerView.setUseController(!isInPictureInPictureMode);
-        }
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (player != null) {
-            player.release();
-            player = null;
-        }
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override public void run() { finish(); }
+        }, 800);
     }
 }

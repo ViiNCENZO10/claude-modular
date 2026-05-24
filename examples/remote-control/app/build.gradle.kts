@@ -58,7 +58,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.webkit:webkit:1.10.0")
 
-    // Media3 ExoPlayer - native player with HEVC, Dolby AC3/EAC3, DTS passthrough
+    // Media3 ExoPlayer - kept for HLS adaptive + fallback option
     val media3Version = "1.3.1"
     implementation("androidx.media3:media3-exoplayer:$media3Version")
     implementation("androidx.media3:media3-exoplayer-hls:$media3Version")
@@ -67,4 +67,8 @@ dependencies {
     implementation("androidx.media3:media3-datasource:$media3Version")
     implementation("androidx.media3:media3-common:$media3Version")
     implementation("androidx.media3:media3-extractor:$media3Version")
+
+    // libVLC for Android - universal codec support (AVI, MOV, AC3, DTS, DivX, ...)
+    // Includes FFmpeg + all native ABIs (~30 MB but plays everything)
+    implementation("org.videolan.android:libvlc-all:3.6.5")
 }
