@@ -130,6 +130,35 @@
     // EPG : RAM seulement (change toutes les 30 min, pas la peine de persister)
     withCache(api, 'getShortEPG', 0);
     withCache(api, 'getFullEPG', 0);
+
+    // ===== Warmup background =====
+    // Des que l'API est prete et cachee, on prefetch en parallele
+    // categories + premiere liste de chaque section. L'utilisateur clique sur
+    // "Live TV" / "Films" / "Series" => deja chaud, affichage instantane.
+    if (!api._warmupDone) {
+      api._warmupDone = true;
+      setTimeout(function() {
+        try {
+          // Categories en parallele
+          var ps = [];
+          if (typeof api.getLiveCategories === 'function')
+            ps.push(api.getLiveCategories().catch(function() {}));
+          if (typeof api.getVodCategories === 'function')
+            ps.push(api.getVodCategories().catch(function() {}));
+          if (typeof api.getSeriesCategories === 'function')
+            ps.push(api.getSeriesCategories().catch(function() {}));
+          // Une fois les categories arrivees, prefetch la premiere liste de chaque section
+          Promise.all(ps).then(function() {
+            if (typeof api.getLiveStreams === 'function')
+              api.getLiveStreams().catch(function() {});
+            if (typeof api.getVod === 'function')
+              api.getVod().catch(function() {});
+            if (typeof api.getSeries === 'function')
+              api.getSeries().catch(function() {});
+          });
+        } catch (e) {}
+      }, 800); // 800ms apres login pour ne pas concurrencer le premier fetch UI
+    }
     return true;
   }
 

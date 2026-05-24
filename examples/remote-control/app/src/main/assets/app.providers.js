@@ -145,7 +145,7 @@ class StalkerProvider {
     var endPage = Math.min(pagesNeeded, lastPage);
     if (endPage > 1) {
       // Parallel fetch pages 2..endPage in chunks of 4
-      var CHUNK = 4;
+      var CHUNK = 8;
       for (var start = 2; start <= endPage; start += CHUNK) {
         var chunkEnd = Math.min(start + CHUNK - 1, endPage);
         var promises = [];
@@ -181,7 +181,7 @@ class StalkerProvider {
     var endPage = Math.min(startPage + pagesNeeded - 1, lastPage);
 
     var all = [];
-    var CHUNK = 4;
+    var CHUNK = 8;
     for (var start = startPage; start <= endPage; start += CHUNK) {
       var chunkEnd = Math.min(start + CHUNK - 1, endPage);
       var promises = [];

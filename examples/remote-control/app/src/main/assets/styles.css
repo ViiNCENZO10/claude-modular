@@ -1083,8 +1083,9 @@ html, body {
   overflow-y: auto;
   padding: 16px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 16px;
+  /* Posters plus grands : ~220x330px sur TV 1080p au lieu de 160x240 */
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 18px;
   align-content: start;
 }
 
@@ -2098,8 +2099,8 @@ html, body {
     gap: 12px;
   }
   .vod-grid {
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 14px;
   }
   .vod-detail-layout {
     flex-direction: column;
