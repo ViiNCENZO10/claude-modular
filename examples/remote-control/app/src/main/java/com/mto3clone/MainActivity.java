@@ -1,12 +1,17 @@
 package com.mto3clone;
 
 import android.annotation.SuppressLint;
+import android.app.PictureInPictureParams;
+import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Rational;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -78,6 +83,9 @@ public class MainActivity extends AppCompatActivity {
 
         // Hardware acceleration layer
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
+        // JS bridge for Picture-in-Picture trigger from web layer
+        webView.addJavascriptInterface(new AndroidBridge(), "AndroidBridge");
 
         // Keep navigation inside WebView
         webView.setWebViewClient(new WebViewClient() {
@@ -164,5 +172,55 @@ public class MainActivity extends AppCompatActivity {
             webView.destroy();
         }
         super.onDestroy();
+    }
+
+    // ===== Picture-in-Picture =====
+    private boolean hasPipSupport() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false;
+        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE);
+    }
+
+    public void triggerPip() {
+        if (!hasPipSupport()) return;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        PictureInPictureParams params = new PictureInPictureParams.Builder()
+                                .setAspectRatio(new Rational(16, 9))
+                                .build();
+                        enterPictureInPictureMode(params);
+                    }
+                } catch (Exception ignored) { }
+            }
+        });
+    }
+
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+        if (!isInPictureInPictureMode) {
+            enterImmersiveMode();
+        }
+    }
+
+    @Override
+    public void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        // Auto-enter PiP when user presses Home while video is playing (Android TV friendly)
+        try {
+            if (customView != null && hasPipSupport()) {
+                triggerPip();
+            }
+        } catch (Exception ignored) { }
+    }
+
+    public class AndroidBridge {
+        @JavascriptInterface
+        public void enterPip() { triggerPip(); }
+
+        @JavascriptInterface
+        public boolean supportsPip() { return hasPipSupport(); }
     }
 }

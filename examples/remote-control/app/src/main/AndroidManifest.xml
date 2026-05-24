@@ -10,6 +10,9 @@
     <uses-feature
         android:name="android.hardware.touchscreen"
         android:required="false" />
+    <uses-feature
+        android:name="android.software.picture_in_picture"
+        android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -21,9 +24,11 @@
 
         <activity
             android:name=".MainActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
             android:exported="true"
-            android:screenOrientation="landscape">
+            android:screenOrientation="landscape"
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true">
 
             <!-- Standard launcher -->
             <intent-filter>

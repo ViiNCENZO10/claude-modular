@@ -24,25 +24,25 @@
 
       <form id="loginForm" class="login-form" autocomplete="off">
         <div class="form-group">
-          <label for="serverUrl">Server URL</label>
+          <label for="serverUrl" data-i18n="Server URL">Server URL</label>
           <input type="url" id="serverUrl" placeholder="http://example.com:port" required>
         </div>
         <div class="form-group">
-          <label for="username">Username</label>
+          <label for="username" data-i18n="Username">Username</label>
           <input type="text" id="username" placeholder="Enter username" required>
         </div>
         <div class="form-group">
-          <label for="password">Password</label>
+          <label for="password" data-i18n="Password">Password</label>
           <input type="password" id="password" placeholder="Enter password" required>
         </div>
         <div class="form-actions">
-          <button type="button" id="btnAddPortal" class="btn btn-secondary">Add Portal</button>
-          <button type="submit" id="btnLogin" class="btn btn-primary">Login</button>
+          <button type="button" id="btnAddPortal" class="btn btn-secondary" data-i18n="Add Portal">Add Portal</button>
+          <button type="submit" id="btnLogin" class="btn btn-primary" data-i18n="Login">Login</button>
         </div>
       </form>
 
       <div id="savedPortals" class="saved-portals">
-        <h3>Saved Portals</h3>
+        <h3 data-i18n="Saved Portals">Saved Portals</h3>
         <ul id="portalList" class="portal-list"></ul>
       </div>
 
@@ -69,43 +69,43 @@
       </div>
     </div>
     <div class="home-content">
-      <h2 class="home-greeting" id="homeGreeting">Welcome</h2>
+      <h2 class="home-greeting" id="homeGreeting" data-i18n="Welcome">Welcome</h2>
       <div class="nav-grid">
         <div class="nav-card focusable" data-screen="live" tabindex="0">
           <div class="nav-card-icon">
             <svg viewBox="0 0 48 48" fill="none"><rect x="6" y="10" width="36" height="24" rx="3" stroke="currentColor" stroke-width="2.5"/><line x1="18" y1="38" x2="30" y2="38" stroke="currentColor" stroke-width="2.5"/><line x1="24" y1="34" x2="24" y2="38" stroke="currentColor" stroke-width="2.5"/><polygon points="20,17 20,29 31,23" fill="currentColor"/></svg>
           </div>
-          <span class="nav-card-label">Live TV</span>
+          <span class="nav-card-label" data-i18n="Live TV">Live TV</span>
         </div>
         <div class="nav-card focusable" data-screen="vod" tabindex="0">
           <div class="nav-card-icon">
             <svg viewBox="0 0 48 48" fill="none"><rect x="8" y="6" width="32" height="36" rx="3" stroke="currentColor" stroke-width="2.5"/><circle cx="24" cy="22" r="8" stroke="currentColor" stroke-width="2"/><polygon points="22,19 22,25 27,22" fill="currentColor"/><line x1="14" y1="36" x2="34" y2="36" stroke="currentColor" stroke-width="2"/></svg>
           </div>
-          <span class="nav-card-label">Movies</span>
+          <span class="nav-card-label" data-i18n="Movies">Movies</span>
         </div>
         <div class="nav-card focusable" data-screen="series" tabindex="0">
           <div class="nav-card-icon">
             <svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="16" height="22" rx="2" stroke="currentColor" stroke-width="2"/><rect x="16" y="12" width="16" height="22" rx="2" stroke="currentColor" stroke-width="2"/><rect x="28" y="16" width="16" height="22" rx="2" stroke="currentColor" stroke-width="2"/></svg>
           </div>
-          <span class="nav-card-label">Series</span>
+          <span class="nav-card-label" data-i18n="Series">Series</span>
         </div>
         <div class="nav-card focusable" data-screen="catchup" tabindex="0">
           <div class="nav-card-icon">
             <svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="16" stroke="currentColor" stroke-width="2.5"/><polyline points="24,14 24,24 32,28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M10,8 L6,14" stroke="currentColor" stroke-width="2"/><path d="M38,8 L42,14" stroke="currentColor" stroke-width="2"/></svg>
           </div>
-          <span class="nav-card-label">Catchup</span>
+          <span class="nav-card-label" data-i18n="Catchup">Catchup</span>
         </div>
         <div class="nav-card focusable" data-screen="epg" tabindex="0">
           <div class="nav-card-icon">
             <svg viewBox="0 0 48 48" fill="none"><rect x="6" y="8" width="36" height="32" rx="3" stroke="currentColor" stroke-width="2.5"/><line x1="6" y1="16" x2="42" y2="16" stroke="currentColor" stroke-width="2"/><line x1="18" y1="16" x2="18" y2="40" stroke="currentColor" stroke-width="2"/><rect x="20" y="19" width="10" height="5" rx="1" fill="currentColor" opacity="0.4"/><rect x="20" y="27" width="18" height="5" rx="1" fill="currentColor" opacity="0.4"/></svg>
           </div>
-          <span class="nav-card-label">EPG Guide</span>
+          <span class="nav-card-label" data-i18n="EPG Guide">EPG Guide</span>
         </div>
         <div class="nav-card focusable" data-screen="settings" tabindex="0">
           <div class="nav-card-icon">
             <svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="8" stroke="currentColor" stroke-width="2.5"/><path d="M24,4 v6 M24,38 v6 M4,24 h6 M38,24 h6 M10.1,10.1 l4.2,4.2 M33.7,33.7 l4.2,4.2 M10.1,37.9 l4.2-4.2 M33.7,14.3 l4.2-4.2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
           </div>
-          <span class="nav-card-label">Settings</span>
+          <span class="nav-card-label" data-i18n="Settings">Settings</span>
         </div>
       </div>
       <div class="home-info-bar">
@@ -573,5 +573,6 @@
   <div id="toast" class="toast" style="display:none;"></div>
 
   <script src="app.js"></script>
+  <script src="app.features.js"></script>
 </body>
 </html>
