@@ -40,23 +40,69 @@ function buildChannelsJsonForLive() {
     if (!AppState || !AppState.liveStreams || !AppState.api) return null;
     var providerType = AppState.api.providerType || 'xtream';
     var ext = (AppState.settings && AppState.settings.streamType) || 'm3u8';
-    var list = AppState.liveStreams.slice(0, 200); // cap to avoid Intent size limits
+    var list = AppState.liveStreams.slice(0, 200);
+    // EPG cache map - filled by background prefetch
+    var epgMap = (AppState._nowEpgMap || {});
     var data = list.map(function(s) {
       var entry = {
         stream_id: String(s.stream_id),
         num: s.num || '',
-        name: s.name || ''
+        name: s.name || '',
+        now: epgMap[s.stream_id] || ''
       };
-      // Pre-resolve URL for Xtream and M3U (Stalker resolved on selection)
       if (providerType === 'xtream' && typeof AppState.api.liveUrl === 'function') {
         try { entry.url = AppState.api.liveUrl(s.stream_id, ext); } catch (e) {}
       } else if (providerType === 'm3u' && s._url) {
         entry.url = s._url;
+      } else if (providerType === 'stalker') {
+        // Pre-build the create_link API URL with cmd if known
+        try { entry.url = AppState.api.liveUrl(s.stream_id, ext); } catch (e) {}
       }
       return entry;
     });
     return JSON.stringify(data);
   } catch (e) { return null; }
+}
+
+// Background EPG prefetch — populates AppState._nowEpgMap[stream_id] = "current program title"
+// Called after liveStreams are loaded; non-blocking
+async function prefetchNowEpg() {
+  if (!AppState || !AppState.api || !AppState.liveStreams) return;
+  if (typeof AppState.api.getShortEPG !== 'function') return;
+  AppState._nowEpgMap = AppState._nowEpgMap || {};
+  var streams = AppState.liveStreams.slice(0, 50); // top 50 only
+  // Parallel batches of 5
+  var BATCH = 5;
+  for (var i = 0; i < streams.length; i += BATCH) {
+    var chunk = streams.slice(i, i + BATCH);
+    await Promise.all(chunk.map(async function(s) {
+      try {
+        var data = await AppState.api.getShortEPG(s.stream_id);
+        var listings = (data && data.epg_listings) ? data.epg_listings : [];
+        // Find current program (start <= now <= end)
+        var nowMs = Date.now();
+        for (var j = 0; j < listings.length; j++) {
+          var p = listings[j];
+          var startMs = parseInt(p.start) * 1000;
+          var endMs = parseInt(p.end || p.stop) * 1000;
+          if (isNaN(startMs)) { startMs = Date.parse(p.start); endMs = Date.parse(p.end || p.stop || ''); }
+          if (!isNaN(startMs) && !isNaN(endMs) && startMs <= nowMs && nowMs <= endMs) {
+            AppState._nowEpgMap[s.stream_id] = p.title || p.name || '';
+            break;
+          }
+        }
+      } catch (e) {}
+    }));
+  }
+}
+
+// Trigger prefetch after live streams loaded (debounced)
+var _epgPrefetchTimer = null;
+function scheduleEpgPrefetch() {
+  if (_epgPrefetchTimer) clearTimeout(_epgPrefetchTimer);
+  _epgPrefetchTimer = setTimeout(function() {
+    prefetchNowEpg().catch(function() {});
+  }, 500);
 }
 
 async function nativePlay(url, title, isLive) {
@@ -238,6 +284,18 @@ function injectExoStyles() {
 
 window.addEventListener('DOMContentLoaded', function() {
   injectExoStyles();
+
+  // Trigger EPG prefetch whenever live streams change
+  setTimeout(function() {
+    if (typeof window.initLiveScreen === 'function') {
+      var orig = window.initLiveScreen;
+      window.initLiveScreen = async function() {
+        var r = await orig.apply(this, arguments);
+        scheduleEpgPrefetch();
+        return r;
+      };
+    }
+  }, 1500);
 
   // Intercept startPlayer to route to native bridge when possible
   setTimeout(function() {
