@@ -165,14 +165,29 @@
     var code = e.keyCode || e.which;
 
     // DPAD_CENTER on some Android firmwares = code 23
-    var isEnter = (key === 'Enter' || code === 13 || code === 23);
-    var isBack = (key === 'Escape' || key === 'Backspace' || code === 27 || code === 8 || code === 4);
-    var isMenu = (key === 'ContextMenu' || code === 93 || code === 82);
+    // Comprehensive key matching for various remotes including universal
+    var isEnter = (
+      key === 'Enter' || key === ' ' || key === 'Spacebar' ||
+      code === 13 || code === 23 /* DPAD_CENTER */ ||
+      code === 32 /* SPACE */ || code === 66 /* KEYCODE_ENTER */ ||
+      code === 96 /* GAMEPAD A */ || code === 160 /* OK button on some TVs */
+    );
+    var isBack = (
+      key === 'Escape' || key === 'Backspace' || key === 'GoBack' ||
+      code === 27 || code === 8 || code === 4 /* KEYCODE_BACK */ ||
+      code === 461 /* Samsung back */ || code === 10009 /* WebOS back */
+    );
+    var isMenu = (
+      key === 'ContextMenu' ||
+      code === 93 || code === 82 /* KEYCODE_MENU */ ||
+      code === 18 /* Alt */ || code === 124 /* extra menu key */
+    );
 
-    if (key === 'ArrowUp'    || code === 38) { navigate('up');    e.preventDefault(); return; }
-    if (key === 'ArrowDown'  || code === 40) { navigate('down');  e.preventDefault(); return; }
-    if (key === 'ArrowLeft'  || code === 37) { navigate('left');  e.preventDefault(); return; }
-    if (key === 'ArrowRight' || code === 39) { navigate('right'); e.preventDefault(); return; }
+    // Arrow keys: standard browser codes (37-40) + Android native KEYCODE_DPAD_* (19-22)
+    if (key === 'ArrowUp'    || code === 38 || code === 19) { navigate('up');    e.preventDefault(); return; }
+    if (key === 'ArrowDown'  || code === 40 || code === 20) { navigate('down');  e.preventDefault(); return; }
+    if (key === 'ArrowLeft'  || code === 37 || code === 21) { navigate('left');  e.preventDefault(); return; }
+    if (key === 'ArrowRight' || code === 39 || code === 22) { navigate('right'); e.preventDefault(); return; }
 
     if (isEnter) {
       var done = activateFocused();
@@ -275,11 +290,46 @@
       ensureFocusable();
       startFocusableObserver();
 
-      // Hook into showScreen to auto-focus
+      // Hook into showScreen to auto-focus + ensure home nav-cards are bound
       if (typeof window.showScreen === 'function') {
         var orig = window.showScreen;
         window.showScreen = function(id) {
           var r = orig.apply(this, arguments);
+          // DEFENSIVE: re-bind nav-card click handlers if user lands on home without them
+          if (id === 'home') {
+            setTimeout(function() {
+              document.querySelectorAll('#home .nav-card[data-screen]').forEach(function(card) {
+                if (card.dataset.bound === '1') return;
+                card.dataset.bound = '1';
+                var target = card.getAttribute('data-screen');
+                card.addEventListener('click', function() {
+                  if (!window.AppState || !window.AppState.api) {
+                    showToast && showToast('Connectez-vous à un portail d\'abord');
+                    return;
+                  }
+                  if (typeof window.showScreen === 'function' && target) window.showScreen(target);
+                });
+                card.addEventListener('keydown', function(e) {
+                  if (e.key === 'Enter' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
+                    if (!window.AppState || !window.AppState.api) {
+                      showToast && showToast('Connectez-vous à un portail d\'abord');
+                      return;
+                    }
+                    if (typeof window.showScreen === 'function' && target) window.showScreen(target);
+                  }
+                });
+              });
+              // Also handle generic .focusable[data-screen] inside #home
+              document.querySelectorAll('#home [data-screen]:not(.nav-card)').forEach(function(el) {
+                if (el.dataset.bound === '1') return;
+                el.dataset.bound = '1';
+                var target = el.getAttribute('data-screen');
+                el.addEventListener('click', function() {
+                  if (typeof window.showScreen === 'function' && target) window.showScreen(target);
+                });
+              });
+            }, 50);
+          }
           focusFirstAfterScreenChange();
           return r;
         };

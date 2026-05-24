@@ -540,6 +540,9 @@ window.addEventListener('DOMContentLoaded', function() {
         var topPortal = document.getElementById('topPortalName');
         if (topPortal) topPortal.textContent = portal.name || '';
 
+        // CRITICAL: bind home nav-card click handlers (was only done in Xtream flow)
+        try { if (typeof initHomeScreen === 'function') initHomeScreen(); } catch (e) {}
+
         showScreen('home');
       }).catch(function(err) {
         try { showLoginError(err.message || String(err)); } catch (e) { showToast('Login failed: ' + err.message); }
