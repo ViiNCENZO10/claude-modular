@@ -1,6 +1,7 @@
 package com.mto3clone;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.net.Uri;
@@ -154,8 +155,33 @@ public class ExoPlayerActivity extends AppCompatActivity {
                 String detail = (cause != null && cause.getMessage() != null) ? cause.getMessage() : error.getMessage();
                 String msg = "[" + error.getErrorCodeName() + "] " + (detail != null ? detail : "unknown");
                 Toast.makeText(ExoPlayerActivity.this, msg, Toast.LENGTH_LONG).show();
-                // Auto-finish on unrecoverable error so user can retry
-                if (error.errorCode != PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED) {
+
+                // Auto-fallback to external player for parsing/codec errors
+                int code = error.errorCode;
+                boolean canFallback = (
+                    code == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
+                    code == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ||
+                    code == PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED ||
+                    code == PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED ||
+                    code == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
+                    code == PlaybackException.ERROR_CODE_DECODING_FAILED
+                );
+
+                if (canFallback) {
+                    Toast.makeText(ExoPlayerActivity.this, "Bascule vers lecteur externe...", Toast.LENGTH_SHORT).show();
+                    try {
+                        Intent vlc = new Intent(Intent.ACTION_VIEW);
+                        Uri u = Uri.parse(url);
+                        String mime = url.toLowerCase().contains(".m3u8") || url.toLowerCase().contains("/live/")
+                            ? "application/x-mpegURL" : "video/*";
+                        vlc.setDataAndType(u, mime);
+                        vlc.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(Intent.createChooser(vlc, "Ouvrir avec"));
+                    } catch (Exception ignored) { }
+                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                        @Override public void run() { finish(); }
+                    }, 1500);
+                } else if (code != PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED) {
                     new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                         @Override public void run() { finish(); }
                     }, 4000);

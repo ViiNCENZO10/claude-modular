@@ -11,9 +11,39 @@ function isNativePlayerEnabled() {
   return !!(window.AndroidBridge && typeof window.AndroidBridge.playNative === 'function');
 }
 
-function nativePlay(url, title, isLive) {
+// Resolve a Stalker create_link URL to the actual stream URL by parsing API response
+async function resolveStalkerStreamUrl(apiUrl, mac) {
+  try {
+    if (window.AndroidBridge && typeof window.AndroidBridge.stalkerFetch === 'function') {
+      var raw = window.AndroidBridge.stalkerFetch(apiUrl, mac);
+      if (raw && raw.length > 0) {
+        var data = JSON.parse(raw);
+        if (data && data.js && data.js.cmd) {
+          var cmd = String(data.js.cmd).trim();
+          // Strip "ffmpeg " or "auto " prefix
+          cmd = cmd.replace(/^(ffmpeg|auto)\s+/i, '');
+          // Some servers return "URL EXTRA_INFO" — keep only the URL token
+          var firstToken = cmd.split(/\s/)[0];
+          if (firstToken && /^https?:\/\//i.test(firstToken)) return firstToken;
+          return cmd;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('resolveStalker failed', e);
+  }
+  return apiUrl;
+}
+
+async function nativePlay(url, title, isLive) {
   try {
     var isStalker = AppState && AppState.api && AppState.api.providerType === 'stalker';
+    // For Stalker, resolve the create_link URL to the actual stream URL
+    if (isStalker && url && url.indexOf('create_link') !== -1) {
+      showToast && showToast('Résolution du flux...');
+      url = await resolveStalkerStreamUrl(url, AppState.api.mac || '');
+    }
+
     if (isStalker && typeof window.AndroidBridge.playNativeWithAuth === 'function') {
       var mac = AppState.api.mac || '';
       var cookies = 'mac=' + encodeURIComponent(mac) + '; stb_lang=en; timezone=Europe%2FParis; adid=' + mac.replace(/:/g, '').toLowerCase();

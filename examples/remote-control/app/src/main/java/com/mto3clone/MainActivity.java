@@ -285,6 +285,11 @@ public class MainActivity extends AppCompatActivity {
         public boolean hasNativePlayer() { return true; }
 
         @JavascriptInterface
+        public boolean playExternal(String url, String title) {
+            return launchExternalPlayer(url, title);
+        }
+
+        @JavascriptInterface
         public void downloadAndInstallApk(final String url) {
             if (url == null || url.isEmpty()) return;
             new Thread(new Runnable() {
@@ -457,6 +462,52 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private boolean launchExternalPlayer(String url, String title) {
+        if (url == null || url.isEmpty()) return false;
+        // Try known players in order, fallback to chooser
+        String[] candidatePackages = new String[] {
+            "org.videolan.vlc",
+            "com.mxtech.videoplayer.ad",
+            "com.mxtech.videoplayer.pro",
+            "tv.danmaku.bili",
+            "com.brouken.player"
+        };
+        Uri uri = Uri.parse(url);
+        String mime = inferMime(url);
+        for (String pkg : candidatePackages) {
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setPackage(pkg);
+                intent.setDataAndType(uri, mime);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (title != null) intent.putExtra("title", title);
+                intent.putExtra("position", 0);
+                startActivity(intent);
+                return true;
+            } catch (Exception ignored) { }
+        }
+        // Fallback: generic chooser
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, mime);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(Intent.createChooser(intent, "Ouvrir avec"));
+            return true;
+        } catch (Exception e) {
+            toastUi("Aucun lecteur externe installé. Installe VLC ou MX Player.");
+            return false;
+        }
+    }
+
+    private String inferMime(String url) {
+        String low = url.toLowerCase();
+        if (low.contains(".m3u8") || low.contains("/hls/") || low.contains("/live/")) return "application/x-mpegURL";
+        if (low.endsWith(".ts") || low.contains(".ts?")) return "video/mp2t";
+        if (low.endsWith(".mp4") || low.contains(".mp4?")) return "video/mp4";
+        if (low.endsWith(".mkv")) return "video/x-matroska";
+        return "video/*";
     }
 
     private void installApk(File apkFile) {
