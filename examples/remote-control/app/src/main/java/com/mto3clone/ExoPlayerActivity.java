@@ -6,6 +6,8 @@ import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Rational;
 import android.view.KeyEvent;
 import android.view.View;
@@ -66,10 +68,11 @@ public class ExoPlayerActivity extends AppCompatActivity {
     @SuppressLint("UnsafeOptInUsageError")
     private void initPlayer() {
         DefaultHttpDataSource.Factory httpFactory = new DefaultHttpDataSource.Factory()
-                .setUserAgent("iPremTvOnline/3.1 (Linux; Android) ExoPlayer")
+                .setUserAgent("VLC/3.0.20 LibVLC/3.0.20")
                 .setAllowCrossProtocolRedirects(true)
                 .setConnectTimeoutMs(20000)
-                .setReadTimeoutMs(20000);
+                .setReadTimeoutMs(20000)
+                .setKeepPostFor302Redirects(true);
 
         DefaultMediaSourceFactory msf = new DefaultMediaSourceFactory(this)
                 .setDataSourceFactory(httpFactory);
@@ -114,8 +117,16 @@ public class ExoPlayerActivity extends AppCompatActivity {
         player.addListener(new Player.Listener() {
             @Override
             public void onPlayerError(PlaybackException error) {
-                String msg = "Playback error: " + (error.getMessage() != null ? error.getMessage() : error.getErrorCodeName());
+                Throwable cause = error.getCause();
+                String detail = (cause != null && cause.getMessage() != null) ? cause.getMessage() : error.getMessage();
+                String msg = "[" + error.getErrorCodeName() + "] " + (detail != null ? detail : "unknown");
                 Toast.makeText(ExoPlayerActivity.this, msg, Toast.LENGTH_LONG).show();
+                // Auto-finish on unrecoverable error so user can retry
+                if (error.errorCode != PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED) {
+                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                        @Override public void run() { finish(); }
+                    }, 4000);
+                }
             }
 
             @Override
