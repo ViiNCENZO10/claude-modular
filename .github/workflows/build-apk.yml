@@ -6,6 +6,9 @@ on:
       - claude/remote-control-feature-QLoSs
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -33,11 +36,44 @@ jobs:
 
       - name: Build debug APK
         working-directory: examples/remote-control
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Read versionName
+        id: ver
+        working-directory: examples/remote-control
+        run: |
+          V=$(grep 'versionName' app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$V" >> $GITHUB_OUTPUT
+
+      - name: Rename APK for release
+        working-directory: examples/remote-control
+        run: |
+          mkdir -p release
+          cp app/build/outputs/apk/debug/*.apk release/iPremTvOnline-v${{ steps.ver.outputs.version }}-b${{ github.run_number }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: iPremTvOnline-debug
-          path: examples/remote-control/app/build/outputs/apk/debug/*.apk
+          path: examples/remote-control/release/*.apk
           if-no-files-found: error
+
+      - name: Auto-publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}-b${{ github.run_number }}
+          name: iPremTvOnline v${{ steps.ver.outputs.version }} (build ${{ github.run_number }})
+          files: examples/remote-control/release/*.apk
+          body: |
+            🤖 Auto-published from commit ${{ github.sha }}
+
+            versionName: ${{ steps.ver.outputs.version }}
+            versionCode: ${{ github.run_number }} (auto-incremented per build)
+
+            **Installation auto** : si tu as déjà l'app installée, ouvre-la — la mise à jour apparaît automatiquement en haut de l'écran.
+          make_latest: 'true'
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

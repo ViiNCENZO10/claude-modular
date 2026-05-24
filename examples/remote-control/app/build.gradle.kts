@@ -10,8 +10,9 @@ android {
         applicationId = "com.mto3clone"
         minSdk = 21
         targetSdk = 34
-        versionCode = 4
-        versionName = "3.1.2"
+        // versionCode auto-derived from CI run number (so each push installs over previous)
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "5").toInt()
+        versionName = "3.1.3"
     }
 
     signingConfigs {
