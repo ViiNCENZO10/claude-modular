@@ -211,7 +211,9 @@ class StalkerProvider {
   async getLiveStreams(categoryId) {
     var extra = categoryId ? { genre: categoryId } : {};
     var cursorKey = 'live_' + (categoryId || 'all');
-    var list = await this._paginate('itv', 'get_ordered_list', extra, 200, cursorKey);
+    // 500 = on charge toute la categorie d'un coup pour Live TV.
+    // Combine avec parallelisme x8 (8 pages simultanees), ca tient en ~1s sur portail rapide
+    var list = await this._paginate('itv', 'get_ordered_list', extra, 500, cursorKey);
     return this._mapLiveStreams(list);
   }
 

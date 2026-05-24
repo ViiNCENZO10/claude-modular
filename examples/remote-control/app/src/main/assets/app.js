@@ -635,8 +635,14 @@ async function loadLiveStreams(categoryId) {
   var titleEl = document.getElementById('liveCategoryTitle');
   var countEl = document.getElementById('liveChannelCount');
 
-  loading.style.display = 'flex';
-  channelList.innerHTML = '';
+  // Skeleton INSTANT (place de l'ecran blanc) - apparait < 16ms apres le clic
+  if (window.ipremCache && window.ipremCache.showSkeletonChannels) {
+    window.ipremCache.showSkeletonChannels(channelList, 14);
+  } else {
+    channelList.innerHTML = '';
+  }
+  // Le spinner reste en filigrane mais le skeleton porte le visuel
+  if (loading) loading.style.display = 'none';
 
   try {
     var streams;

@@ -132,32 +132,53 @@
     withCache(api, 'getFullEPG', 0);
 
     // ===== Warmup background =====
-    // Des que l'API est prete et cachee, on prefetch en parallele
-    // categories + premiere liste de chaque section. L'utilisateur clique sur
-    // "Live TV" / "Films" / "Series" => deja chaud, affichage instantane.
+    // 1. Categories des 3 sections en parallele (rapide, ~3 requetes)
+    // 2. Premiere liste de chaque section (Live/VOD/Series) en parallele
+    // 3. TOUTES les categories Live, par batches de 5, espacees de 200ms
+    //    => au bout de quelques secondes, TOUS les groupes sont caches
+    //    => clic sur n'importe quel pays = 0ms d'affichage
     if (!api._warmupDone) {
       api._warmupDone = true;
       setTimeout(function() {
         try {
-          // Categories en parallele
+          // Phase 1 : categories
           var ps = [];
           if (typeof api.getLiveCategories === 'function')
-            ps.push(api.getLiveCategories().catch(function() {}));
+            ps.push(api.getLiveCategories().catch(function() { return []; }));
           if (typeof api.getVodCategories === 'function')
-            ps.push(api.getVodCategories().catch(function() {}));
+            ps.push(api.getVodCategories().catch(function() { return []; }));
           if (typeof api.getSeriesCategories === 'function')
-            ps.push(api.getSeriesCategories().catch(function() {}));
-          // Une fois les categories arrivees, prefetch la premiere liste de chaque section
-          Promise.all(ps).then(function() {
-            if (typeof api.getLiveStreams === 'function')
-              api.getLiveStreams().catch(function() {});
+            ps.push(api.getSeriesCategories().catch(function() { return []; }));
+          Promise.all(ps).then(function(results) {
+            var liveCats = results[0] || [];
+            // Phase 2 : premiere liste de chaque section (parallele)
             if (typeof api.getVod === 'function')
               api.getVod().catch(function() {});
             if (typeof api.getSeries === 'function')
               api.getSeries().catch(function() {});
+
+            // Phase 3 : TOUTES les categories Live par batches de 5
+            if (typeof api.getLiveStreams !== 'function' || !liveCats.length) return;
+            // Limit a 80 categories pour eviter pathologic (gros bouquets >200 catg)
+            var queue = liveCats.slice(0, 80);
+            var i = 0;
+            function nextBatch() {
+              var batch = queue.slice(i, i + 5);
+              i += 5;
+              if (!batch.length) return;
+              Promise.all(batch.map(function(c) {
+                var cid = c.category_id || c.id;
+                return cid ? api.getLiveStreams(cid).catch(function() {}) : null;
+              })).then(function() {
+                // 200ms entre les batches : evite de DDoS le portail Stalker
+                setTimeout(nextBatch, 200);
+              });
+            }
+            // Demarre apres 1s pour ne pas concurrencer le premier clic UI
+            setTimeout(nextBatch, 1000);
           });
         } catch (e) {}
-      }, 800); // 800ms apres login pour ne pas concurrencer le premier fetch UI
+      }, 600);
     }
     return true;
   }
