@@ -16,6 +16,10 @@ class StalkerProvider {
     this.providerType = 'stalker';
     this.username = this.mac;
     this.password = '';
+    // Maps to store the cmd (stream path) per ID — required for create_link
+    this._vodCmdMap = {};
+    this._seriesCmdMap = {};
+    this._liveCmdMap = {};
   }
 
   _headers() {
@@ -114,7 +118,9 @@ class StalkerProvider {
     if (categoryId) params.genre = categoryId;
     const r = await this._portal(params);
     const list = (r && r.js && r.js.data) ? r.js.data : [];
+    var self = this;
     return list.map(function(c) {
+      if (c.cmd) self._liveCmdMap[c.id] = c.cmd;
       return {
         num: c.number,
         name: c.name,
@@ -141,13 +147,16 @@ class StalkerProvider {
       if (categoryId) params.category = categoryId;
       const r = await this._portal(params);
       const list = (r && r.js && r.js.data) ? r.js.data : [];
+      var self = this;
       return list.map(function(v) {
+        if (v.cmd) self._vodCmdMap[v.id] = v.cmd;
         return {
           stream_id: v.id,
           name: v.name,
           stream_icon: v.screenshot_uri || v.poster,
           rating: v.rating_imdb,
           year: v.year,
+          tmdb_id: v.tmdb_id || v.tmdb || '',
           _stalker_cmd: v.cmd
         };
       });
@@ -168,7 +177,9 @@ class StalkerProvider {
       if (categoryId) params.category = categoryId;
       const r = await this._portal(params);
       const list = (r && r.js && r.js.data) ? r.js.data : [];
+      var self = this;
       return list.map(function(s) {
+        if (s.cmd) self._seriesCmdMap[s.id] = s.cmd;
         return { series_id: s.id, name: s.name, cover: s.screenshot_uri, year: s.year, _stalker_cmd: s.cmd };
       });
     } catch (e) { return []; }
@@ -203,11 +214,13 @@ class StalkerProvider {
   }
 
   vodUrl(streamId) {
-    return this.baseUrl + '/portal.php?type=vod&action=create_link&cmd=' + encodeURIComponent(streamId) + '&JsHttpRequest=1-xml';
+    var cmd = this._vodCmdMap[streamId] || streamId;
+    return this.baseUrl + '/portal.php?type=vod&action=create_link&cmd=' + encodeURIComponent(cmd) + '&JsHttpRequest=1-xml';
   }
 
   seriesUrl(episodeId) {
-    return this.vodUrl(episodeId);
+    var cmd = this._seriesCmdMap[episodeId] || episodeId;
+    return this.baseUrl + '/portal.php?type=vod&action=create_link&cmd=' + encodeURIComponent(cmd) + '&series=' + encodeURIComponent(episodeId) + '&JsHttpRequest=1-xml';
   }
 
   timeshiftUrl(streamId, start, duration) {

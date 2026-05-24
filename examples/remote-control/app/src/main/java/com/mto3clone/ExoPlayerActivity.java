@@ -221,6 +221,37 @@ public class ExoPlayerActivity extends AppCompatActivity {
                     }
                 }
 
+                // === HTTP error 404 / 5xx after exhausted retries: offer external player (VLC) ===
+                if (code == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS) {
+                    Toast.makeText(ExoPlayerActivity.this, "Bascule vers VLC (URL : " + url + ")", Toast.LENGTH_LONG).show();
+                    try {
+                        Intent vlc = new Intent(Intent.ACTION_VIEW);
+                        Uri u = Uri.parse(url);
+                        vlc.setDataAndType(u, "video/*");
+                        vlc.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        if (title != null) vlc.putExtra("title", title);
+                        // Prefer VLC if installed
+                        try {
+                            getPackageManager().getPackageInfo("org.videolan.vlc", 0);
+                            vlc.setPackage("org.videolan.vlc");
+                        } catch (Exception ignored) {
+                            // Not installed, let chooser handle
+                        }
+                        startActivity(vlc);
+                    } catch (Exception ignored) {
+                        try {
+                            Intent vlc2 = new Intent(Intent.ACTION_VIEW);
+                            vlc2.setDataAndType(Uri.parse(url), "video/*");
+                            vlc2.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(Intent.createChooser(vlc2, "Ouvrir avec"));
+                        } catch (Exception ignored2) {}
+                    }
+                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                        @Override public void run() { finish(); }
+                    }, 1500);
+                    return;
+                }
+
                 String msg = "[" + error.getErrorCodeName() + "] " + (detail != null ? detail : "unknown");
                 Toast.makeText(ExoPlayerActivity.this, msg, Toast.LENGTH_LONG).show();
 
