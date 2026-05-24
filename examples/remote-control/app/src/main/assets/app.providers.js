@@ -29,8 +29,9 @@ class StalkerProvider {
   }
 
   async _portal(params) {
-    // Try /portal.php first (modern Ministra), then /server/load.php (older Stalker)
-    var paths = ['/portal.php', '/server/load.php', '/stalker_portal/server/load.php'];
+    var hasNativeBridge = !!(window.AndroidBridge && typeof window.AndroidBridge.stalkerFetch === 'function');
+    var paths = this._workingPath ? [this._workingPath] : ['/portal.php', '/server/load.php', '/stalker_portal/server/load.php'];
+
     for (var i = 0; i < paths.length; i++) {
       var path = paths[i];
       try {
@@ -39,23 +40,39 @@ class StalkerProvider {
         for (var k in (params || {})) {
           if (Object.prototype.hasOwnProperty.call(params, k)) url.searchParams.set(k, params[k]);
         }
-        var r = await fetch(url.toString(), { headers: this._headers(), credentials: 'omit' });
+        var urlStr = url.toString();
+        var data = null;
+
+        if (hasNativeBridge) {
+          // Use Java side fetch with isolated MAG250 UA
+          try {
+            var raw = window.AndroidBridge.stalkerFetch(urlStr, this.mac);
+            if (raw && raw.length > 0) {
+              data = JSON.parse(raw);
+              if (data && !data.error) {
+                this._workingPath = path;
+                return data;
+              }
+            }
+          } catch (e) {
+            // Fall through to fetch
+          }
+        }
+
+        // Fallback to browser fetch (works for some non-Cloudflare Stalker servers)
+        var r = await fetch(urlStr, { headers: this._headers(), credentials: 'omit' });
         if (r.ok) {
-          var data = await r.json().catch(function() { return {}; });
-          // Cache successful path
+          data = await r.json().catch(function() { return {}; });
           this._workingPath = path;
           return data;
         }
-        // For 4xx errors, no point trying other paths
         if (r.status >= 400 && r.status < 500) {
           return { js: null, _httpStatus: r.status };
         }
       } catch (e) {
-        // Network error or JSON parse error - try next path
         continue;
       }
     }
-    // All paths failed - return empty rather than throw
     return { js: null, _failed: true };
   }
 

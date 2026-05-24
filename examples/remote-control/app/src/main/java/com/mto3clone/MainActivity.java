@@ -103,8 +103,9 @@ public class MainActivity extends AppCompatActivity {
         // Hardware acceleration layer
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-        // Set Stalker-compatible User-Agent (MAG250) - many Stalker portals reject other UAs
-        settings.setUserAgentString("Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 4 rev: 2116 Safari/533.3");
+        // Keep default WebView User-Agent (Xtream/M3U portals expect a browser-like UA).
+        // For Stalker portals specifically, the JS layer uses AndroidBridge.stalkerFetch()
+        // which makes the HTTP call from Java with the MAG250 spoofed User-Agent.
 
         // JS bridge for Picture-in-Picture trigger from web layer
         webView.addJavascriptInterface(new AndroidBridge(), "AndroidBridge");
@@ -311,6 +312,42 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             }).start();
+        }
+
+        @JavascriptInterface
+        public String stalkerFetch(String url, String mac) {
+            // Stalker portal request with MAG250-spoofed User-Agent (isolated, doesn't affect WebView UA)
+            HttpURLConnection conn = null;
+            try {
+                URL u = new URL(url);
+                conn = (HttpURLConnection) u.openConnection();
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(20000);
+                conn.setInstanceFollowRedirects(true);
+                conn.setRequestProperty("User-Agent",
+                    "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 4 rev: 2116 Safari/533.3");
+                conn.setRequestProperty("X-User-Agent", "Model: MAG250; Link: WiFi");
+                if (mac != null && !mac.isEmpty()) {
+                    String cookie = "mac=" + java.net.URLEncoder.encode(mac, "UTF-8")
+                                  + "; stb_lang=en; timezone=Europe%2FParis"
+                                  + "; adid=" + mac.replace(":", "").toLowerCase();
+                    conn.setRequestProperty("Cookie", cookie);
+                }
+                conn.setRequestProperty("Accept", "*/*");
+                int code = conn.getResponseCode();
+                InputStream is = (code >= 200 && code < 400) ? conn.getInputStream() : conn.getErrorStream();
+                if (is == null) return "{\"error\":\"HTTP " + code + "\"}";
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(is, "UTF-8"));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+                return sb.toString();
+            } catch (Exception e) {
+                return "{\"error\":\"" + e.getMessage().replace("\"", "'") + "\"}";
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
         }
 
         @JavascriptInterface
