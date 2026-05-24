@@ -1107,27 +1107,35 @@ html, body {
   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
 }
 
+/* Aspect-ratio 2:3 garanti via padding-bottom (bulletproof, marche meme si
+   l'image fournie par le provider est ecrasee ou si aspect-ratio fait defaut). */
 .vod-poster {
-  aspect-ratio: 2/3;
-  background: var(--bg-light);
   position: relative;
+  width: 100%;
+  padding-bottom: 150%; /* 3/2 du width = ratio 2:3 */
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .vod-poster img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .vod-poster-placeholder {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40px;
-  color: var(--text-muted);
+  font-size: 60px;
+  color: rgba(255,255,255,0.25);
+  background: linear-gradient(135deg, #1e3a8a22 0%, #0a153099 100%);
 }
 
 .vod-rating {
