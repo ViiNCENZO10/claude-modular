@@ -639,6 +639,41 @@
   }
 
 
+  // Infinite scroll: load more VOD/Series when near bottom of grid
+  function attachInfiniteScroll() {
+    ['vod', 'series'].forEach(function(type) {
+      var scrollArea = document.querySelector('#' + type + ' .vod-content') ||
+                       document.querySelector('#' + type + ' .vod-grid');
+      if (!scrollArea || scrollArea.dataset.inf === '1') return;
+      scrollArea.dataset.inf = '1';
+      var loading = false;
+      scrollArea.addEventListener('scroll', async function() {
+        if (loading) return;
+        var nearBottom = scrollArea.scrollTop + scrollArea.clientHeight >= scrollArea.scrollHeight - 240;
+        if (!nearBottom) return;
+        if (!AppState.api) return;
+        var loadFn = type === 'vod' ? AppState.api.loadMoreVod : AppState.api.loadMoreSeries;
+        if (typeof loadFn !== 'function') return;
+        loading = true;
+        try {
+          var catId = type === 'vod' ? AppState.selectedVodCategory : AppState.selectedSeriesCategory;
+          var more = await loadFn.call(AppState.api, catId);
+          if (more && more.length > 0) {
+            if (type === 'vod') {
+              AppState.vodStreams = (AppState.vodStreams || []).concat(more);
+              if (typeof window.renderVodGrid === 'function') window.renderVodGrid();
+            } else {
+              AppState.seriesList = (AppState.seriesList || []).concat(more);
+              if (typeof window.renderSeriesGrid === 'function') window.renderSeriesGrid();
+            }
+            showToast && showToast('+ ' + more.length + ' items chargés');
+          }
+        } catch (e) { console.warn('loadMore failed', e); }
+        loading = false;
+      });
+    });
+  }
+
   // Bootstrap
   window.addEventListener('DOMContentLoaded', function() {
     injectVodStyles();
@@ -648,6 +683,18 @@
       patchShowVodDetail();
       patchShowSeriesDetail();
     }, 800);
+
+    // Attach infinite scroll when screens are shown
+    setTimeout(function() {
+      if (typeof window.showScreen === 'function') {
+        var orig = window.showScreen;
+        window.showScreen = function(id) {
+          var r = orig.apply(this, arguments);
+          if (id === 'vod' || id === 'series') setTimeout(attachInfiniteScroll, 400);
+          return r;
+        };
+      }
+    }, 1500);
   });
 
 })();

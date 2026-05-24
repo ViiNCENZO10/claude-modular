@@ -458,6 +458,11 @@ public class ExoPlayerActivity extends AppCompatActivity {
 
     private void showBottomMenu() {
         if (bottomMenu == null) return;
+        // Hide the ExoPlayer default controls to avoid overlap
+        if (playerView != null) {
+            playerView.hideController();
+            playerView.setUseController(false);
+        }
         bottomMenu.setVisibility(View.VISIBLE);
         AlphaAnimation a = new AlphaAnimation(0f, 1f);
         a.setDuration(150);
@@ -472,6 +477,10 @@ public class ExoPlayerActivity extends AppCompatActivity {
         if (bottomMenu == null) return;
         bottomMenu.setVisibility(View.GONE);
         bottomMenuOpen = false;
+        // Restore ExoPlayer controls
+        if (playerView != null) {
+            playerView.setUseController(true);
+        }
         playerView.requestFocus();
     }
 

@@ -116,41 +116,87 @@ class StalkerProvider {
       .map(function(g) { return { category_id: String(g.id), category_name: g.title }; });
   }
 
-  async _paginate(type, action, extraParams, maxPages) {
-    maxPages = maxPages || 100;
+  // Fetches pages until reaching ~targetCount items (default 100). Stores cursor on `this`.
+  // cursorKey identifies which cursor to use (e.g. 'vod_42' for vod category 42)
+  async _paginate(type, action, extraParams, targetCount, cursorKey) {
+    targetCount = targetCount || 100;
+    cursorKey = cursorKey || (type + '_default');
     var self = this;
 
-    // Fetch page 1 first to discover total
+    // Reset cursor for this key
+    this._cursors = this._cursors || {};
+    var cursor = { type: type, action: action, extraParams: extraParams || {}, nextPage: 1, total: 0, hasMore: true };
+    this._cursors[cursorKey] = cursor;
+
+    // Fetch first page to discover total
     var firstParams = Object.assign({ type: type, action: action, p: 1 }, extraParams || {});
     var r1 = await this._portal(firstParams);
     var first = (r1 && r1.js && r1.js.data) ? r1.js.data : [];
-    if (!first.length) return [];
+    if (!first.length) { cursor.hasMore = false; return []; }
+
+    var total = r1 && r1.js && (r1.js.total_items || r1.js.max_page_items);
+    cursor.total = total || 0;
+    var pageSize = first.length;
+    var lastPage = total ? Math.ceil(total / pageSize) : 100;
 
     var all = first.slice();
-    var total = r1 && r1.js && (r1.js.total_items || r1.js.max_page_items);
-    if (total && all.length >= total) return all;
-    if (first.length < 14) return all; // single page, done
+    // How many more pages to reach targetCount?
+    var pagesNeeded = Math.max(1, Math.ceil(targetCount / pageSize));
+    var endPage = Math.min(pagesNeeded, lastPage);
+    if (endPage > 1) {
+      // Parallel fetch pages 2..endPage in chunks of 4
+      var CHUNK = 4;
+      for (var start = 2; start <= endPage; start += CHUNK) {
+        var chunkEnd = Math.min(start + CHUNK - 1, endPage);
+        var promises = [];
+        for (var p = start; p <= chunkEnd; p++) {
+          promises.push(self._portal(Object.assign({ type: type, action: action, p: p }, extraParams || {})));
+        }
+        var results = await Promise.all(promises);
+        for (var i = 0; i < results.length; i++) {
+          var batch = (results[i] && results[i].js && results[i].js.data) ? results[i].js.data : [];
+          all = all.concat(batch);
+        }
+      }
+    }
 
-    var pageSize = first.length;
-    var lastPage = total ? Math.ceil(total / pageSize) : maxPages;
-    lastPage = Math.min(lastPage, maxPages);
-    if (lastPage <= 1) return all;
+    cursor.nextPage = endPage + 1;
+    cursor.hasMore = cursor.nextPage <= lastPage;
+    return all;
+  }
 
-    // Parallel fetch of remaining pages in chunks of 6 (avoid hammering server)
-    var CHUNK = 6;
-    for (var start = 2; start <= lastPage; start += CHUNK) {
-      var end = Math.min(start + CHUNK - 1, lastPage);
+  // Load more for an existing cursor (returns next batch of ~100 items)
+  async _loadMore(cursorKey, count) {
+    count = count || 100;
+    if (!this._cursors || !this._cursors[cursorKey]) return [];
+    var cursor = this._cursors[cursorKey];
+    if (!cursor.hasMore) return [];
+    var self = this;
+
+    // Get pageSize from a quick test if not known (fall back to 14)
+    var pageSize = 14;
+    var lastPage = cursor.total ? Math.ceil(cursor.total / pageSize) : 100;
+    var pagesNeeded = Math.max(1, Math.ceil(count / pageSize));
+    var startPage = cursor.nextPage;
+    var endPage = Math.min(startPage + pagesNeeded - 1, lastPage);
+
+    var all = [];
+    var CHUNK = 4;
+    for (var start = startPage; start <= endPage; start += CHUNK) {
+      var chunkEnd = Math.min(start + CHUNK - 1, endPage);
       var promises = [];
-      for (var p = start; p <= end; p++) {
-        promises.push(self._portal(Object.assign({ type: type, action: action, p: p }, extraParams || {})));
+      for (var p = start; p <= chunkEnd; p++) {
+        promises.push(self._portal(Object.assign({ type: cursor.type, action: cursor.action, p: p }, cursor.extraParams)));
       }
       var results = await Promise.all(promises);
       for (var i = 0; i < results.length; i++) {
         var batch = (results[i] && results[i].js && results[i].js.data) ? results[i].js.data : [];
         all = all.concat(batch);
       }
-      if (total && all.length >= total) break;
     }
+
+    cursor.nextPage = endPage + 1;
+    cursor.hasMore = cursor.nextPage <= lastPage;
     return all;
   }
 
@@ -164,7 +210,12 @@ class StalkerProvider {
 
   async getLiveStreams(categoryId) {
     var extra = categoryId ? { genre: categoryId } : {};
-    var list = await this._paginate('itv', 'get_ordered_list', extra);
+    var cursorKey = 'live_' + (categoryId || 'all');
+    var list = await this._paginate('itv', 'get_ordered_list', extra, 200, cursorKey);
+    return this._mapLiveStreams(list);
+  }
+
+  _mapLiveStreams(list) {
     var self = this;
     return list.map(function(c) {
       if (c.cmd) self._liveCmdMap[c.id] = c.cmd;
@@ -178,6 +229,12 @@ class StalkerProvider {
         _stalker_cmd: c.cmd
       };
     });
+  }
+
+  async loadMoreLive(categoryId) {
+    var cursorKey = 'live_' + (categoryId || 'all');
+    var raw = await this._loadMore(cursorKey, 100);
+    return this._mapLiveStreams(raw);
   }
 
   async getVodCategories() {
@@ -194,20 +251,33 @@ class StalkerProvider {
   async getVodStreams(categoryId) {
     try {
       var extra = categoryId ? { category: categoryId } : {};
-      var list = await this._paginate('vod', 'get_ordered_list', extra);
-      var self = this;
-      return list.map(function(v) {
-        if (v.cmd) self._vodCmdMap[v.id] = v.cmd;
-        return {
-          stream_id: v.id,
-          name: v.name,
-          stream_icon: v.screenshot_uri || v.poster,
-          rating: v.rating_imdb,
-          year: v.year,
-          tmdb_id: v.tmdb_id || v.tmdb || '',
-          _stalker_cmd: v.cmd
-        };
-      });
+      var cursorKey = 'vod_' + (categoryId || 'all');
+      var list = await this._paginate('vod', 'get_ordered_list', extra, 100, cursorKey);
+      return this._mapVodStreams(list);
+    } catch (e) { return []; }
+  }
+
+  _mapVodStreams(list) {
+    var self = this;
+    return list.map(function(v) {
+      if (v.cmd) self._vodCmdMap[v.id] = v.cmd;
+      return {
+        stream_id: v.id,
+        name: v.name,
+        stream_icon: v.screenshot_uri || v.poster,
+        rating: v.rating_imdb,
+        year: v.year,
+        tmdb_id: v.tmdb_id || v.tmdb || '',
+        _stalker_cmd: v.cmd
+      };
+    });
+  }
+
+  async loadMoreVod(categoryId) {
+    try {
+      var cursorKey = 'vod_' + (categoryId || 'all');
+      var raw = await this._loadMore(cursorKey, 100);
+      return this._mapVodStreams(raw);
     } catch (e) { return []; }
   }
 
@@ -225,12 +295,25 @@ class StalkerProvider {
   async getSeries(categoryId) {
     try {
       var extra = categoryId ? { category: categoryId } : {};
-      var list = await this._paginate('series', 'get_ordered_list', extra);
-      var self = this;
-      return list.map(function(s) {
-        if (s.cmd) self._seriesCmdMap[s.id] = s.cmd;
-        return { series_id: s.id, name: s.name, cover: s.screenshot_uri, year: s.year, _stalker_cmd: s.cmd };
-      });
+      var cursorKey = 'series_' + (categoryId || 'all');
+      var list = await this._paginate('series', 'get_ordered_list', extra, 100, cursorKey);
+      return this._mapSeries(list);
+    } catch (e) { return []; }
+  }
+
+  _mapSeries(list) {
+    var self = this;
+    return list.map(function(s) {
+      if (s.cmd) self._seriesCmdMap[s.id] = s.cmd;
+      return { series_id: s.id, name: s.name, cover: s.screenshot_uri, year: s.year, _stalker_cmd: s.cmd };
+    });
+  }
+
+  async loadMoreSeries(categoryId) {
+    try {
+      var cursorKey = 'series_' + (categoryId || 'all');
+      var raw = await this._loadMore(cursorKey, 100);
+      return this._mapSeries(raw);
     } catch (e) { return []; }
   }
 
