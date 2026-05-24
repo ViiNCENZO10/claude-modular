@@ -63,6 +63,10 @@ public class ExoPlayerActivity extends AppCompatActivity {
     private List<JSONObject> sidebarChannels = new ArrayList<>();
     private int sidebarCurrentIdx = -1;
     private boolean sidebarOpen = false;
+    private LinearLayout groupSidebar;
+    private ListView groupListView;
+    private List<JSONObject> sidebarGroups = new ArrayList<>();
+    private boolean groupSidebarOpen = false;
 
     @Override
     @SuppressLint("UnsafeOptInUsageError")
@@ -87,7 +91,10 @@ public class ExoPlayerActivity extends AppCompatActivity {
         // Channel sidebar setup
         channelSidebar = findViewById(R.id.channel_sidebar);
         channelListView = findViewById(R.id.channel_list_view);
+        groupSidebar = findViewById(R.id.group_sidebar);
+        groupListView = findViewById(R.id.group_list_view);
         setupChannelSidebar();
+        setupGroupSidebar();
 
         if (url == null || url.isEmpty()) {
             Toast.makeText(this, "No URL", Toast.LENGTH_SHORT).show();
@@ -257,10 +264,28 @@ public class ExoPlayerActivity extends AppCompatActivity {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (player == null) return super.onKeyDown(keyCode, event);
 
-        // While sidebar is open, let it handle DPAD events
+        // Group sidebar open → handle its keys
+        if (groupSidebarOpen) {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                hideGroupSidebar(); // back to channels sidebar
+                return true;
+            }
+            if (keyCode == KeyEvent.KEYCODE_BACK) {
+                hideGroupSidebar();
+                hideSidebar();
+                return true;
+            }
+            return super.onKeyDown(keyCode, event);
+        }
+
+        // Channel sidebar open
         if (sidebarOpen) {
             if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT || keyCode == KeyEvent.KEYCODE_BACK) {
                 hideSidebar();
+                return true;
+            }
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && sidebarGroups.size() > 0) {
+                showGroupSidebar();
                 return true;
             }
             return super.onKeyDown(keyCode, event); // ListView consumes up/down/enter
@@ -395,6 +420,59 @@ public class ExoPlayerActivity extends AppCompatActivity {
             ((TextView) v.findViewById(R.id.channel_now)).setText(ch.optString("now", ""));
             return v;
         }
+    }
+
+    // ===== Group sidebar =====
+    private void setupGroupSidebar() {
+        String groupsJson = getIntent().getStringExtra("groups");
+        if (groupsJson == null || groupsJson.isEmpty()) return;
+        try {
+            JSONArray arr = new JSONArray(groupsJson);
+            for (int i = 0; i < arr.length(); i++) sidebarGroups.add(arr.getJSONObject(i));
+        } catch (Exception e) {
+            sidebarGroups.clear();
+        }
+        if (sidebarGroups.isEmpty()) return;
+
+        ChannelAdapter adapter = new ChannelAdapter(this, sidebarGroups);
+        groupListView.setAdapter(adapter);
+        groupListView.setOnItemClickListener((parent, view, position, id) -> selectGroup(position));
+    }
+
+    private void showGroupSidebar() {
+        if (groupSidebar == null || sidebarGroups.isEmpty()) return;
+        groupSidebar.setVisibility(View.VISIBLE);
+        AlphaAnimation a = new AlphaAnimation(0f, 1f);
+        a.setDuration(180);
+        groupSidebar.startAnimation(a);
+        groupSidebarOpen = true;
+        groupListView.requestFocus();
+        groupListView.setSelection(0);
+    }
+
+    private void hideGroupSidebar() {
+        if (groupSidebar == null) return;
+        AlphaAnimation a = new AlphaAnimation(1f, 0f);
+        a.setDuration(180);
+        a.setAnimationListener(new Animation.AnimationListener() {
+            @Override public void onAnimationStart(Animation animation) {}
+            @Override public void onAnimationEnd(Animation animation) { groupSidebar.setVisibility(View.GONE); }
+            @Override public void onAnimationRepeat(Animation animation) {}
+        });
+        groupSidebar.startAnimation(a);
+        groupSidebarOpen = false;
+        channelListView.requestFocus();
+    }
+
+    private void selectGroup(int position) {
+        if (position < 0 || position >= sidebarGroups.size()) return;
+        JSONObject group = sidebarGroups.get(position);
+        // Signal MainActivity to switch to this group then play first channel
+        Intent result = new Intent();
+        result.putExtra("switchToGroupId", group.optString("category_id"));
+        result.putExtra("switchToGroupName", group.optString("category_name"));
+        setResult(RESULT_OK, result);
+        finish();
     }
 
     @Override

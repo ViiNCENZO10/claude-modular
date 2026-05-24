@@ -78,14 +78,29 @@ async function nativePlay(url, title, isLive) {
       } catch (e) { currentIdx = -1; }
     }
 
+    // Build groups JSON for live
+    var groupsJson = null;
+    if (isLive && AppState && AppState.liveCategories) {
+      try {
+        groupsJson = JSON.stringify(AppState.liveCategories.slice(0, 200).map(function(c) {
+          return { category_id: c.category_id, num: '', name: c.category_name || c.name || 'Sans nom' };
+        }));
+      } catch (e) { groupsJson = null; }
+    }
+
+    var cookies = '';
+    var ua = '';
+    if (isStalker) {
+      var mac = AppState.api.mac || '';
+      cookies = 'mac=' + encodeURIComponent(mac) + '; stb_lang=en; timezone=Europe%2FParis; adid=' + mac.replace(/:/g, '').toLowerCase();
+      ua = 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 4 rev: 2116 Safari/533.3';
+    }
+
+    if (typeof window.AndroidBridge.playNativeAll === 'function') {
+      window.AndroidBridge.playNativeAll(url || '', title || '', !!isLive, cookies, ua, channelsJson || '', currentIdx, groupsJson || '');
+      return true;
+    }
     if (typeof window.AndroidBridge.playNativeFull === 'function') {
-      var cookies = '';
-      var ua = '';
-      if (isStalker) {
-        var mac = AppState.api.mac || '';
-        cookies = 'mac=' + encodeURIComponent(mac) + '; stb_lang=en; timezone=Europe%2FParis; adid=' + mac.replace(/:/g, '').toLowerCase();
-        ua = 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 4 rev: 2116 Safari/533.3';
-      }
       window.AndroidBridge.playNativeFull(url || '', title || '', !!isLive, cookies, ua, channelsJson || '', currentIdx);
       return true;
     }
@@ -121,6 +136,30 @@ window.iprem.switchChannel = async function(idx, streamId) {
       window.startPlayer(url, ch.name, ch.num || '', 'live', ch);
     }
   } catch (e) { console.warn('switchChannel failed', e); }
+};
+
+// Switch to a category/group and play the first channel of that group
+window.iprem.switchGroup = async function(categoryId) {
+  try {
+    if (!AppState.api || typeof AppState.api.getLiveStreams !== 'function') return;
+    showToast && showToast('Chargement du groupe...');
+    var streams = await AppState.api.getLiveStreams(categoryId);
+    if (!streams || streams.length === 0) {
+      showToast && showToast('Aucune chaîne dans ce groupe');
+      return;
+    }
+    AppState.liveStreams = streams;
+    AppState.selectedLiveCategory = categoryId;
+    // Play first channel
+    var ch = streams[0];
+    AppState.selectedChannel = ch;
+    AppState.currentChannelIndex = 0;
+    var ext = (AppState.settings && AppState.settings.streamType) || 'm3u8';
+    var url = AppState.api.liveUrl(ch.stream_id, ext);
+    if (typeof window.startPlayer === 'function') {
+      window.startPlayer(url, ch.name, ch.num || '', 'live', ch);
+    }
+  } catch (e) { console.warn('switchGroup failed', e); showToast && showToast('Erreur changement de groupe'); }
 };
 
 // Build a setting toggle in Settings screen

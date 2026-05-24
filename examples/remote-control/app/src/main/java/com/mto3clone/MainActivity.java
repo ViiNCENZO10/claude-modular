@@ -213,7 +213,11 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == 1001 && resultCode == RESULT_OK && data != null) {
             String streamId = data.getStringExtra("switchToStreamId");
             int idx = data.getIntExtra("switchToIndex", -1);
-            if (streamId != null && !streamId.isEmpty()) {
+            String groupId = data.getStringExtra("switchToGroupId");
+            if (groupId != null && !groupId.isEmpty()) {
+                String js = "window.iprem && window.iprem.switchGroup && window.iprem.switchGroup('" + groupId.replace("'", "\\'") + "')";
+                webView.evaluateJavascript(js, null);
+            } else if (streamId != null && !streamId.isEmpty()) {
                 String js = "window.iprem && window.iprem.switchChannel && window.iprem.switchChannel(" + idx + ", " + streamId + ")";
                 webView.evaluateJavascript(js, null);
             }
@@ -289,6 +293,11 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void playNativeFull(String url, String title, boolean isLive, String cookies, String userAgent, String channelsJson, int currentIdx) {
+            playNativeAll(url, title, isLive, cookies, userAgent, channelsJson, currentIdx, null);
+        }
+
+        @JavascriptInterface
+        public void playNativeAll(String url, String title, boolean isLive, String cookies, String userAgent, String channelsJson, int currentIdx, String groupsJson) {
             if (url == null || url.isEmpty()) return;
             Intent i = new Intent(MainActivity.this, ExoPlayerActivity.class);
             i.putExtra("url", url);
@@ -297,6 +306,7 @@ public class MainActivity extends AppCompatActivity {
             if (cookies != null && !cookies.isEmpty()) i.putExtra("cookies", cookies);
             if (userAgent != null && !userAgent.isEmpty()) i.putExtra("userAgent", userAgent);
             if (channelsJson != null && !channelsJson.isEmpty()) i.putExtra("channels", channelsJson);
+            if (groupsJson != null && !groupsJson.isEmpty()) i.putExtra("groups", groupsJson);
             if (currentIdx >= 0) i.putExtra("currentChannelIdx", currentIdx);
             startActivityForResult(i, 1001);
         }

@@ -130,7 +130,7 @@
 
   // Enhanced render of a VOD item card
   function renderVodCard(vod) {
-    var poster = vod.stream_icon || vod.cover || '';
+    var poster = upgradeImg(vod.stream_icon || vod.cover || '', 'poster');
     var rating = parseFloat(vod.rating || vod.rating_5based || 0);
     var ratingDisplay = rating > 0 ? rating.toFixed(1) : '';
     var html =
@@ -142,6 +142,17 @@
 
   function escapeAttr(s) { return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
   function escapeText(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  // Upgrade TMDB image URLs to high-res. type: 'backdrop' (original) | 'poster' (w780) | 'actor' (w342)
+  function upgradeImg(url, type) {
+    if (!url) return url;
+    var m = String(url).match(/^(.*image\.tmdb\.org\/t\/p\/)(w\d+|original)(\/.+)$/);
+    if (m) {
+      var size = type === 'backdrop' ? 'original' : (type === 'actor' ? 'w342' : 'w780');
+      return m[1] + size + m[3];
+    }
+    return url;
+  }
 
 
   // Patch the original renderVodGrid (if it exists) to use enhanced cards
@@ -392,8 +403,8 @@
     var movie = (info && info.info) ? info.info : {};
     var moviedata = (info && info.movie_data) ? info.movie_data : vod;
 
-    var backdrop = (movie.backdrop_path && movie.backdrop_path[0]) ? movie.backdrop_path[0] : (movie.movie_image || vod.stream_icon || '');
-    var poster = movie.cover_big || movie.movie_image || vod.stream_icon || '';
+    var backdrop = upgradeImg((movie.backdrop_path && movie.backdrop_path[0]) ? movie.backdrop_path[0] : (movie.movie_image || vod.stream_icon || ''), 'backdrop');
+    var poster = upgradeImg(movie.cover_big || movie.movie_image || vod.stream_icon || '', 'poster');
 
     // Update backdrop
     var bgUrl = backdrop || poster;
@@ -495,7 +506,7 @@
               return {
                 name: c.name,
                 character: c.character || '',
-                photo: c.profile_path ? ('https://image.tmdb.org/t/p/w185' + c.profile_path) : ''
+                photo: c.profile_path ? ('https://image.tmdb.org/t/p/w342' + c.profile_path) : ''
               };
             });
           }
@@ -532,7 +543,7 @@
       if (sameCat.length > 0) {
         var simRow = overlay.querySelector('#cinSimilarRow');
         simRow.innerHTML = sameCat.map(function(s) {
-          var p = s.stream_icon || s.cover || '';
+          var p = upgradeImg(s.stream_icon || s.cover || '', 'poster');
           return '<div class="cin-similar-card focusable" tabindex="0" data-id="' + s.stream_id + '">' +
             (p ? '<img class="cin-similar-poster" loading="lazy" src="' + p.replace(/'/g, '%27') + '" alt="" onerror="this.style.display=\'none\'">' : '<div class="cin-similar-poster no-img">' + escapeText(s.name) + '</div>') +
             '<div class="cin-similar-name">' + escapeText(s.name) + '</div>' +

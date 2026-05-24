@@ -15,7 +15,7 @@
         app:resize_mode="fit"
         app:auto_show="true" />
 
-    <!-- Channel sidebar overlay (slides in from left) -->
+    <!-- Channel sidebar overlay (slides in from left, first LEFT press) -->
     <LinearLayout
         android:id="@+id/channel_sidebar"
         android:layout_width="360dp"
@@ -49,6 +49,50 @@
             android:background="@null"
             android:cacheColorHint="@android:color/transparent"
             android:listSelector="@android:color/transparent" />
+    </LinearLayout>
+
+    <!-- Groups sidebar overlay (slides in further, second LEFT press) -->
+    <LinearLayout
+        android:id="@+id/group_sidebar"
+        android:layout_width="320dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:orientation="vertical"
+        android:background="#ee000000"
+        android:padding="0dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Groupes / Pays"
+            android:textColor="#ffffff"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:padding="20dp"
+            android:background="#33000000" />
+
+        <ListView
+            android:id="@+id/group_list_view"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:divider="#22ffffff"
+            android:dividerHeight="1dp"
+            android:background="@null"
+            android:cacheColorHint="@android:color/transparent"
+            android:listSelector="@android:color/transparent" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pour réordonner : menu → Modifier la catégorie"
+            android:textColor="#88ffffff"
+            android:textSize="11sp"
+            android:padding="12dp 16dp"
+            android:gravity="center" />
     </LinearLayout>
 
 </FrameLayout>
