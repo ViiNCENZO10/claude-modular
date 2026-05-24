@@ -87,7 +87,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
 
         MediaItem.Builder itemBuilder = new MediaItem.Builder().setUri(Uri.parse(url));
         if (isHls) itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8);
-        else if (isTs) itemBuilder.setMimeType(MimeTypes.APPLICATION_MPEGTS);
+        else if (isTs) itemBuilder.setMimeType(MimeTypes.VIDEO_MP2T);
         MediaItem mediaItem = itemBuilder.build();
 
         DefaultExtractorsFactory exFactory = new DefaultExtractorsFactory()
