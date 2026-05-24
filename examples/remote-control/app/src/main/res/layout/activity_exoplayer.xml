@@ -154,14 +154,15 @@
     </LinearLayout>
 
     <!-- Channel sidebar overlay (slides in from left, first LEFT press) -->
+    <!-- Style MyTVOnline3 : gradient horizontal, vidéo reste visible derrière -->
     <LinearLayout
         android:id="@+id/channel_sidebar"
-        android:layout_width="280dp"
+        android:layout_width="320dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:orientation="vertical"
-        android:background="#99000000"
-        android:padding="0dp"
+        android:background="@drawable/sidebar_gradient"
+        android:paddingEnd="14dp"
         android:visibility="gone"
         android:clickable="true"
         android:focusable="true">
@@ -193,14 +194,15 @@
     </LinearLayout>
 
     <!-- Groups sidebar overlay (slides in further, second LEFT press) -->
+    <!-- Même gradient que la sidebar chaînes pour cohérence -->
     <LinearLayout
         android:id="@+id/group_sidebar"
-        android:layout_width="240dp"
+        android:layout_width="260dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:orientation="vertical"
-        android:background="#cc000000"
-        android:padding="0dp"
+        android:background="@drawable/sidebar_gradient"
+        android:paddingEnd="14dp"
         android:visibility="gone"
         android:clickable="true"
         android:focusable="true">

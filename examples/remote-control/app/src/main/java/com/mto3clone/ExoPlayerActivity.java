@@ -600,6 +600,9 @@ public class ExoPlayerActivity extends AppCompatActivity {
         if (sidebarChannels.isEmpty()) return;
 
         ChannelAdapter adapter = new ChannelAdapter(this, sidebarChannels);
+        // CHOICE_MODE_SINGLE indispensable pour que setItemChecked passe l'état "activated"
+        // à l'item, sinon la stripe dorée + le fond doré ne s'affichent jamais.
+        channelListView.setChoiceMode(android.widget.ListView.CHOICE_MODE_SINGLE);
         channelListView.setAdapter(adapter);
         channelListView.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener() {
             @Override public void onItemClick(android.widget.AdapterView<?> parent, View view, int position, long id) {
@@ -676,6 +679,10 @@ public class ExoPlayerActivity extends AppCompatActivity {
         sidebarCurrentIdx = position;
         title = ch.optString("name", title);
         url = newUrl;
+        // Met à jour la stripe dorée / le fond activé sur la chaîne désormais diffusée
+        if (channelListView != null) {
+            channelListView.setItemChecked(position, true);
+        }
         if (player != null) {
             try { player.stop(); } catch (Exception ignored) {}
             loadAndPlay(newUrl);
@@ -749,6 +756,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
         } catch (Exception e) { sidebarGroups.clear(); }
         if (sidebarGroups.isEmpty()) return;
         ChannelAdapter adapter = new ChannelAdapter(this, sidebarGroups);
+        groupListView.setChoiceMode(android.widget.ListView.CHOICE_MODE_SINGLE);
         groupListView.setAdapter(adapter);
         groupListView.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener() {
             @Override public void onItemClick(android.widget.AdapterView<?> parent, View view, int position, long id) {

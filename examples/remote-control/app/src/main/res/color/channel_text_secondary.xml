@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Couleur secondaire (numéro / EPG now).
+    - Focus = gris foncé (sur fond blanc)
+    - Activated = doré atténué
+    - Défaut = gris clair
+-->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_focused="true" android:color="#444444" />
-    <item android:state_selected="true" android:color="#444444" />
-    <item android:state_pressed="true" android:color="#444444" />
-    <item android:color="#aaaaaa" />
+    <item android:state_focused="true" android:color="#333333" />
+    <item android:state_pressed="true" android:color="#333333" />
+    <item android:state_selected="true" android:color="#333333" />
+    <item android:state_activated="true" android:color="#e6c200" />
+    <item android:color="#a6b0bc" />
 </selector>

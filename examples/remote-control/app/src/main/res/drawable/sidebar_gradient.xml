@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sidebar background à la MyTVOnline3 : gradient horizontal.
+    Côté gauche : noir presque opaque pour lisibilité du texte.
+    Côté droit : quasi-transparent pour qu'on voit la vidéo qui tourne derrière.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="0"
+        android:startColor="#e6000000"
+        android:centerColor="#b3000000"
+        android:endColor="#1a000000"
+        android:type="linear" />
+</shape>
