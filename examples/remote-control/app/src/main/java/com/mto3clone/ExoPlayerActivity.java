@@ -850,11 +850,31 @@ public class ExoPlayerActivity extends AppCompatActivity {
     private void selectGroup(int position) {
         if (position < 0 || position >= sidebarGroups.size()) return;
         JSONObject group = sidebarGroups.get(position);
-        Intent result = new Intent();
-        result.putExtra("switchToGroupId", group.optString("category_id"));
-        result.putExtra("switchToGroupName", group.optString("category_name"));
-        setResult(RESULT_OK, result);
-        finish();
+        // Cas normal : c'est un vrai groupe avec un category_id
+        String groupId = group.optString("category_id", "");
+        if (!groupId.isEmpty()) {
+            Intent result = new Intent();
+            result.putExtra("switchToGroupId", groupId);
+            result.putExtra("switchToGroupName",
+                group.optString("category_name", group.optString("name", "")));
+            setResult(RESULT_OK, result);
+            finish();
+            return;
+        }
+        // Robustesse : certains providers envoient les chaines dans le slot "groups"
+        // (ou ont des categories sans category_id). On bascule sur la chaine si on detecte
+        // un stream_id, plutot que d'avoir un clic qui ne fait rien.
+        String streamId = group.optString("stream_id", "");
+        if (!streamId.isEmpty()) {
+            Intent result = new Intent();
+            result.putExtra("switchToStreamId", streamId);
+            result.putExtra("switchToIndex", position);
+            setResult(RESULT_OK, result);
+            finish();
+            return;
+        }
+        // Sinon on n'a vraiment rien d'exploitable : signal visuel a l'utilisateur
+        Toast.makeText(this, "Element non selectionnable (id manquant)", Toast.LENGTH_SHORT).show();
     }
 
     // ===== External player fallback =====

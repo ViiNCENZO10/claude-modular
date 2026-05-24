@@ -194,10 +194,10 @@
     </LinearLayout>
 
     <!-- Groups sidebar overlay (slides in further, second LEFT press) -->
-    <!-- Même gradient que la sidebar chaînes pour cohérence -->
+    <!-- Largeur 320dp pour matcher channel_sidebar et eviter spillover visuel des 60dp -->
     <LinearLayout
         android:id="@+id/group_sidebar"
-        android:layout_width="260dp"
+        android:layout_width="320dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:orientation="vertical"
