@@ -110,25 +110,56 @@ class StalkerProvider {
   async getLiveCategories() {
     const r = await this._portal({ type: 'itv', action: 'get_genres' });
     const arr = (r && r.js) ? r.js : [];
-    return arr.map(function(g) { return { category_id: String(g.id), category_name: g.title }; });
+    var self = this;
+    return arr
+      .filter(function(g) { return !self._isAllCategory(g); })
+      .map(function(g) { return { category_id: String(g.id), category_name: g.title }; });
   }
 
   async _paginate(type, action, extraParams, maxPages) {
-    var all = [];
-    var page = 1;
-    maxPages = maxPages || 50; // safety cap (50 pages × 14 = 700 items)
-    while (page <= maxPages) {
-      var params = Object.assign({ type: type, action: action, p: page }, extraParams || {});
-      var r = await this._portal(params);
-      var batch = (r && r.js && r.js.data) ? r.js.data : [];
-      if (!Array.isArray(batch) || batch.length === 0) break;
-      all = all.concat(batch);
-      var total = r && r.js && (r.js.total_items || r.js.max_page_items);
+    maxPages = maxPages || 100;
+    var self = this;
+
+    // Fetch page 1 first to discover total
+    var firstParams = Object.assign({ type: type, action: action, p: 1 }, extraParams || {});
+    var r1 = await this._portal(firstParams);
+    var first = (r1 && r1.js && r1.js.data) ? r1.js.data : [];
+    if (!first.length) return [];
+
+    var all = first.slice();
+    var total = r1 && r1.js && (r1.js.total_items || r1.js.max_page_items);
+    if (total && all.length >= total) return all;
+    if (first.length < 14) return all; // single page, done
+
+    var pageSize = first.length;
+    var lastPage = total ? Math.ceil(total / pageSize) : maxPages;
+    lastPage = Math.min(lastPage, maxPages);
+    if (lastPage <= 1) return all;
+
+    // Parallel fetch of remaining pages in chunks of 6 (avoid hammering server)
+    var CHUNK = 6;
+    for (var start = 2; start <= lastPage; start += CHUNK) {
+      var end = Math.min(start + CHUNK - 1, lastPage);
+      var promises = [];
+      for (var p = start; p <= end; p++) {
+        promises.push(self._portal(Object.assign({ type: type, action: action, p: p }, extraParams || {})));
+      }
+      var results = await Promise.all(promises);
+      for (var i = 0; i < results.length; i++) {
+        var batch = (results[i] && results[i].js && results[i].js.data) ? results[i].js.data : [];
+        all = all.concat(batch);
+      }
       if (total && all.length >= total) break;
-      if (batch.length < 14) break; // last page (less than full page size)
-      page++;
     }
     return all;
+  }
+
+  _isAllCategory(cat) {
+    if (!cat) return false;
+    var id = String(cat.id || cat.category_id || '');
+    var name = String(cat.title || cat.category_name || cat.name || '').toLowerCase().trim();
+    if (id === '*' || id === '0' || id === 'all') return true;
+    return /^(all|tous|toutes|all channels|all categories|tous les|toutes les)/.test(name);
   }
 
   async getLiveStreams(categoryId) {
@@ -153,7 +184,10 @@ class StalkerProvider {
     try {
       const r = await this._portal({ type: 'vod', action: 'get_categories' });
       const arr = (r && r.js) ? r.js : [];
-      return arr.map(function(g) { return { category_id: String(g.id), category_name: g.title }; });
+      var self = this;
+      return arr
+        .filter(function(g) { return !self._isAllCategory(g); })
+        .map(function(g) { return { category_id: String(g.id), category_name: g.title }; });
     } catch (e) { return []; }
   }
 
@@ -181,7 +215,10 @@ class StalkerProvider {
     try {
       const r = await this._portal({ type: 'series', action: 'get_categories' });
       const arr = (r && r.js) ? r.js : [];
-      return arr.map(function(g) { return { category_id: String(g.id), category_name: g.title }; });
+      var self = this;
+      return arr
+        .filter(function(g) { return !self._isAllCategory(g); })
+        .map(function(g) { return { category_id: String(g.id), category_name: g.title }; });
     } catch (e) { return []; }
   }
 
