@@ -2,6 +2,7 @@ package com.mto3clone;
 
 import android.annotation.SuppressLint;
 import android.app.PictureInPictureParams;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.Build;
@@ -222,5 +223,18 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public boolean supportsPip() { return hasPipSupport(); }
+
+        @JavascriptInterface
+        public void playNative(String url, String title, boolean isLive) {
+            if (url == null || url.isEmpty()) return;
+            Intent i = new Intent(MainActivity.this, ExoPlayerActivity.class);
+            i.putExtra("url", url);
+            i.putExtra("title", title != null ? title : "");
+            i.putExtra("isLive", isLive);
+            startActivity(i);
+        }
+
+        @JavascriptInterface
+        public boolean hasNativePlayer() { return true; }
     }
 }
