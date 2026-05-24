@@ -214,7 +214,10 @@ public class MainActivity extends AppCompatActivity {
             String streamId = data.getStringExtra("switchToStreamId");
             int idx = data.getIntExtra("switchToIndex", -1);
             String groupId = data.getStringExtra("switchToGroupId");
-            if (groupId != null && !groupId.isEmpty()) {
+            boolean openEpg = data.getBooleanExtra("openEpg", false);
+            if (openEpg) {
+                webView.evaluateJavascript("typeof showScreen === 'function' && showScreen('epg')", null);
+            } else if (groupId != null && !groupId.isEmpty()) {
                 String js = "window.iprem && window.iprem.switchGroup && window.iprem.switchGroup('" + groupId.replace("'", "\\'") + "')";
                 webView.evaluateJavascript(js, null);
             } else if (streamId != null && !streamId.isEmpty()) {

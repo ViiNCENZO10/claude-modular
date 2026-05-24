@@ -415,6 +415,15 @@ public class ExoPlayerActivity extends AppCompatActivity {
         addMenuItem(R.drawable.ic_subtitles, "Chaînes", 0, new Runnable() {
             @Override public void run() { hideBottomMenu(); if (sidebarChannels.size() > 0) showSidebar(); }
         });
+        // EPG button - opens EPG grid screen
+        addMenuItem(R.drawable.ic_epg, "EPG", 0, new Runnable() {
+            @Override public void run() {
+                Intent result = new Intent();
+                result.putExtra("openEpg", true);
+                setResult(RESULT_OK, result);
+                finish();
+            }
+        });
         addMenuItem(R.drawable.ic_audio, "Audio", 0, new Runnable() { @Override public void run() { showAudioTrackDialog(); } });
         addMenuItem(R.drawable.ic_subtitles, "Sous-titres", 0, new Runnable() { @Override public void run() { showSubtitleTrackDialog(); } });
         addMenuItem(R.drawable.ic_aspect, "Format", 0, new Runnable() { @Override public void run() { cycleAspectRatio(); } });
