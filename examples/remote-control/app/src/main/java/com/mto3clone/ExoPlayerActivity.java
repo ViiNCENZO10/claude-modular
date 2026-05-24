@@ -497,7 +497,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
 
     private void showSleepTimerDialog() {
         String[] options = new String[] { "Annuler veille", "15 min", "30 min", "60 min", "90 min", "120 min" };
-        new AlertDialog.Builder(this, R.style.AppTheme)
+        new AlertDialog.Builder(this, R.style.TransparentTrackDialog)
             .setTitle("Veille programmée")
             .setItems(options, (dialog, which) -> {
                 if (sleepTimer != null) { sleepTimer.cancel(); sleepTimer = null; }
@@ -727,7 +727,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
         }
 
         String[] arr = labels.toArray(new String[0]);
-        new AlertDialog.Builder(this, R.style.AppTheme)
+        new AlertDialog.Builder(this, R.style.TransparentTrackDialog)
             .setTitle(title)
             .setSingleChoiceItems(arr, selectedIdx, (dialog, which) -> {
                 TrackSelectionParameters.Builder pb = player.getTrackSelectionParameters().buildUpon();
