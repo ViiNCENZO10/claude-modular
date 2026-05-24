@@ -151,31 +151,55 @@
             ps.push(api.getSeriesCategories().catch(function() { return []; }));
           Promise.all(ps).then(function(results) {
             var liveCats = results[0] || [];
+            var vodCats = results[1] || [];
+            var seriesCats = results[2] || [];
+
             // Phase 2 : premiere liste de chaque section (parallele)
             if (typeof api.getVod === 'function')
               api.getVod().catch(function() {});
             if (typeof api.getSeries === 'function')
               api.getSeries().catch(function() {});
 
-            // Phase 3 : TOUTES les categories Live par batches de 5
-            if (typeof api.getLiveStreams !== 'function' || !liveCats.length) return;
-            // Limit a 80 categories pour eviter pathologic (gros bouquets >200 catg)
-            var queue = liveCats.slice(0, 80);
+            // Phase 3 : TOUTES les categories des 3 sections, entrelacees
+            //   live, vod, series, live, vod, series, ...
+            //   en batches de 3 toutes les 250ms : ~36 categories prefetchees / 10s
+            //   sans saturer le portail Stalker (qui rate-limite vite)
+            function buildEntries() {
+              var out = [];
+              var max = Math.max(liveCats.length, vodCats.length, seriesCats.length);
+              for (var i = 0; i < max; i++) {
+                if (liveCats[i] && typeof api.getLiveStreams === 'function')
+                  out.push({ fn: api.getLiveStreams.bind(api), id: liveCats[i].category_id || liveCats[i].id });
+                if (vodCats[i] && typeof api.getVod === 'function')
+                  out.push({ fn: api.getVod.bind(api), id: vodCats[i].category_id || vodCats[i].id });
+                if (seriesCats[i] && typeof api.getSeries === 'function')
+                  out.push({ fn: api.getSeries.bind(api), id: seriesCats[i].category_id || seriesCats[i].id });
+              }
+              // Cap a 150 entrees totales pour eviter pathologic
+              return out.slice(0, 150);
+            }
+
+            var queue = buildEntries();
             var i = 0;
+            // Flag pose par app.js / loadLiveStreams quand l'user clique :
+            // si l'utilisateur fait une action UI, on PAUSE le warmup pendant 2s.
+            window._warmupPause = window._warmupPause || 0;
             function nextBatch() {
-              var batch = queue.slice(i, i + 5);
-              i += 5;
+              if (Date.now() < window._warmupPause) {
+                setTimeout(nextBatch, 500);
+                return;
+              }
+              var batch = queue.slice(i, i + 3);
+              i += 3;
               if (!batch.length) return;
-              Promise.all(batch.map(function(c) {
-                var cid = c.category_id || c.id;
-                return cid ? api.getLiveStreams(cid).catch(function() {}) : null;
+              Promise.all(batch.map(function(e) {
+                return e.id ? e.fn(e.id).catch(function() {}) : null;
               })).then(function() {
-                // 200ms entre les batches : evite de DDoS le portail Stalker
-                setTimeout(nextBatch, 200);
+                setTimeout(nextBatch, 250);
               });
             }
-            // Demarre apres 1s pour ne pas concurrencer le premier clic UI
-            setTimeout(nextBatch, 1000);
+            // Demarre apres 1.2s pour laisser le premier clic UI passer libre
+            setTimeout(nextBatch, 1200);
           });
         } catch (e) {}
       }, 600);

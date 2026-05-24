@@ -635,6 +635,10 @@ async function loadLiveStreams(categoryId) {
   var titleEl = document.getElementById('liveCategoryTitle');
   var countEl = document.getElementById('liveChannelCount');
 
+  // PAUSE le warmup en background pendant 2s : priorite absolue au clic user
+  // (evite que le pre-fetch sature le portail Stalker au moment ou on en a besoin)
+  window._warmupPause = Date.now() + 2000;
+
   // Skeleton INSTANT (place de l'ecran blanc) - apparait < 16ms apres le clic
   if (window.ipremCache && window.ipremCache.showSkeletonChannels) {
     window.ipremCache.showSkeletonChannels(channelList, 14);
