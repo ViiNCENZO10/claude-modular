@@ -19,21 +19,44 @@ class StalkerProvider {
   }
 
   _headers() {
-    return {
-      'Cookie': 'mac=' + encodeURIComponent(this.mac) + '; stb_lang=en; timezone=Europe%2FParis',
-      'X-User-Agent': 'Model: MAG250; Link: WiFi',
-      'User-Agent': 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG200 stbapp ver: 4 rev: 250 Safari/533.3',
-      'Authorization': this.token ? ('Bearer ' + this.token) : ''
+    var h = {
+      'Cookie': 'mac=' + encodeURIComponent(this.mac) + '; stb_lang=en; timezone=Europe%2FParis; adid=' + this.mac.replace(/:/g, '').toLowerCase(),
+      'X-User-Agent': 'Model: MAG250; Link: WiFi'
     };
+    if (this.token) h['Authorization'] = 'Bearer ' + this.token;
+    // Note: WebView doesn't allow setting User-Agent via fetch headers - it's set at WebView level
+    return h;
   }
 
   async _portal(params) {
-    const url = new URL(this.baseUrl + '/portal.php');
-    url.searchParams.set('JsHttpRequest', '1-xml');
-    for (const [k, v] of Object.entries(params || {})) url.searchParams.set(k, v);
-    const r = await fetch(url.toString(), { headers: this._headers() });
-    if (!r.ok) throw new Error('Stalker HTTP ' + r.status);
-    return r.json();
+    // Try /portal.php first (modern Ministra), then /server/load.php (older Stalker)
+    var paths = ['/portal.php', '/server/load.php', '/stalker_portal/server/load.php'];
+    for (var i = 0; i < paths.length; i++) {
+      var path = paths[i];
+      try {
+        var url = new URL(this.baseUrl + path);
+        url.searchParams.set('JsHttpRequest', '1-xml');
+        for (var k in (params || {})) {
+          if (Object.prototype.hasOwnProperty.call(params, k)) url.searchParams.set(k, params[k]);
+        }
+        var r = await fetch(url.toString(), { headers: this._headers(), credentials: 'omit' });
+        if (r.ok) {
+          var data = await r.json().catch(function() { return {}; });
+          // Cache successful path
+          this._workingPath = path;
+          return data;
+        }
+        // For 4xx errors, no point trying other paths
+        if (r.status >= 400 && r.status < 500) {
+          return { js: null, _httpStatus: r.status };
+        }
+      } catch (e) {
+        // Network error or JSON parse error - try next path
+        continue;
+      }
+    }
+    // All paths failed - return empty rather than throw
+    return { js: null, _failed: true };
   }
 
   async login() {

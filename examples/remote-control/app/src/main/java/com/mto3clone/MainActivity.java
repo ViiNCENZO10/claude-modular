@@ -90,6 +90,9 @@ public class MainActivity extends AppCompatActivity {
         // Hardware acceleration layer
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
+        // Set Stalker-compatible User-Agent (MAG250) - many Stalker portals reject other UAs
+        settings.setUserAgentString("Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 4 rev: 2116 Safari/533.3");
+
         // JS bridge for Picture-in-Picture trigger from web layer
         webView.addJavascriptInterface(new AndroidBridge(), "AndroidBridge");
 
