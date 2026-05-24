@@ -315,6 +315,20 @@ public class MainActivity extends AppCompatActivity {
         public boolean hasNativePlayer() { return true; }
 
         @JavascriptInterface
+        public int getVersionCode() {
+            try {
+                return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+            } catch (Exception e) { return 0; }
+        }
+
+        @JavascriptInterface
+        public String getVersionName() {
+            try {
+                return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            } catch (Exception e) { return ""; }
+        }
+
+        @JavascriptInterface
         public boolean playExternal(String url, String title) {
             return launchExternalPlayer(url, title);
         }

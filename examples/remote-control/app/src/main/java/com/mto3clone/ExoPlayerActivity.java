@@ -39,7 +39,13 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.TrackGroup;
+import androidx.media3.common.TrackSelectionOverride;
+import androidx.media3.common.TrackSelectionParameters;
+import androidx.media3.common.Tracks;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.Format;
+import androidx.appcompat.app.AlertDialog;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -299,6 +305,14 @@ public class ExoPlayerActivity extends AppCompatActivity {
             case KeyEvent.KEYCODE_MEDIA_STOP:
                 finish();
                 return true;
+            case 185: // KEYCODE_PROG_YELLOW: audio tracks
+            case KeyEvent.KEYCODE_A:
+                showTrackDialog(C.TRACK_TYPE_AUDIO, "Pistes audio");
+                return true;
+            case 186: // KEYCODE_PROG_BLUE: subtitle tracks
+            case KeyEvent.KEYCODE_S:
+                showTrackDialog(C.TRACK_TYPE_TEXT, "Sous-titres");
+                return true;
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
                 if (!isLive) player.seekTo(player.getCurrentPosition() + 10000);
                 return true;
@@ -462,6 +476,74 @@ public class ExoPlayerActivity extends AppCompatActivity {
         groupSidebar.startAnimation(a);
         groupSidebarOpen = false;
         channelListView.requestFocus();
+    }
+
+    @SuppressLint("UnsafeOptInUsageError")
+    private void showTrackDialog(int trackType, String title) {
+        if (player == null) return;
+        Tracks tracks = player.getCurrentTracks();
+        if (tracks == null || tracks.isEmpty()) {
+            Toast.makeText(this, "Aucune piste disponible", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        List<Tracks.Group> typeGroups = new ArrayList<>();
+        for (Tracks.Group g : tracks.getGroups()) {
+            if (g.getType() == trackType) typeGroups.add(g);
+        }
+        if (typeGroups.isEmpty()) {
+            Toast.makeText(this, "Aucune piste pour ce type", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        List<String> labels = new ArrayList<>();
+        List<TrackSelectionOverride> overrides = new ArrayList<>();
+        int selectedIdx = 0;
+        int currentIdx = 0;
+
+        // Auto / Disable option
+        labels.add(trackType == C.TRACK_TYPE_TEXT ? "Désactivés" : "Auto");
+        overrides.add(null);
+
+        for (Tracks.Group group : typeGroups) {
+            TrackGroup tg = group.getMediaTrackGroup();
+            for (int i = 0; i < tg.length; i++) {
+                Format fmt = tg.getFormat(i);
+                String label = "";
+                if (fmt.language != null && !fmt.language.equals("und")) label = fmt.language.toUpperCase();
+                if (fmt.label != null && !fmt.label.isEmpty()) label = (label.isEmpty() ? "" : label + " · ") + fmt.label;
+                if (label.isEmpty()) label = "Piste " + (i + 1);
+                if (fmt.codecs != null) label += " (" + fmt.codecs.split("\\.")[0] + ")";
+                labels.add(label);
+                overrides.add(new TrackSelectionOverride(tg, i));
+                if (group.isTrackSelected(i)) selectedIdx = labels.size() - 1;
+            }
+        }
+
+        String[] arr = labels.toArray(new String[0]);
+        new AlertDialog.Builder(this, R.style.AppTheme)
+            .setTitle(title)
+            .setSingleChoiceItems(arr, selectedIdx, (dialog, which) -> {
+                TrackSelectionParameters.Builder pb = player.getTrackSelectionParameters().buildUpon();
+                if (which == 0) {
+                    // Disable / auto
+                    if (trackType == C.TRACK_TYPE_TEXT) {
+                        pb.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true);
+                    } else {
+                        pb.clearOverridesOfType(trackType);
+                        pb.setTrackTypeDisabled(trackType, false);
+                    }
+                } else {
+                    TrackSelectionOverride override = overrides.get(which);
+                    pb.clearOverridesOfType(trackType);
+                    pb.setTrackTypeDisabled(trackType, false);
+                    if (override != null) pb.addOverride(override);
+                }
+                player.setTrackSelectionParameters(pb.build());
+                dialog.dismiss();
+            })
+            .setNegativeButton("Annuler", null)
+            .show();
     }
 
     private void selectGroup(int position) {

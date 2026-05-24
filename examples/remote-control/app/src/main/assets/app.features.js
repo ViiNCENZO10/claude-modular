@@ -103,6 +103,22 @@ async function decryptString(encrypted) {
 const APP_VERSION = '3.1.3';
 const UPDATE_REPO = 'ViiNCENZO10/claude-modular';
 
+function getInstalledVersionCode() {
+  try {
+    if (window.AndroidBridge && typeof window.AndroidBridge.getVersionCode === 'function') {
+      return window.AndroidBridge.getVersionCode();
+    }
+  } catch (e) {}
+  return 0;
+}
+
+function extractBuildNumber(tagName) {
+  // Tag format: v3.1.3-b30 → return 30
+  if (!tagName) return 0;
+  var m = String(tagName).match(/-b(\d+)$/i);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
 async function checkForUpdates(silent) {
   try {
     const r = await fetch('https://api.github.com/repos/' + UPDATE_REPO + '/releases/latest');
@@ -111,8 +127,20 @@ async function checkForUpdates(silent) {
       return null;
     }
     const data = await r.json();
-    const latest = (data.tag_name || '').replace(/^v/, '');
-    if (latest && latest !== APP_VERSION) {
+    const latestTag = data.tag_name || '';
+    const latestBuild = extractBuildNumber(latestTag);
+    const installedBuild = getInstalledVersionCode();
+    const latest = latestTag.replace(/^v/, '');
+
+    // Use buildNumber comparison if both available — that's the source of truth
+    var hasUpdate;
+    if (latestBuild > 0 && installedBuild > 0) {
+      hasUpdate = latestBuild > installedBuild;
+    } else {
+      hasUpdate = latest && latest !== APP_VERSION;
+    }
+
+    if (hasUpdate) {
       const apk = (data.assets || []).find(a => a.name && a.name.endsWith('.apk'));
       const dlUrl = apk ? apk.browser_download_url : data.html_url;
       const banner = document.getElementById('updateBanner');

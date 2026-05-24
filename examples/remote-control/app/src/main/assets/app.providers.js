@@ -779,8 +779,8 @@ function injectProviderStyles() {
     '.mac-format-label{font-size:12px;color:#94a3b8}' +
     '.mac-format-select{padding:4px 8px;font-size:12px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px}' +
     '.mac-detected-hint{font-size:11px;color:#22c55e}' +
-    // Bottom info bar (iPremiumTv style) - only visible on login screen
-    '.iprem-info-bar{position:fixed;bottom:0;left:0;right:0;background:#0f172a;color:#cbd5e1;padding:6px 16px;font-size:11px;justify-content:flex-end;align-items:center;gap:14px;z-index:50;font-family:monospace;pointer-events:none;display:none}' +
+    // Bottom info bar (iPremiumTv style) - only visible on login screen, integrated in gradient
+    '.iprem-info-bar{position:fixed;bottom:8px;right:20px;background:transparent;color:rgba(255,255,255,.75);padding:4px 0;font-size:10px;justify-content:flex-end;align-items:center;gap:10px;z-index:50;font-family:monospace;pointer-events:none;display:none;letter-spacing:.3px}' +
     '#login.active ~ .iprem-info-bar, body.on-login .iprem-info-bar{display:flex}' +
     '.iprem-info-bar .info-label{color:#94a3b8;margin-right:4px}' +
     '.iprem-info-bar .info-value{color:#fff;font-weight:600}' +
