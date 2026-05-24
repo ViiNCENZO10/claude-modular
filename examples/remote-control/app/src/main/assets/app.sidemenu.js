@@ -387,8 +387,8 @@ function injectSideMenuStyles() {
   s.id = 'iprem-sidemenu-styles';
   s.textContent =
     '.side-menu{position:fixed;inset:0;z-index:300;display:flex}' +
-    '.side-menu .sm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(3px)}' +
-    '.side-menu .sm-panel{position:relative;width:320px;height:100vh;background:linear-gradient(180deg,rgba(15,23,42,.96) 0%,rgba(30,41,59,.96) 100%);padding:24px 0;display:flex;flex-direction:column;box-shadow:6px 0 30px rgba(0,0,0,.5);overflow-y:auto}' +
+    '.side-menu .sm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.6)}' +
+    '.side-menu .sm-panel{position:relative;width:320px;height:100vh;background:#1e293b;padding:24px 0;display:flex;flex-direction:column;overflow-y:auto;will-change:transform}' +
     '.sm-logo{display:flex;align-items:center;gap:12px;padding:0 24px 20px 24px;border-bottom:1px solid rgba(255,255,255,.05)}' +
     '.sm-logo-text{color:#fff;font-size:18px;font-weight:600}' +
     '.sm-items{list-style:none;padding:14px 12px;margin:0;flex:1}' +

@@ -253,22 +253,17 @@
     var s = document.createElement('style');
     s.id = 'iprem-tvnav-styles';
     s.textContent =
-      // Strong visible focus ring for ALL focusable elements
+      // Strong visible focus ring - simplified for ARM Realtek performance
       '*:focus{outline:none}' +
       '.focusable:focus, [tabindex="0"]:focus, button:focus, a:focus, input:focus, select:focus, .nav-card:focus, .conn-card:focus, .portal-card:focus, .channel-list li:focus, .category-list li:focus, .sm-item:focus, .player-btn:focus, .btn:focus, .btn-icon:focus, .setting-row:focus, .form-group input:focus, .mac-sel-item:focus, .catorder-item:focus, .login-type-opt:focus-within{' +
-        'outline:3px solid #60a5fa !important;' +
+        'outline:2px solid #60a5fa;' +
         'outline-offset:2px;' +
-        'box-shadow:0 0 0 5px rgba(96,165,250,.35), 0 0 20px rgba(59,130,246,.5);' +
         'z-index:1;' +
       '}' +
-      // Bigger scale for cards on focus
-      '.nav-card:focus, .conn-card:focus, .portal-card:focus{transform:scale(1.05);transition:transform .12s ease-out}' +
       // Channel/category list items on focus
-      '.channel-list li:focus, .category-list li:focus{background:rgba(59,130,246,.2) !important}' +
+      '.channel-list li:focus, .category-list li:focus{background:rgba(59,130,246,.2)}' +
       // Inputs need stronger visible state
-      'input:focus, select:focus, textarea:focus{outline:3px solid #60a5fa !important;border-color:#60a5fa !important}' +
-      // Modal items
-      '.modal:focus-within .focusable:focus{box-shadow:0 0 0 4px #60a5fa, 0 0 24px rgba(59,130,246,.6)}';
+      'input:focus, select:focus, textarea:focus{outline:2px solid #60a5fa;border-color:#60a5fa}';
     document.head.appendChild(s);
   }
 
@@ -285,17 +280,17 @@
   }
 
   // ====== Periodic ensure-focusable for dynamically rendered content ======
+  // Throttled with requestAnimationFrame to avoid hammering the CPU on slow boxes
   function startFocusableObserver() {
     if (window._iprem_focusable_observer) return;
-    var observer = new MutationObserver(function(mutations) {
-      var needsUpdate = false;
-      for (var i = 0; i < mutations.length; i++) {
-        if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
-          needsUpdate = true;
-          break;
-        }
-      }
-      if (needsUpdate) ensureFocusable();
+    var pending = false;
+    var observer = new MutationObserver(function() {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(function() {
+        ensureFocusable();
+        pending = false;
+      });
     });
     observer.observe(document.body, { childList: true, subtree: true });
     window._iprem_focusable_observer = observer;
