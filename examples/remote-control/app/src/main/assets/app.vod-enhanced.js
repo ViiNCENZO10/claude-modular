@@ -66,25 +66,25 @@
       '.cin-close{position:absolute;top:18px;right:22px;background:rgba(0,0,0,.5);border:none;color:#fff;width:42px;height:42px;border-radius:50%;font-size:28px;line-height:1;cursor:pointer;z-index:5;outline:none}' +
       '.cin-close:focus, .cin-close:hover{background:rgba(0,0,0,.85);outline:2px solid #60a5fa}' +
       '.cin-brand{position:absolute;bottom:22px;right:28px;font-size:13px;color:rgba(255,255,255,.55);font-weight:500;z-index:5}' +
-      '.cin-content{position:absolute;left:60px;top:50%;transform:translateY(-50%);max-width:55%;z-index:4;padding-right:30px}' +
-      '.cin-title{font-size:54px;font-weight:900;margin:0 0 14px 0;line-height:.95;letter-spacing:-.5px;text-shadow:0 4px 16px rgba(0,0,0,.7);font-family:Impact,"Arial Black",sans-serif}' +
-      '.cin-meta-line{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:15px;color:rgba(255,255,255,.85)}' +
+      '.cin-content{position:absolute;left:50px;top:50%;transform:translateY(-50%);max-width:55%;z-index:4;padding-right:30px}' +
+      '.cin-title{font-size:36px;font-weight:900;margin:0 0 10px 0;line-height:1;letter-spacing:-.3px;text-shadow:0 3px 12px rgba(0,0,0,.7);font-family:Impact,"Arial Black",sans-serif}' +
+      '.cin-meta-line{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;color:rgba(255,255,255,.85)}' +
       '.cin-meta-year{font-weight:600;color:#fff}' +
-      '.cin-dot{color:rgba(255,255,255,.5);font-size:18px;line-height:1}' +
-      '.cin-badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}' +
-      '.cin-badge{padding:4px 10px;border-radius:6px;font-size:13px;font-weight:700}' +
+      '.cin-dot{color:rgba(255,255,255,.5);font-size:16px;line-height:1}' +
+      '.cin-badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}' +
+      '.cin-badge{padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700}' +
       '.cin-badge-age{background:rgba(34,197,94,.2);color:#86efac;border:1px solid #22c55e}' +
       '.cin-badge-tmdb{background:#22c55e;color:#000}' +
       '.cin-badge-duration{color:rgba(255,255,255,.9);background:rgba(255,255,255,.1)}' +
-      '.cin-added{font-size:14px;color:rgba(255,255,255,.85);margin-bottom:10px}' +
+      '.cin-added{font-size:12px;color:rgba(255,255,255,.85);margin-bottom:8px}' +
       '.cin-added strong{color:#fff;font-weight:600}' +
-      '.cin-plot{font-size:15px;line-height:1.55;color:rgba(255,255,255,.95);margin:0 0 12px 0;max-height:115px;overflow:hidden;text-shadow:0 2px 8px rgba(0,0,0,.5)}' +
-      '.cin-cast{font-size:13px;color:rgba(255,255,255,.7);margin-bottom:20px}' +
+      '.cin-plot{font-size:13px;line-height:1.5;color:rgba(255,255,255,.95);margin:0 0 10px 0;max-height:90px;overflow:hidden;text-shadow:0 2px 8px rgba(0,0,0,.5)}' +
+      '.cin-cast{font-size:11px;color:rgba(255,255,255,.7);margin-bottom:16px}' +
       '.cin-cast strong{color:#fff}' +
-      '.cin-actions{display:flex;gap:12px;align-items:center;margin-bottom:24px}' +
-      '.cin-btn-watch{display:inline-flex;align-items:center;gap:10px;padding:14px 38px;background:#fff;color:#000;border:none;border-radius:50px;font-size:17px;font-weight:700;cursor:pointer;outline:none;transition:transform .12s,box-shadow .12s}' +
-      '.cin-btn-watch:focus, .cin-btn-watch:hover{transform:scale(1.04);box-shadow:0 8px 24px rgba(255,255,255,.3)}' +
-      '.cin-btn-fav{width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.4);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;outline:none;transition:all .12s}' +
+      '.cin-actions{display:flex;gap:10px;align-items:center;margin-bottom:18px}' +
+      '.cin-btn-watch{display:inline-flex;align-items:center;gap:8px;padding:10px 28px;background:#fff;color:#000;border:none;border-radius:50px;font-size:14px;font-weight:700;cursor:pointer;outline:none;transition:transform .12s,box-shadow .12s}' +
+      '.cin-btn-watch:focus, .cin-btn-watch:hover{transform:scale(1.04);box-shadow:0 6px 18px rgba(255,255,255,.3)}' +
+      '.cin-btn-fav{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.4);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;outline:none;transition:all .12s}' +
       '.cin-btn-fav:focus, .cin-btn-fav:hover{background:rgba(255,255,255,.3);border-color:#fff}' +
       '.cin-btn-fav.active{background:#f59e0b;border-color:#f59e0b;color:#000}' +
       '.cin-btn-fav.active svg{fill:#000}' +
@@ -289,11 +289,11 @@
             '<div class="cin-cast" id="cinCast"></div>' +
             '<div class="cin-actions">' +
               '<button class="cin-btn-watch focusable" id="cinBtnWatch" tabindex="0" autofocus>' +
-                '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>' +
+                '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>' +
                 '<span>Regarder</span>' +
               '</button>' +
               '<button class="cin-btn-fav focusable" id="cinBtnFav" tabindex="0" title="Favori">' +
-                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15,9 22,9 17,14 19,21 12,17 5,21 7,14 2,9 9,9"/></svg>' +
+                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15,9 22,9 17,14 19,21 12,17 5,21 7,14 2,9 9,9"/></svg>' +
               '</button>' +
             '</div>' +
           '</div>' +
@@ -456,18 +456,51 @@
       overlay.querySelector('#cinAdded').innerHTML = '<strong>Date ajoutée :</strong> ' + addedTxt;
     }
 
-    // Plot - clean placeholder if empty
+    // Plot - try Xtream fields first, then TMDB API as fallback
     var plotText = movie.plot || movie.description || movie.overview || movie.synopsis || vod.description || '';
     if (!plotText && info && info.seasons && info.seasons.length > 0) {
-      // For series without plot, show season/episode count
       var totalEps = 0;
       info.seasons.forEach(function(se) {
         if (info.episodes && info.episodes[se.season_number]) totalEps += info.episodes[se.season_number].length;
       });
       plotText = info.seasons.length + ' saison' + (info.seasons.length > 1 ? 's' : '') + (totalEps > 0 ? ' • ' + totalEps + ' épisodes' : '');
     }
-    if (!plotText) plotText = 'Aucune description disponible pour ce contenu.';
+    if (!plotText) plotText = 'Chargement de la description...';
     overlay.querySelector('#cinPlot').textContent = plotText;
+
+    // Fallback TMDB fetch for description if missing
+    if (tmdbId && (!movie.plot && !movie.description && !movie.overview && !movie.synopsis && !vod.description)) {
+      try {
+        var tdescCache = 'tmdb_overview_' + tmdbId + '_fr';
+        var tdesc = null;
+        try {
+          var trec = localStorage.getItem(tdescCache);
+          if (trec) {
+            var te = JSON.parse(trec);
+            if (Date.now() - te.t < 24 * 3600 * 1000) tdesc = te.data;
+          }
+        } catch (e) {}
+        if (!tdesc) {
+          var tkey = localStorage.getItem('iprem_tmdb_key') || '4ef0d7355d9ffb5151e987764708ce96';
+          var tendpoint = (vod._type === 'series') ? 'tv' : 'movie';
+          var tr = await fetch('https://api.themoviedb.org/3/' + tendpoint + '/' + tmdbId + '?language=fr-FR&api_key=' + tkey);
+          if (tr.ok) {
+            var td = await tr.json();
+            tdesc = td.overview || '';
+            try { localStorage.setItem(tdescCache, JSON.stringify({ t: Date.now(), data: tdesc })); } catch (e) {}
+          }
+        }
+        if (tdesc) {
+          overlay.querySelector('#cinPlot').textContent = tdesc;
+        } else {
+          overlay.querySelector('#cinPlot').textContent = 'Aucune description disponible pour ce contenu.';
+        }
+      } catch (e) {
+        overlay.querySelector('#cinPlot').textContent = 'Aucune description disponible pour ce contenu.';
+      }
+    } else if (plotText === 'Chargement de la description...') {
+      overlay.querySelector('#cinPlot').textContent = 'Aucune description disponible pour ce contenu.';
+    }
 
     // Cast / Director
     var castParts = [];
