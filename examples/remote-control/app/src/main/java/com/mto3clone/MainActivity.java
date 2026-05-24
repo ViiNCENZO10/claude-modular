@@ -54,6 +54,11 @@ public class MainActivity extends AppCompatActivity {
 
         // Load the local HTML
         webView.loadUrl("file:///android_asset/index.html");
+
+        // Ensure WebView has focus so remote control keys reach it
+        webView.setFocusable(true);
+        webView.setFocusableInTouchMode(true);
+        webView.requestFocus();
     }
 
     @SuppressLint("SetJavaScriptEnabled")
