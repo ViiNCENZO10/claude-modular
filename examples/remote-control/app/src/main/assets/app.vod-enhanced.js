@@ -57,7 +57,45 @@
       '.score-circle::before{content:"";position:absolute;inset:5px;background:#0f172a;border-radius:50%;z-index:0}' +
       '.score-circle span{position:relative;z-index:1}' +
       // Mobile / smaller screens
-      '@media (max-width:960px){.vod-detail .vod-detail-layout{grid-template-columns:160px 1fr;gap:18px}.vod-detail-info h2{font-size:22px}}';
+      '@media (max-width:960px){.vod-detail .vod-detail-layout{grid-template-columns:160px 1fr;gap:18px}.vod-detail-info h2{font-size:22px}}' +
+      // ===== Cinematic full-screen detail =====
+      '.cinematic-detail{position:fixed;inset:0;z-index:1000;color:#fff;animation:cinFadeIn .35s ease-out;overflow:hidden}' +
+      '@keyframes cinFadeIn{from{opacity:0}to{opacity:1}}' +
+      '.cin-backdrop{position:absolute;inset:0;background-size:cover;background-position:center right;background-color:#0f172a;background-repeat:no-repeat}' +
+      '.cin-gradient{position:absolute;inset:0;background:linear-gradient(90deg,rgba(15,23,42,.95) 0%,rgba(15,23,42,.85) 40%,rgba(15,23,42,.4) 65%,transparent 95%),linear-gradient(180deg,rgba(15,23,42,.4) 0%,transparent 30%,transparent 70%,rgba(15,23,42,.9) 100%);pointer-events:none}' +
+      '.cin-close{position:absolute;top:18px;right:22px;background:rgba(0,0,0,.5);border:none;color:#fff;width:42px;height:42px;border-radius:50%;font-size:28px;line-height:1;cursor:pointer;z-index:5;outline:none}' +
+      '.cin-close:focus, .cin-close:hover{background:rgba(0,0,0,.85);outline:2px solid #60a5fa}' +
+      '.cin-brand{position:absolute;bottom:22px;right:28px;font-size:13px;color:rgba(255,255,255,.55);font-weight:500;z-index:5}' +
+      '.cin-content{position:absolute;left:60px;top:50%;transform:translateY(-50%);max-width:55%;z-index:4;padding-right:30px}' +
+      '.cin-title{font-size:54px;font-weight:900;margin:0 0 14px 0;line-height:.95;letter-spacing:-.5px;text-shadow:0 4px 16px rgba(0,0,0,.7);font-family:Impact,"Arial Black",sans-serif}' +
+      '.cin-meta-line{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:15px;color:rgba(255,255,255,.85)}' +
+      '.cin-meta-year{font-weight:600;color:#fff}' +
+      '.cin-dot{color:rgba(255,255,255,.5);font-size:18px;line-height:1}' +
+      '.cin-badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}' +
+      '.cin-badge{padding:4px 10px;border-radius:6px;font-size:13px;font-weight:700}' +
+      '.cin-badge-age{background:rgba(34,197,94,.2);color:#86efac;border:1px solid #22c55e}' +
+      '.cin-badge-tmdb{background:#22c55e;color:#000}' +
+      '.cin-badge-duration{color:rgba(255,255,255,.9);background:rgba(255,255,255,.1)}' +
+      '.cin-added{font-size:14px;color:rgba(255,255,255,.85);margin-bottom:10px}' +
+      '.cin-added strong{color:#fff;font-weight:600}' +
+      '.cin-plot{font-size:15px;line-height:1.55;color:rgba(255,255,255,.95);margin:0 0 12px 0;max-height:115px;overflow:hidden;text-shadow:0 2px 8px rgba(0,0,0,.5)}' +
+      '.cin-cast{font-size:13px;color:rgba(255,255,255,.7);margin-bottom:20px}' +
+      '.cin-cast strong{color:#fff}' +
+      '.cin-actions{display:flex;gap:12px;align-items:center;margin-bottom:24px}' +
+      '.cin-btn-watch{display:inline-flex;align-items:center;gap:10px;padding:14px 38px;background:#fff;color:#000;border:none;border-radius:50px;font-size:17px;font-weight:700;cursor:pointer;outline:none;transition:transform .12s,box-shadow .12s}' +
+      '.cin-btn-watch:focus, .cin-btn-watch:hover{transform:scale(1.04);box-shadow:0 8px 24px rgba(255,255,255,.3)}' +
+      '.cin-btn-fav{width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.4);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;outline:none;transition:all .12s}' +
+      '.cin-btn-fav:focus, .cin-btn-fav:hover{background:rgba(255,255,255,.3);border-color:#fff}' +
+      '.cin-btn-fav.active{background:#f59e0b;border-color:#f59e0b;color:#000}' +
+      '.cin-btn-fav.active svg{fill:#000}' +
+      '.cin-trailer-row{display:flex;flex-direction:column;gap:8px;margin-top:8px}' +
+      '.cin-trailer-label{font-size:13px;font-weight:600;color:#fff;letter-spacing:.5px}' +
+      '.cin-trailer-card{position:relative;width:240px;aspect-ratio:16/9;border-radius:8px;overflow:hidden;cursor:pointer;background:#1e293b;outline:none}' +
+      '.cin-trailer-card:focus, .cin-trailer-card:hover{outline:2px solid #60a5fa}' +
+      '.cin-trailer-card img{width:100%;height:100%;object-fit:cover;display:block}' +
+      '.cin-trailer-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.85);color:#000;display:flex;align-items:center;justify-content:center;font-size:22px}' +
+      // Smaller screens
+      '@media (max-width:900px){.cin-title{font-size:38px}.cin-content{left:30px;max-width:75%}}';
     document.head.appendChild(s);
   }
 
@@ -123,23 +161,134 @@
   }
 
 
-  // Enhanced detail modal - shows backdrop, score circle, full info
+  // Enhanced detail - replaces modal with cinematic full-screen overlay
   function patchShowVodDetail() {
     if (typeof window.showVodDetail !== 'function') return;
     var orig = window.showVodDetail;
     window.showVodDetail = async function(vod) {
-      orig.apply(this, arguments);
-      // After original runs, enhance the modal
-      setTimeout(async function() {
-        try { await enhanceVodModal(vod); } catch (e) { console.warn(e); }
-      }, 100);
+      // Hide the original modal — we replace it entirely
+      try {
+        var origModal = document.getElementById('vodDetailModal');
+        if (origModal) origModal.style.display = 'none';
+      } catch (e) {}
+      openCinematicDetail(vod);
     };
   }
 
-  async function enhanceVodModal(vod) {
-    var modal = document.getElementById('vodDetailModal');
-    if (!modal) return;
+  function relativeAdded(timestamp) {
+    if (!timestamp) return '';
+    var ts = parseInt(timestamp, 10);
+    if (isNaN(ts) || ts === 0) return '';
+    if (ts < 10000000000) ts = ts * 1000; // seconds → ms
+    var diff = Date.now() - ts;
+    var d = Math.floor(diff / 86400000);
+    if (d < 0) return '';
+    if (d === 0) return "Aujourd'hui";
+    if (d === 1) return 'Hier';
+    if (d < 7) return 'Il y a ' + d + ' jours';
+    if (d < 30) return 'Il y a ' + Math.floor(d / 7) + ' semaine' + (Math.floor(d / 7) > 1 ? 's' : '');
+    if (d < 365) return 'Il y a ' + Math.floor(d / 30) + ' mois';
+    return 'Il y a ' + Math.floor(d / 365) + ' an' + (Math.floor(d / 365) > 1 ? 's' : '');
+  }
 
+  function scoreColor(pct) {
+    if (pct >= 70) return '#22c55e';
+    if (pct >= 50) return '#84cc16';
+    if (pct >= 30) return '#f59e0b';
+    return '#ef4444';
+  }
+
+  async function openCinematicDetail(vod) {
+    // Remove any existing cinematic overlay
+    var existing = document.getElementById('cinematicDetail');
+    if (existing) existing.remove();
+
+    // Build skeleton immediately for instant feedback
+    var overlay = document.createElement('div');
+    overlay.id = 'cinematicDetail';
+    overlay.className = 'cinematic-detail';
+    overlay.innerHTML =
+      '<div class="cin-backdrop" id="cinBackdrop"></div>' +
+      '<div class="cin-gradient"></div>' +
+      '<button class="cin-close focusable" id="cinClose" tabindex="0" title="Fermer">&times;</button>' +
+      '<div class="cin-brand">↔ iPremTvOnline</div>' +
+      '<div class="cin-content">' +
+        '<h1 class="cin-title" id="cinTitle">' + escapeText(vod.name || '') + '</h1>' +
+        '<div class="cin-meta-line">' +
+          '<span id="cinYear" class="cin-meta-year">—</span>' +
+          '<span class="cin-dot">•</span>' +
+          '<span id="cinGenre" class="cin-meta-genre">—</span>' +
+        '</div>' +
+        '<div class="cin-badges" id="cinBadges"></div>' +
+        '<div class="cin-added" id="cinAdded"></div>' +
+        '<p class="cin-plot" id="cinPlot">Chargement...</p>' +
+        '<div class="cin-cast" id="cinCast"></div>' +
+        '<div class="cin-actions">' +
+          '<button class="cin-btn-watch focusable" id="cinBtnWatch" tabindex="0" autofocus>' +
+            '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>' +
+            '<span>Regarder</span>' +
+          '</button>' +
+          '<button class="cin-btn-fav focusable" id="cinBtnFav" tabindex="0" title="Favori">' +
+            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15,9 22,9 17,14 19,21 12,17 5,21 7,14 2,9 9,9"/></svg>' +
+          '</button>' +
+        '</div>' +
+        '<div class="cin-trailer-row" id="cinTrailerRow" style="display:none">' +
+          '<span class="cin-trailer-label">Bande-annonce</span>' +
+          '<div class="cin-trailer-card" id="cinTrailerCard"></div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    // Close handlers
+    var close = function() {
+      try { overlay.remove(); } catch (e) {}
+    };
+    overlay.querySelector('#cinClose').addEventListener('click', close);
+    // Click on backdrop closes
+    overlay.querySelector('#cinBackdrop').addEventListener('click', function(e) {
+      if (e.target.id === 'cinBackdrop') close();
+    });
+
+    // Watch button → play
+    overlay.querySelector('#cinBtnWatch').addEventListener('click', function() {
+      try {
+        var ext = vod.container_extension || 'mp4';
+        var url = AppState.api.vodUrl(vod.stream_id, ext);
+        close();
+        if (typeof window.startPlayer === 'function') {
+          window.startPlayer(url, vod.name, '', 'vod', vod);
+        }
+      } catch (e) { showToast && showToast('Lecture impossible'); }
+    });
+
+    // Favorite button
+    var favBtn = overlay.querySelector('#cinBtnFav');
+    var refreshFav = function() {
+      try {
+        if (window.iprem && window.iprem.watchlist) {
+          var inList = window.iprem.watchlist.has({ stream_id: vod.stream_id, type: 'vod' });
+          favBtn.classList.toggle('active', !!inList);
+        }
+      } catch (e) {}
+    };
+    refreshFav();
+    favBtn.addEventListener('click', function() {
+      try {
+        if (window.iprem && window.iprem.watchlist) {
+          vod.type = 'vod';
+          window.iprem.watchlist.toggle(vod);
+          refreshFav();
+        }
+      } catch (e) {}
+    });
+
+    // Focus Watch button
+    setTimeout(function() {
+      var w = overlay.querySelector('#cinBtnWatch');
+      if (w) w.focus();
+    }, 100);
+
+    // Now fetch detailed info (async)
     var info = null;
     try {
       if (AppState.api && AppState.api.getVodInfo) {
@@ -149,79 +298,82 @@
     var movie = (info && info.info) ? info.info : {};
     var moviedata = (info && info.movie_data) ? info.movie_data : vod;
 
-    // Backdrop
-    var backdrop = movie.backdrop_path && movie.backdrop_path[0] ? movie.backdrop_path[0] : (movie.movie_image || vod.stream_icon || '');
+    var backdrop = (movie.backdrop_path && movie.backdrop_path[0]) ? movie.backdrop_path[0] : (movie.movie_image || vod.stream_icon || '');
     var poster = movie.cover_big || movie.movie_image || vod.stream_icon || '';
 
-    var layout = modal.querySelector('.vod-detail-layout');
-    if (!layout) return;
-
-    // Insert backdrop element if missing
-    var backdropEl = modal.querySelector('.vod-detail-backdrop');
-    if (!backdropEl) {
-      backdropEl = document.createElement('div');
-      backdropEl.className = 'vod-detail-backdrop';
-      layout.parentNode.insertBefore(backdropEl, layout);
+    // Update backdrop
+    var bgUrl = backdrop || poster;
+    if (bgUrl) {
+      overlay.querySelector('#cinBackdrop').style.backgroundImage = "url('" + bgUrl.replace(/'/g, '%27') + "')";
     }
-    if (backdrop) backdropEl.style.backgroundImage = 'url(' + JSON.stringify(backdrop).replace(/^"|"$/g, '') + ')';
-
-    // Poster
-    var posterEl = modal.querySelector('.vod-detail-poster');
-    if (posterEl && poster) posterEl.style.backgroundImage = 'url(' + JSON.stringify(poster).replace(/^"|"$/g, '') + ')';
 
     // Title
-    var titleEl = document.getElementById('vodDetailTitle');
-    if (titleEl) titleEl.textContent = movie.name || movie.o_name || vod.name || 'Unknown';
+    overlay.querySelector('#cinTitle').textContent = (movie.name || movie.o_name || vod.name || 'Sans titre').toUpperCase();
 
-    // Meta badges
+    // Year & Genre
     var year = movie.releasedate ? String(movie.releasedate).substring(0, 4) : (movie.year || '');
-    var rating = parseFloat(movie.rating || movie.rating_5based || vod.rating || 0);
-    var duration = movie.duration || (movie.duration_secs ? Math.round(movie.duration_secs / 60) + ' min' : '');
     var genre = movie.genre || '';
+    overlay.querySelector('#cinYear').textContent = year || '—';
+    overlay.querySelector('#cinGenre').textContent = genre || '—';
+
+    // Badges
+    var rating = parseFloat(movie.rating || movie.rating_5based || vod.rating || 0);
+    var ratingPct = 0;
+    if (rating > 0) ratingPct = (rating > 10 ? rating : rating * 10);
+    ratingPct = Math.min(100, Math.max(0, ratingPct));
+
+    var duration = movie.duration || '';
+    var durSec = parseInt(movie.duration_secs || 0, 10);
+    if (!duration && durSec > 0) {
+      var h = Math.floor(durSec / 3600);
+      var m = Math.floor((durSec % 3600) / 60);
+      duration = (h > 0 ? h + 'h ' : '') + m + 'm';
+    }
+
+    var ageRating = movie.rating_mpaa || movie.age || '';
     var tmdbId = movie.tmdb_id || movie.tmdb || '';
 
-    var yearEl = document.getElementById('vodDetailYear');
-    if (yearEl) yearEl.textContent = year || '—';
-    var durEl = document.getElementById('vodDetailDuration');
-    if (durEl) durEl.textContent = duration || '—';
-    var genreEl = document.getElementById('vodDetailGenre');
-    if (genreEl) genreEl.textContent = genre || '—';
+    var badges = '';
+    if (ageRating) badges += '<span class="cin-badge cin-badge-age">' + escapeText(String(ageRating)) + '</span>';
+    if (ratingPct > 0) badges += '<span class="cin-badge cin-badge-tmdb" style="background:' + scoreColor(ratingPct) + '">TMDb ' + Math.round(ratingPct) + '%</span>';
+    if (duration) badges += '<span class="cin-badge cin-badge-duration">' + escapeText(duration) + '</span>';
+    overlay.querySelector('#cinBadges').innerHTML = badges;
 
-    var ratingEl = document.getElementById('vodDetailRating');
-    if (ratingEl) {
-      if (rating > 0) {
-        var pct = Math.min(100, Math.max(0, rating * 10));
-        ratingEl.innerHTML = '<span class="score-circle" style="--score-pct:' + pct + '%"><span>' + rating.toFixed(1) + '</span></span>';
-      } else {
-        ratingEl.textContent = '—';
-      }
+    // Date added
+    var added = moviedata.added || movie.added || vod.added;
+    var addedTxt = relativeAdded(added);
+    if (addedTxt) {
+      overlay.querySelector('#cinAdded').innerHTML = '<strong>Date ajoutée :</strong> ' + addedTxt;
     }
 
-    // TMDB badge
-    var metaEl = modal.querySelector('.vod-detail-meta');
-    if (metaEl && tmdbId) {
-      // Avoid duplicate
-      if (!metaEl.querySelector('.badge-tmdb')) {
-        var tmdbBadge = document.createElement('span');
-        tmdbBadge.className = 'badge badge-tmdb';
-        tmdbBadge.innerHTML = '🎬 TMDB ' + tmdbId;
-        metaEl.appendChild(tmdbBadge);
-      }
-    }
-
-    // Plot / overview
-    var plotEl = document.getElementById('vodDetailPlot');
-    if (plotEl) plotEl.textContent = movie.plot || movie.description || movie.overview || 'Pas de description disponible';
+    // Plot
+    overlay.querySelector('#cinPlot').textContent = movie.plot || movie.description || movie.overview || vod.description || '';
 
     // Cast / Director
-    var castEl = document.getElementById('vodDetailCast');
-    if (castEl) {
-      var parts = [];
-      if (movie.director) parts.push('<strong>Réalisateur:</strong> ' + escapeText(movie.director));
-      if (movie.cast || movie.actors) parts.push('<strong>Casting:</strong> ' + escapeText(movie.cast || movie.actors));
-      if (movie.country) parts.push('<strong>Pays:</strong> ' + escapeText(movie.country));
-      if (movie.releasedate) parts.push('<strong>Sortie:</strong> ' + escapeText(movie.releasedate));
-      castEl.innerHTML = parts.join('<br>');
+    var castParts = [];
+    if (movie.director) castParts.push('<strong>Réal:</strong> ' + escapeText(movie.director));
+    if (movie.cast || movie.actors) castParts.push('<strong>Avec:</strong> ' + escapeText(movie.cast || movie.actors));
+    overlay.querySelector('#cinCast').innerHTML = castParts.join(' · ');
+
+    // Trailer
+    var youtube = movie.youtube_trailer || '';
+    if (youtube) {
+      var videoId = youtube;
+      var m = String(youtube).match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+      if (m) videoId = m[1];
+      var thumb = 'https://img.youtube.com/vi/' + videoId + '/mqdefault.jpg';
+      overlay.querySelector('#cinTrailerRow').style.display = '';
+      overlay.querySelector('#cinTrailerCard').innerHTML =
+        '<img src="' + thumb + '" alt="Bande-annonce">' +
+        '<span class="cin-trailer-play">▶</span>';
+    }
+
+    if (tmdbId && (!ratingPct || ratingPct === 0)) {
+      // Still show TMDB badge even without score
+      var bEl = overlay.querySelector('#cinBadges');
+      if (bEl && !bEl.querySelector('.cin-badge-tmdb')) {
+        bEl.insertAdjacentHTML('beforeend', '<span class="cin-badge cin-badge-tmdb" style="background:#22c55e">TMDb ' + tmdbId + '</span>');
+      }
     }
   }
 
