@@ -140,20 +140,14 @@ public class ExoPlayerActivity extends AppCompatActivity {
 
         // === Reconnexion auto sur coupure HTTP (micro-coupures = stream IPTV) ===
         options.add("--http-reconnect");
-        options.add("--http-continuous");
 
         // === Décodage hardware (Realtek / Amlogic / Mediatek) avec fallback soft ===
         options.add("--avcodec-hw=any");
-        // SUPPRIMÉ --avcodec-fast : sacrifiait la qualité (skip pixels)
-        // SUPPRIMÉ --avcodec-skiploopfilter=1 : enlevait le deblocking = image floue
         options.add("--avcodec-threads=0");          // auto = tous les coeurs CPU
         options.add("--avcodec-skiploopfilter=0");   // qualité max
-        options.add("--no-drop-late-frames");        // jamais skip une frame = pas de saccades
-        options.add("--no-skip-frames");
-
-        // === MPEG-TS (le format IPTV par défaut) : tolérer les erreurs de continuité ===
-        // sinon la lecture s'arrête au moindre paquet manquant
-        options.add("--ts-cc-check=0");
+        // Note : on a SUPPRIME --http-continuous, --ts-cc-check=0,
+        // --no-drop-late-frames, --no-skip-frames car ces options n'existent pas
+        // dans libVLC 3.x => libVLC les rejetait et l'activity crashait.
 
         // === Sous-titres : ne pas auto-scanner les fichiers .srt voisins ===
         options.add("--no-sub-autodetect-file");
@@ -228,8 +222,10 @@ public class ExoPlayerActivity extends AppCompatActivity {
         if (player == null || libVLC == null) return;
         try {
             Media media = new Media(libVLC, Uri.parse(mediaUrl));
-            // HW decoder ON, fallback soft autorisé (jamais d'écran noir)
-            media.setHWDecoderEnabled(true, true);
+            // HW decoder ON, second param=force.
+            // (true, true) FORCAIT le HW et crashait sur Q11/Realtek quand un codec
+            // n'etait pas dispo en HW (retour launcher). On laisse libVLC retomber en SW.
+            media.setHWDecoderEnabled(true, false);
 
             // Cookies Stalker
             if (customCookies != null && !customCookies.isEmpty()) {
