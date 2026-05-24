@@ -20,6 +20,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
@@ -27,6 +28,8 @@ import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.extractor.DefaultExtractorsFactory;
+import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory;
 import androidx.media3.ui.PlayerView;
 
 @OptIn(markerClass = UnstableApi.class)
@@ -74,7 +77,23 @@ public class ExoPlayerActivity extends AppCompatActivity {
                 .setReadTimeoutMs(20000)
                 .setKeepPostFor302Redirects(true);
 
-        DefaultMediaSourceFactory msf = new DefaultMediaSourceFactory(this)
+        // Detect stream type and use the right MediaSource
+        // - /live/ or .m3u8 → HLS
+        // - .ts → MPEG-TS (Progressive with TsExtractor)
+        // - others → DefaultMediaSourceFactory (auto)
+        String lower = url.toLowerCase();
+        boolean isHls = lower.contains("/live/") || lower.contains(".m3u8") || lower.contains("/hls/");
+        boolean isTs  = lower.endsWith(".ts") || lower.contains(".ts?");
+
+        MediaItem.Builder itemBuilder = new MediaItem.Builder().setUri(Uri.parse(url));
+        if (isHls) itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8);
+        else if (isTs) itemBuilder.setMimeType(MimeTypes.APPLICATION_MPEGTS);
+        MediaItem mediaItem = itemBuilder.build();
+
+        DefaultExtractorsFactory exFactory = new DefaultExtractorsFactory()
+                .setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES);
+
+        DefaultMediaSourceFactory msf = new DefaultMediaSourceFactory(this, exFactory)
                 .setDataSourceFactory(httpFactory);
 
         DefaultLoadControl loadControl;
@@ -109,8 +128,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
         playerView.setKeepScreenOn(true);
         playerView.setResizeMode(androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT);
 
-        MediaItem item = MediaItem.fromUri(Uri.parse(url));
-        player.setMediaItem(item);
+        player.setMediaItem(mediaItem);
         player.setPlayWhenReady(true);
         player.prepare();
 
