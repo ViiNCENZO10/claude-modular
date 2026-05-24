@@ -28,7 +28,17 @@
       '#epg .top-bar{background:transparent;padding:14px 24px}' +
       '#epg .screen-title{display:none}' +
       '.epgg-wrap{position:relative;height:100vh;display:flex;flex-direction:column;color:#fff}' +
-      '.epgg-header{display:flex;align-items:flex-start;padding:16px 28px 12px 28px;gap:24px}' +
+      // Back button - very visible, top-left
+      '.epgg-back{position:absolute;top:14px;left:18px;z-index:20;background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;outline:none;transition:transform .12s, background .12s}' +
+      '.epgg-back:focus, .epgg-back:hover{background:#fff;color:#0a1530;transform:scale(1.06);border-color:#fff}' +
+      // Group picker overlay
+      '.epgg-grouppick{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:50;display:flex;align-items:center;justify-content:center}' +
+      '.epgg-grouppick-box{background:#0f172a;border:1px solid rgba(255,255,255,.15);border-radius:10px;width:420px;max-height:70vh;display:flex;flex-direction:column;overflow:hidden}' +
+      '.epgg-grouppick-head{padding:14px 18px;font-size:15px;font-weight:700;color:#fff;border-bottom:1px solid rgba(255,255,255,.08)}' +
+      '.epgg-grouppick-list{flex:1;overflow-y:auto;padding:6px 0}' +
+      '.epgg-grouppick-item{padding:10px 18px;font-size:13px;color:#cbd5e1;cursor:pointer;outline:none}' +
+      '.epgg-grouppick-item:focus, .epgg-grouppick-item:hover{background:#fff;color:#0a1530;font-weight:600}' +
+      '.epgg-header{display:flex;align-items:flex-start;padding:16px 28px 12px 80px;gap:24px}' +
       '.epgg-preview{flex-shrink:0;width:280px;aspect-ratio:16/9;background:#0a1530;border-radius:6px;overflow:hidden;position:relative}' +
       '.epgg-preview video, .epgg-preview img{width:100%;height:100%;object-fit:cover}' +
       '.epgg-preview .epgg-prev-label{position:absolute;left:8px;top:6px;background:rgba(0,0,0,.6);color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;font-weight:600}' +
@@ -92,6 +102,17 @@
     var wrap = document.createElement('div');
     wrap.className = 'epgg-wrap';
 
+    // Back button (always visible, top-left)
+    var backBtn = document.createElement('button');
+    backBtn.className = 'epgg-back focusable';
+    backBtn.setAttribute('tabindex', '0');
+    backBtn.innerHTML = '<span style="font-size:16px">←</span> Retour';
+    backBtn.addEventListener('click', leaveEpg);
+    backBtn.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); leaveEpg(); }
+    });
+    wrap.appendChild(backBtn);
+
     // Header: preview + current channel info + datetime
     var header = document.createElement('div');
     header.className = 'epgg-header';
@@ -139,8 +160,10 @@
     var actions = document.createElement('div');
     actions.className = 'epgg-actions';
     actions.innerHTML =
+      '<div class="epgg-action focusable" tabindex="0" data-act="back" style="background:rgba(239,68,68,.2);padding:6px 12px;border-radius:6px"><span style="font-size:14px">←</span> Retour</div>' +
       '<div class="epgg-action focusable" tabindex="0" data-act="groups"><span class="dot gray"></span> Catégorie</div>' +
-      '<div class="epgg-action focusable" tabindex="0" data-act="record"><span class="dot red"></span> Enregistrement</div>' +
+      '<div class="epgg-action focusable" tabindex="0" data-act="channels"><span class="dot blue"></span> Liste chaînes</div>' +
+      '<div class="epgg-action focusable" tabindex="0" data-act="record"><span class="dot red"></span> Enregistrer</div>' +
       '<div class="epgg-action focusable" tabindex="0" data-act="watchlist"><span class="dot green"></span> Watchlist</div>' +
       '<div class="epgg-action focusable" tabindex="0" data-act="now"><span class="dot yellow"></span> Maintenant</div>' +
       '<div class="epgg-action focusable" tabindex="0" data-act="prev-day"><span class="dot red"></span> -1 Jour</div>' +
@@ -307,8 +330,20 @@
 
   function handleAction(act) {
     switch (act) {
+      case 'back':
+        leaveEpg();
+        break;
       case 'groups':
-        // TODO: open group filter
+        openGroupPicker();
+        break;
+      case 'channels':
+        // Scroll to top of channel list and focus first row
+        var grid = document.getElementById('epggGrid');
+        if (grid) {
+          grid.scrollTop = 0;
+          var firstProgram = grid.querySelector('.epgg-program.focusable');
+          if (firstProgram) firstProgram.focus();
+        }
         break;
       case 'record':
         if (window.Recordings && AppState.selectedChannel) {
@@ -333,24 +368,133 @@
     }
   }
 
+  // Leaves the EPG screen and returns to the previous one (typically Live TV)
+  function leaveEpg() {
+    stopAutoRefresh();
+    // Prefer the app's own goBack handler if available
+    if (typeof window.goBack === 'function') {
+      try { window.goBack(); return; } catch (e) {}
+    }
+    // Fallback: jump back to the live screen explicitly
+    if (typeof window.showScreen === 'function') {
+      try { window.showScreen('live'); return; } catch (e) {}
+    }
+    // Last resort: just hide EPG container
+    var epg = document.getElementById('epg');
+    if (epg) epg.classList.remove('active');
+  }
+
+  // Group picker overlay: lets user filter the EPG by live category
+  function openGroupPicker() {
+    // Already open?
+    if (document.querySelector('.epgg-grouppick')) return;
+    var groups = (window.AppState && AppState.liveCategories) || [];
+    if (!groups.length) {
+      // Try to extract from current state or fall back to "Toutes"
+      groups = [{ category_name: 'Toutes les chaînes', category_id: '' }];
+    }
+    var overlay = document.createElement('div');
+    overlay.className = 'epgg-grouppick';
+    var html =
+      '<div class="epgg-grouppick-box">' +
+        '<div class="epgg-grouppick-head">Choisir une catégorie</div>' +
+        '<div class="epgg-grouppick-list" id="epggGroupList">';
+    groups.forEach(function(g, idx) {
+      var name = g.category_name || g.name || ('Catégorie ' + (idx + 1));
+      var id = g.category_id != null ? g.category_id : '';
+      html += '<div class="epgg-grouppick-item focusable" tabindex="0" data-gid="' + escapeHtml(String(id)) + '">' + escapeHtml(name) + '</div>';
+    });
+    html += '</div></div>';
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+
+    // Close on overlay click (outside box)
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeGroupPicker();
+    });
+
+    overlay.querySelectorAll('.epgg-grouppick-item').forEach(function(it) {
+      var pick = function() {
+        var gid = it.getAttribute('data-gid');
+        AppState.selectedLiveCategory = gid;
+        // Force EPG to reload with the new category filter
+        AppState.liveStreams = null;
+        closeGroupPicker();
+        buildEpgGrid();
+      };
+      it.addEventListener('click', pick);
+      it.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); pick(); }
+        if (e.key === 'Escape' || e.keyCode === 27 || e.keyCode === 8 || e.keyCode === 4) {
+          e.preventDefault(); closeGroupPicker();
+        }
+      });
+    });
+
+    // Auto-focus first item
+    var first = overlay.querySelector('.epgg-grouppick-item');
+    if (first) first.focus();
+  }
+
+  function closeGroupPicker() {
+    var ov = document.querySelector('.epgg-grouppick');
+    if (ov) ov.remove();
+  }
+
   function escapeHtml(s) {
     if (s == null) return '';
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  // Global key listener active only when EPG is on screen.
+  // Handles BACK / Escape to leave the EPG, and ensures the group picker can be closed.
+  function isEpgActive() {
+    if (window.AppState && AppState.activeScreen === 'epg') return true;
+    var epg = document.getElementById('epg');
+    return !!(epg && epg.classList.contains('active'));
+  }
+
+  function onGlobalKeydown(e) {
+    if (!isEpgActive()) return;
+    var code = e.keyCode || e.which;
+    // BACK on Android TV remote = 4, Escape = 27, Backspace = 8
+    if (code === 4 || code === 27 || code === 8 || e.key === 'Escape' || e.key === 'Backspace') {
+      // If group picker is open, close it first; otherwise leave EPG
+      if (document.querySelector('.epgg-grouppick')) {
+        closeGroupPicker();
+      } else {
+        leaveEpg();
+      }
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+
   // Hook into showScreen('epg') to rebuild our grid + manage auto-refresh lifecycle
   window.addEventListener('DOMContentLoaded', function() {
     injectStyles();
+    // Attach the BACK key handler at capture phase so we run BEFORE the generic tvnav,
+    // which would try to navigate to the home screen.
+    document.addEventListener('keydown', onGlobalKeydown, true);
+
     setTimeout(function() {
       if (typeof window.showScreen === 'function') {
         var orig = window.showScreen;
         window.showScreen = function(id) {
           var r = orig.apply(this, arguments);
           if (id === 'epg') {
-            setTimeout(buildEpgGrid, 100);
+            setTimeout(function() {
+              buildEpgGrid();
+              // Auto-focus the back button so user sees right away how to exit
+              setTimeout(function() {
+                var b = document.querySelector('.epgg-back');
+                if (b) b.focus();
+              }, 250);
+            }, 100);
           } else {
-            // Leaving EPG screen - stop auto-refresh
+            // Leaving EPG screen - stop auto-refresh + cleanup any open picker
             stopAutoRefresh();
+            closeGroupPicker();
           }
           return r;
         };
