@@ -91,7 +91,10 @@
             android:text="Pour réordonner : menu → Modifier la catégorie"
             android:textColor="#88ffffff"
             android:textSize="11sp"
-            android:padding="12dp 16dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
             android:gravity="center" />
     </LinearLayout>
 
