@@ -116,9 +116,19 @@ async function checkForUpdates(silent) {
       const apk = (data.assets || []).find(a => a.name && a.name.endsWith('.apk'));
       const dlUrl = apk ? apk.browser_download_url : data.html_url;
       const banner = document.getElementById('updateBanner');
+      const hasNativeInstall = !!(window.AndroidBridge && typeof window.AndroidBridge.downloadAndInstallApk === 'function');
       if (banner) {
-        banner.innerHTML = '<span>' + t('Update available') + ' : v' + latest + '</span> <a class="btn btn-primary btn-sm" href="' + dlUrl + '">' + t('Update available') + '</a>';
-        banner.style.display = 'flex';
+        if (hasNativeInstall && apk) {
+          banner.innerHTML = '<span>' + t('Update available') + ' : v' + latest + '</span> <button class="btn btn-primary btn-sm" id="btnAutoInstall">Installer maintenant</button>';
+          banner.style.display = 'flex';
+          setTimeout(function() {
+            var btn = document.getElementById('btnAutoInstall');
+            if (btn) btn.addEventListener('click', function() { triggerAutoInstall(dlUrl); });
+          }, 100);
+        } else {
+          banner.innerHTML = '<span>' + t('Update available') + ' : v' + latest + '</span> <a class="btn btn-primary btn-sm" href="' + dlUrl + '">Télécharger</a>';
+          banner.style.display = 'flex';
+        }
       }
       if (!silent) showToast(t('Update available') + ' : v' + latest, 6000);
       return latest;
@@ -129,6 +139,24 @@ async function checkForUpdates(silent) {
     if (!silent) showToast(t('Up to date'));
   }
   return null;
+}
+
+function triggerAutoInstall(apkUrl) {
+  if (!window.AndroidBridge || typeof window.AndroidBridge.downloadAndInstallApk !== 'function') {
+    showToast('Installation auto non supportée');
+    return;
+  }
+  try {
+    if (typeof window.AndroidBridge.canInstallApk === 'function' && !window.AndroidBridge.canInstallApk()) {
+      showToast('Autorisez l\'installation : Paramètres → Applications inconnues');
+      if (typeof window.AndroidBridge.openInstallPermissionSettings === 'function') {
+        setTimeout(function() { window.AndroidBridge.openInstallPermissionSettings(); }, 800);
+      }
+      return;
+    }
+  } catch (e) {}
+  showToast('Téléchargement...');
+  window.AndroidBridge.downloadAndInstallApk(apkUrl);
 }
 
 

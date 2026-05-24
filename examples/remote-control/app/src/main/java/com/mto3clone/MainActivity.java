@@ -5,9 +5,21 @@ import android.app.PictureInPictureParams;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Rational;
+import android.widget.Toast;
+
+import androidx.core.content.FileProvider;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -246,6 +258,63 @@ public class MainActivity extends AppCompatActivity {
         public boolean hasNativePlayer() { return true; }
 
         @JavascriptInterface
+        public void downloadAndInstallApk(final String url) {
+            if (url == null || url.isEmpty()) return;
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        toastUi("Téléchargement de la mise à jour...");
+                        File dir = new File(getCacheDir(), "updates");
+                        if (!dir.exists()) dir.mkdirs();
+                        File apkFile = new File(dir, "update.apk");
+                        if (apkFile.exists()) apkFile.delete();
+
+                        URL u = new URL(url);
+                        HttpURLConnection conn = (HttpURLConnection) u.openConnection();
+                        conn.setConnectTimeout(30000);
+                        conn.setReadTimeout(60000);
+                        conn.setInstanceFollowRedirects(true);
+                        conn.setRequestProperty("User-Agent", "iPremTvOnline-Updater");
+                        InputStream in = conn.getInputStream();
+                        FileOutputStream out = new FileOutputStream(apkFile);
+                        byte[] buf = new byte[16 * 1024];
+                        int n;
+                        while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                        out.close();
+                        in.close();
+                        conn.disconnect();
+
+                        toastUi("Lancement de l'installation...");
+                        installApk(apkFile);
+                    } catch (Exception e) {
+                        toastUi("Échec mise à jour: " + e.getMessage());
+                    }
+                }
+            }).start();
+        }
+
+        @JavascriptInterface
+        public boolean canInstallApk() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                return getPackageManager().canRequestPackageInstalls();
+            }
+            return true;
+        }
+
+        @JavascriptInterface
+        public void openInstallPermissionSettings() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                try {
+                    Intent i = new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                    i.setData(Uri.parse("package:" + getPackageName()));
+                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(i);
+                } catch (Exception ignored) { }
+            }
+        }
+
+        @JavascriptInterface
         public String getDeviceMac() {
             // Try ethernet first (box TV use eth0 by default)
             String mac = readMacFromFile("/sys/class/net/eth0/address");
@@ -314,6 +383,33 @@ public class MainActivity extends AppCompatActivity {
                 br.close();
                 return line != null ? line.trim() : "";
             } catch (Exception e) { return ""; }
+        }
+    }
+
+    // ===== Helpers for APK auto-install =====
+    private void toastUi(final String msg) {
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void installApk(File apkFile) {
+        try {
+            Uri uri;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apkFile);
+            } else {
+                uri = Uri.fromFile(apkFile);
+            }
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, "application/vnd.android.package-archive");
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(intent);
+        } catch (Exception e) {
+            toastUi("Install error: " + e.getMessage());
         }
     }
 }
