@@ -358,35 +358,69 @@ public class MainActivity extends AppCompatActivity {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    HttpURLConnection conn = null;
                     try {
-                        toastUi("Téléchargement de la mise à jour...");
+                        reportProgress(0, 0, "start");
                         File dir = new File(getCacheDir(), "updates");
                         if (!dir.exists()) dir.mkdirs();
                         File apkFile = new File(dir, "update.apk");
                         if (apkFile.exists()) apkFile.delete();
 
                         URL u = new URL(url);
-                        HttpURLConnection conn = (HttpURLConnection) u.openConnection();
+                        conn = (HttpURLConnection) u.openConnection();
                         conn.setConnectTimeout(30000);
                         conn.setReadTimeout(60000);
                         conn.setInstanceFollowRedirects(true);
                         conn.setRequestProperty("User-Agent", "iPremTvOnline-Updater");
+
+                        long total = conn.getContentLengthLong();
                         InputStream in = conn.getInputStream();
                         FileOutputStream out = new FileOutputStream(apkFile);
-                        byte[] buf = new byte[16 * 1024];
+                        byte[] buf = new byte[64 * 1024];
+                        long downloaded = 0;
+                        long lastReport = 0;
                         int n;
-                        while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                        while ((n = in.read(buf)) > 0) {
+                            out.write(buf, 0, n);
+                            downloaded += n;
+                            long now = System.currentTimeMillis();
+                            if (now - lastReport > 200) {
+                                reportProgress(downloaded, total, "download");
+                                lastReport = now;
+                            }
+                        }
+                        out.flush();
                         out.close();
                         in.close();
-                        conn.disconnect();
 
-                        toastUi("Lancement de l'installation...");
+                        reportProgress(downloaded, total, "complete");
                         installApk(apkFile);
                     } catch (Exception e) {
-                        toastUi("Échec mise à jour: " + e.getMessage());
+                        final String msg = e.getMessage() != null ? e.getMessage() : "unknown";
+                        runOnUiThread(new Runnable() {
+                            @Override public void run() {
+                                if (webView != null) {
+                                    webView.evaluateJavascript(
+                                        "window.iprem && window.iprem.onDownloadError && window.iprem.onDownloadError('" + msg.replace("'", "\\'") + "')", null);
+                                }
+                            }
+                        });
+                    } finally {
+                        if (conn != null) try { conn.disconnect(); } catch (Exception ignored) {}
                     }
                 }
             }).start();
+        }
+
+        private void reportProgress(final long now, final long total, final String phase) {
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    if (webView != null) {
+                        webView.evaluateJavascript(
+                            "window.iprem && window.iprem.onDownloadProgress && window.iprem.onDownloadProgress(" + now + "," + total + ",'" + phase + "')", null);
+                    }
+                }
+            });
         }
 
         @JavascriptInterface
