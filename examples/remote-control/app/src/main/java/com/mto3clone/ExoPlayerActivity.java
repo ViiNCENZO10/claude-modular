@@ -20,7 +20,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
-import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
@@ -99,13 +98,6 @@ public class ExoPlayerActivity extends AppCompatActivity {
                 .setUsage(C.USAGE_MEDIA)
                 .build();
         player.setAudioAttributes(audioAttrs, true);
-
-        // Enable tunneled playback on supported hardware (Realtek RTD129x/RTD131x supports it)
-        // Also enable extension renderers preferred where available
-        TrackSelectionParameters trackParams = player.getTrackSelectionParameters().buildUpon()
-                .setTunnelingEnabled(true)
-                .build();
-        player.setTrackSelectionParameters(trackParams);
 
         playerView.setPlayer(player);
         playerView.setUseController(true);

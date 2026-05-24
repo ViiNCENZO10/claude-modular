@@ -236,5 +236,76 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public boolean hasNativePlayer() { return true; }
+
+        @JavascriptInterface
+        public String getDeviceMac() {
+            // Try ethernet first (box TV use eth0 by default)
+            String mac = readMacFromFile("/sys/class/net/eth0/address");
+            if (isValidMac(mac)) return mac.toUpperCase();
+            mac = readMacFromFile("/sys/class/net/wlan0/address");
+            if (isValidMac(mac)) return mac.toUpperCase();
+            // Fallback: NetworkInterface
+            try {
+                java.util.Enumeration<java.net.NetworkInterface> nis = java.net.NetworkInterface.getNetworkInterfaces();
+                while (nis.hasMoreElements()) {
+                    java.net.NetworkInterface ni = nis.nextElement();
+                    String name = ni.getName();
+                    if (name == null) continue;
+                    if (name.equalsIgnoreCase("eth0") || name.equalsIgnoreCase("wlan0")) {
+                        byte[] addr = ni.getHardwareAddress();
+                        if (addr != null && addr.length == 6) {
+                            StringBuilder sb = new StringBuilder();
+                            for (byte b : addr) {
+                                if (sb.length() > 0) sb.append(':');
+                                sb.append(String.format("%02X", b));
+                            }
+                            return sb.toString();
+                        }
+                    }
+                }
+            } catch (Exception ignored) { }
+            return "";
+        }
+
+        @JavascriptInterface
+        public String getNetworkInterfaces() {
+            // Return all interfaces as JSON for debug/UI
+            StringBuilder out = new StringBuilder("[");
+            try {
+                java.util.Enumeration<java.net.NetworkInterface> nis = java.net.NetworkInterface.getNetworkInterfaces();
+                boolean first = true;
+                while (nis.hasMoreElements()) {
+                    java.net.NetworkInterface ni = nis.nextElement();
+                    byte[] addr = ni.getHardwareAddress();
+                    if (addr == null || addr.length != 6) continue;
+                    StringBuilder mac = new StringBuilder();
+                    for (byte b : addr) {
+                        if (mac.length() > 0) mac.append(':');
+                        mac.append(String.format("%02X", b));
+                    }
+                    if (!first) out.append(',');
+                    out.append("{\"name\":\"").append(ni.getName()).append("\",\"mac\":\"").append(mac).append("\"}");
+                    first = false;
+                }
+            } catch (Exception ignored) { }
+            out.append("]");
+            return out.toString();
+        }
+
+        private boolean isValidMac(String s) {
+            if (s == null) return false;
+            String t = s.trim();
+            if (t.length() < 11) return false;
+            return t.matches("(?i)[0-9a-f]{2}([:\\-][0-9a-f]{2}){5}");
+        }
+
+        private String readMacFromFile(String path) {
+            try {
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(path));
+                String line = br.readLine();
+                br.close();
+                return line != null ? line.trim() : "";
+            } catch (Exception e) { return ""; }
+        }
     }
 }

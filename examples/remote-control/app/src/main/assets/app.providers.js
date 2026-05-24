@@ -425,13 +425,27 @@ function buildLoginTypeTabs() {
     '<label class="login-type-opt"><input type="radio" name="loginType" value="m3u"> <span>Playlist M3U</span></label>';
   form.insertBefore(row, form.firstChild);
 
-  // Add Stalker field
+  // Add Stalker field (MAC with detect + format selector)
   var macGroup = document.createElement('div');
   macGroup.className = 'form-group stalker-only';
   macGroup.style.display = 'none';
   macGroup.innerHTML =
     '<label for="macAddress">MAC Address</label>' +
-    '<input type="text" id="macAddress" placeholder="00:1A:79:XX:XX:XX">';
+    '<div class="mac-input-row">' +
+      '<input type="text" id="macAddress" placeholder="00:1A:79:XX:XX:XX" autocapitalize="characters">' +
+      '<button type="button" class="btn btn-secondary btn-sm" id="btnDetectMac" title="Detect device MAC">📡 Detect</button>' +
+    '</div>' +
+    '<div class="mac-format-row">' +
+      '<label class="mac-format-label">Format:</label>' +
+      '<select id="macFormat" class="mac-format-select">' +
+        '<option value="colon-upper">00:1A:79:XX:XX:XX (Stalker standard)</option>' +
+        '<option value="colon-lower">00:1a:79:xx:xx:xx (lowercase)</option>' +
+        '<option value="dash-upper">00-1A-79-XX-XX-XX (Windows)</option>' +
+        '<option value="dot">00.1A.79.XX.XX.XX (dotted)</option>' +
+        '<option value="none">001A79XXXXXX (no separator)</option>' +
+      '</select>' +
+      '<span class="mac-detected-hint" id="macDetectedHint"></span>' +
+    '</div>';
   form.insertBefore(macGroup, form.querySelector('.form-actions'));
 
   // Add M3U field
@@ -442,6 +456,60 @@ function buildLoginTypeTabs() {
     '<label for="m3uUrl">Playlist URL (.m3u / .m3u8)</label>' +
     '<input type="url" id="m3uUrl" placeholder="https://example.com/list.m3u">';
   form.insertBefore(m3uGroup, form.querySelector('.form-actions'));
+
+  // MAC format helpers
+  var formatMac = function(mac, fmt) {
+    if (!mac) return '';
+    var clean = String(mac).replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+    if (clean.length !== 12) return mac;
+    var pairs = clean.match(/.{2}/g);
+    switch (fmt) {
+      case 'colon-upper': return pairs.join(':');
+      case 'colon-lower': return pairs.join(':').toLowerCase();
+      case 'dash-upper':  return pairs.join('-');
+      case 'dot':         return pairs.join('.');
+      case 'none':        return clean;
+      default:            return pairs.join(':');
+    }
+  };
+
+  var macInput = document.getElementById('macAddress');
+  var fmtSelect = document.getElementById('macFormat');
+  var detectBtn = document.getElementById('btnDetectMac');
+  var detectedHint = document.getElementById('macDetectedHint');
+
+  // Load saved format preference
+  var savedFmt = localStorage.getItem('iprem_mac_format') || 'colon-upper';
+  fmtSelect.value = savedFmt;
+
+  // Reformat existing MAC when format changes
+  fmtSelect.addEventListener('change', function() {
+    localStorage.setItem('iprem_mac_format', fmtSelect.value);
+    if (macInput.value) macInput.value = formatMac(macInput.value, fmtSelect.value);
+  });
+
+  // Detect device MAC via native bridge
+  detectBtn.addEventListener('click', function() {
+    var mac = '';
+    try {
+      if (window.AndroidBridge && typeof window.AndroidBridge.getDeviceMac === 'function') {
+        mac = window.AndroidBridge.getDeviceMac();
+      }
+    } catch (e) {}
+    if (!mac) {
+      showToast('Could not detect device MAC');
+      detectedHint.textContent = '';
+      return;
+    }
+    macInput.value = formatMac(mac, fmtSelect.value);
+    detectedHint.textContent = '✓ Device: ' + formatMac(mac, 'colon-upper');
+    showToast('MAC detected');
+  });
+
+  // Auto-reformat as user types
+  macInput.addEventListener('blur', function() {
+    if (macInput.value) macInput.value = formatMac(macInput.value, fmtSelect.value);
+  });
 
   // Toggle field visibility based on selected type
   var toggle = function() {
@@ -519,7 +587,14 @@ function injectProviderStyles() {
     '.login-type-row{display:flex;gap:8px;justify-content:center;margin-bottom:14px}' +
     '.login-type-opt{display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #334155;border-radius:8px;cursor:pointer;background:#1e293b;color:#cbd5e1;font-size:13px}' +
     '.login-type-opt input{accent-color:#3b82f6}' +
-    '.login-type-opt:has(input:checked){background:#1e40af;border-color:#3b82f6;color:#fff}';
+    '.login-type-opt:has(input:checked){background:#1e40af;border-color:#3b82f6;color:#fff}' +
+    '.mac-input-row{display:flex;gap:6px;align-items:center}' +
+    '.mac-input-row input{flex:1}' +
+    '.btn-sm{padding:6px 10px;font-size:12px}' +
+    '.mac-format-row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}' +
+    '.mac-format-label{font-size:12px;color:#94a3b8}' +
+    '.mac-format-select{padding:4px 8px;font-size:12px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px}' +
+    '.mac-detected-hint{font-size:11px;color:#22c55e}';
   document.head.appendChild(s);
 }
 
