@@ -122,15 +122,18 @@ public class ExoPlayerActivity extends AppCompatActivity {
 
     private void initPlayer() {
         ArrayList<String> options = new ArrayList<>();
-        // Network buffering (in microseconds)
-        options.add("--network-caching=" + (isLive ? 1500 : 3000));
-        options.add("--live-caching=" + (isLive ? 1500 : 3000));
+        // Fast zap: aggressive low caching for live (was 1500, now 600ms)
+        options.add("--network-caching=" + (isLive ? 600 : 2000));
+        options.add("--live-caching=" + (isLive ? 600 : 2000));
+        // File caching too (HTTP streams act as files internally)
+        options.add("--file-caching=" + (isLive ? 600 : 2000));
         // Reconnect on stream drop
         options.add("--http-reconnect");
         // Hardware acceleration
         options.add("--avcodec-hw=any");
         options.add("--avcodec-fast");
-        // Disable subtitles by default (user can enable via menu)
+        options.add("--avcodec-skiploopfilter=1");
+        // Disable subtitles by default
         options.add("--no-sub-autodetect-file");
         // Clock sync for low latency
         options.add("--clock-jitter=0");
@@ -141,8 +144,8 @@ public class ExoPlayerActivity extends AppCompatActivity {
         } else {
             options.add("--http-user-agent=VLC/3.0.20 LibVLC/3.0.20");
         }
-        // Reduce verbose logs
-        options.add("-vv");
+        // Minimal logs for perf
+        options.add("-v");
 
         libVLC = new LibVLC(this, options);
         player = new MediaPlayer(libVLC);
@@ -685,8 +688,8 @@ public class ExoPlayerActivity extends AppCompatActivity {
         try {
             java.net.URL u = new java.net.URL(apiUrl);
             conn = (java.net.HttpURLConnection) u.openConnection();
-            conn.setConnectTimeout(8000);
-            conn.setReadTimeout(10000);
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(5000);
             conn.setInstanceFollowRedirects(true);
             conn.setRequestProperty("User-Agent",
                 customUserAgent != null && !customUserAgent.isEmpty() ? customUserAgent :

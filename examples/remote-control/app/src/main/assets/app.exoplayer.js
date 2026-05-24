@@ -87,7 +87,13 @@ async function prefetchNowEpg() {
           var endMs = parseInt(p.end || p.stop) * 1000;
           if (isNaN(startMs)) { startMs = Date.parse(p.start); endMs = Date.parse(p.end || p.stop || ''); }
           if (!isNaN(startMs) && !isNaN(endMs) && startMs <= nowMs && nowMs <= endMs) {
-            AppState._nowEpgMap[s.stream_id] = p.title || p.name || '';
+            var raw = p.title || p.name || '';
+            // Sanitize before storing
+            if (window.iprem && window.iprem.looksLikeGarbage && window.iprem.looksLikeGarbage(raw)) {
+              break;
+            }
+            if (window.iprem && window.iprem.sanitize) raw = window.iprem.sanitize(raw);
+            AppState._nowEpgMap[s.stream_id] = raw;
             break;
           }
         }
