@@ -435,7 +435,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
         bottomMenuRow.removeAllViews();
         addMenuItem("🔊", "Audio", () -> showTrackDialog(C.TRACK_TYPE_AUDIO, "Pistes audio"));
         addMenuItem("💬", "Sous-titres", () -> showTrackDialog(C.TRACK_TYPE_TEXT, "Sous-titres"));
-        addMenuItem("📐", "Format", this::cycleAspectRatio);
+        addMenuItem("⛶", "Format", this::cycleAspectRatio);
         addMenuItem("⏰", "Veille", this::showSleepTimerDialog);
         addMenuItem("↻", "Redémarrer", () -> {
             if (player != null) { player.seekTo(0); player.play(); }
