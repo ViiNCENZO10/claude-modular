@@ -762,8 +762,9 @@ function injectProviderStyles() {
     '.mac-format-label{font-size:12px;color:#94a3b8}' +
     '.mac-format-select{padding:4px 8px;font-size:12px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px}' +
     '.mac-detected-hint{font-size:11px;color:#22c55e}' +
-    // Bottom info bar (iPremiumTv style)
-    '.iprem-info-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(15,23,42,.85);color:#cbd5e1;padding:6px 16px;font-size:11px;display:flex;justify-content:flex-end;align-items:center;gap:14px;z-index:50;font-family:monospace;backdrop-filter:blur(4px);pointer-events:none}' +
+    // Bottom info bar (iPremiumTv style) - only visible on login screen
+    '.iprem-info-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(15,23,42,.85);color:#cbd5e1;padding:6px 16px;font-size:11px;justify-content:flex-end;align-items:center;gap:14px;z-index:50;font-family:monospace;backdrop-filter:blur(4px);pointer-events:none;display:none}' +
+    '#login.active ~ .iprem-info-bar, body.on-login .iprem-info-bar{display:flex}' +
     '.iprem-info-bar .info-label{color:#94a3b8;margin-right:4px}' +
     '.iprem-info-bar .info-value{color:#fff;font-weight:600}' +
     '.iprem-info-bar .info-sep{color:#475569}' +
@@ -807,4 +808,21 @@ window.addEventListener('DOMContentLoaded', function() {
 
   // Build bottom info bar (Version | MAC | SN) on login screen
   setTimeout(buildInfoBar, 500);
+
+  // Toggle body class so info bar shows only on login
+  setTimeout(function() {
+    if (typeof window.showScreen === 'function') {
+      var orig = window.showScreen;
+      window.showScreen = function(id) {
+        var r = orig.apply(this, arguments);
+        if (id === 'login') document.body.classList.add('on-login');
+        else document.body.classList.remove('on-login');
+        return r;
+      };
+    }
+    // Initial state
+    if ((AppState && AppState.activeScreen) === 'login' || document.querySelector('#login.active')) {
+      document.body.classList.add('on-login');
+    }
+  }, 600);
 });

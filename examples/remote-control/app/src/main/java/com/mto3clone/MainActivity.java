@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Rational;
+import android.webkit.ValueCallback;
 import android.widget.Toast;
 
 import androidx.core.content.FileProvider;
@@ -172,6 +173,8 @@ public class MainActivity extends AppCompatActivity {
         enterImmersiveMode();
     }
 
+    private long mLastBackPressTime = 0;
+
     @Override
     public void onBackPressed() {
         // If showing fullscreen video, exit it
@@ -179,12 +182,28 @@ public class MainActivity extends AppCompatActivity {
             webView.getWebChromeClient().onHideCustomView();
             return;
         }
-        // If WebView can go back, navigate back
-        if (webView.canGoBack()) {
-            webView.goBack();
-            return;
-        }
-        super.onBackPressed();
+
+        // Ask JS layer to handle back navigation (close modal / go back screen / close side menu)
+        webView.evaluateJavascript(
+            "(function(){try{if(window.tvnav&&typeof window.tvnav.goBack==='function'){return window.tvnav.goBack()?'handled':'noop';}return 'noop';}catch(e){return 'err';}})()",
+            new ValueCallback<String>() {
+                @Override
+                public void onReceiveValue(String value) {
+                    boolean handled = value != null && value.contains("handled");
+                    if (handled) return;
+
+                    // JS couldn't handle (we're at root)
+                    long now = System.currentTimeMillis();
+                    if (now - mLastBackPressTime < 2000) {
+                        // Second press within 2s - actually exit
+                        MainActivity.super.onBackPressed();
+                    } else {
+                        mLastBackPressTime = now;
+                        Toast.makeText(MainActivity.this, "Appuyez encore pour quitter", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
+        );
     }
 
     @Override

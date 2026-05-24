@@ -131,28 +131,46 @@
   }
 
   // ====== Go back action ======
+  // Returns true if handled (don't exit app), false if at root (exit allowed)
   function goBackAction() {
     // Close any open modal first
-    var modals = document.querySelectorAll('.modal[style*="display: flex"], .modal[style*="display:flex"], .modal.active');
+    var modals = document.querySelectorAll('.modal');
     for (var i = modals.length - 1; i >= 0; i--) {
       var m = modals[i];
-      if (m && m.style.display !== 'none') {
-        // Try modal-close button first
+      if (!m) continue;
+      var d = m.style.display;
+      if (d && d !== 'none') {
         var close = m.querySelector('.modal-close, .addportal-back, [id$="Back"], [id$="Close"]');
         if (close) { close.click(); return true; }
         m.style.display = 'none';
         return true;
       }
     }
+    // Mac selector modal (specific class)
+    var macSel = document.getElementById('macSelectorModal');
+    if (macSel && macSel.style.display !== 'none') {
+      try { macSel.remove(); } catch (e) {}
+      return true;
+    }
     // Side menu
     var sm = document.getElementById('sideMenu');
-    if (sm && sm.style.display !== 'none') {
+    if (sm && sm.style.display !== 'none' && sm.style.display !== '') {
       if (typeof window.closeSideMenu === 'function') window.closeSideMenu();
       return true;
     }
-    // App-level goBack
+    // If we're at root (login screen with no history), let Java exit
+    if (window.AppState && window.AppState.activeScreen === 'login') {
+      if (!window.AppState.screenHistory || window.AppState.screenHistory.length === 0) {
+        return false;
+      }
+    }
+    // Internal screen back
     if (typeof window.goBack === 'function') {
+      var prevScreen = window.AppState ? window.AppState.activeScreen : null;
       window.goBack();
+      var newScreen = window.AppState ? window.AppState.activeScreen : null;
+      // If goBack didn't change anything and we're already at login → root, allow exit
+      if (prevScreen === newScreen && newScreen === 'login') return false;
       return true;
     }
     return false;

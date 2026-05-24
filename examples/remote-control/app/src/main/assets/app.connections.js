@@ -462,7 +462,8 @@ function injectConnectionsStyles() {
   var s = document.createElement('style');
   s.id = 'iprem-conn-styles';
   s.textContent =
-    '#login{padding:0;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#7e22ce 100%);min-height:100vh;display:block !important;align-items:initial !important;justify-content:initial !important;overflow-y:auto}' +
+    '#login.active{padding:0;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#7e22ce 100%);min-height:100vh;display:block;align-items:initial;justify-content:initial;overflow-y:auto}' +
+    '#login:not(.active){display:none}' +
     '.connections-view{padding:24px 32px 60px 32px;color:#fff;min-height:100vh}' +
     '.conn-header{display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-top:10px}' +
     '.conn-menu-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:2px solid #64748b;border-radius:8px;color:#64748b;font-size:18px;cursor:pointer}' +
