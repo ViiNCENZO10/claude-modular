@@ -65,6 +65,10 @@ public class ExoPlayerActivity extends AppCompatActivity {
     private boolean isLive;
     private String customCookies;
     private String customUserAgent;
+    private android.view.View bottomMenu;
+    private LinearLayout bottomMenuRow;
+    private boolean bottomMenuOpen = false;
+    private android.os.CountDownTimer sleepTimer;
     private LinearLayout channelSidebar;
     private ListView channelListView;
     private List<JSONObject> sidebarChannels = new ArrayList<>();
@@ -108,8 +112,11 @@ public class ExoPlayerActivity extends AppCompatActivity {
         channelListView = findViewById(R.id.channel_list_view);
         groupSidebar = findViewById(R.id.group_sidebar);
         groupListView = findViewById(R.id.group_list_view);
+        bottomMenu = findViewById(R.id.bottom_menu);
+        bottomMenuRow = findViewById(R.id.bottom_menu_row);
         setupChannelSidebar();
         setupGroupSidebar();
+        setupBottomMenu();
 
         if (url == null || url.isEmpty()) {
             Toast.makeText(this, "No URL", Toast.LENGTH_SHORT).show();
@@ -338,6 +345,21 @@ public class ExoPlayerActivity extends AppCompatActivity {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (player == null) return super.onKeyDown(keyCode, event);
 
+        // Bottom menu open → DPAD_UP / BACK closes it, LEFT/RIGHT navigate handled by HorizontalScrollView
+        if (bottomMenuOpen) {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_BACK) {
+                hideBottomMenu();
+                return true;
+            }
+            return super.onKeyDown(keyCode, event);
+        }
+
+        // DPAD_DOWN during normal playback → open bottom menu
+        if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && !sidebarOpen && !groupSidebarOpen) {
+            showBottomMenu();
+            return true;
+        }
+
         // Group sidebar open → handle its keys
         if (groupSidebarOpen) {
             if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
@@ -405,6 +427,98 @@ public class ExoPlayerActivity extends AppCompatActivity {
                 break;
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+    // ===== Bottom menu (DPAD_DOWN) =====
+    private void setupBottomMenu() {
+        if (bottomMenuRow == null) return;
+        bottomMenuRow.removeAllViews();
+        addMenuItem("🔊", "Audio", () -> showTrackDialog(C.TRACK_TYPE_AUDIO, "Pistes audio"));
+        addMenuItem("💬", "Sous-titres", () -> showTrackDialog(C.TRACK_TYPE_TEXT, "Sous-titres"));
+        addMenuItem("📐", "Format", this::cycleAspectRatio);
+        addMenuItem("⏰", "Veille", this::showSleepTimerDialog);
+        addMenuItem("↻", "Redémarrer", () -> {
+            if (player != null) { player.seekTo(0); player.play(); }
+            hideBottomMenu();
+        });
+        addMenuItem("⏯", "Pause/Play", () -> {
+            if (player != null) { if (player.isPlaying()) player.pause(); else player.play(); }
+            hideBottomMenu();
+        });
+        addMenuItem("⛔", "Arrêter", this::finish);
+    }
+
+    private void addMenuItem(String icon, String label, Runnable action) {
+        android.view.View item = LayoutInflater.from(this).inflate(R.layout.item_bottom_menu, bottomMenuRow, false);
+        ((TextView) item.findViewById(R.id.menu_icon)).setText(icon);
+        ((TextView) item.findViewById(R.id.menu_label)).setText(label);
+        item.setOnClickListener(v -> action.run());
+        bottomMenuRow.addView(item);
+    }
+
+    private void showBottomMenu() {
+        if (bottomMenu == null) return;
+        bottomMenu.setVisibility(View.VISIBLE);
+        AlphaAnimation a = new AlphaAnimation(0f, 1f);
+        a.setDuration(150);
+        bottomMenu.startAnimation(a);
+        bottomMenuOpen = true;
+        if (bottomMenuRow.getChildCount() > 0) {
+            bottomMenuRow.getChildAt(0).requestFocus();
+        }
+    }
+
+    private void hideBottomMenu() {
+        if (bottomMenu == null) return;
+        bottomMenu.setVisibility(View.GONE);
+        bottomMenuOpen = false;
+        playerView.requestFocus();
+    }
+
+    @SuppressLint("UnsafeOptInUsageError")
+    private void cycleAspectRatio() {
+        if (playerView == null) return;
+        int current = playerView.getResizeMode();
+        int next;
+        String label;
+        switch (current) {
+            case androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT:
+                next = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL; label = "Étirer (Fill)"; break;
+            case androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL:
+                next = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM; label = "Zoom (rempli)"; break;
+            case androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM:
+                next = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH; label = "Largeur fixe"; break;
+            default:
+                next = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT; label = "Ajusté 16:9"; break;
+        }
+        playerView.setResizeMode(next);
+        Toast.makeText(this, label, Toast.LENGTH_SHORT).show();
+    }
+
+    private void showSleepTimerDialog() {
+        String[] options = new String[] { "Annuler veille", "15 min", "30 min", "60 min", "90 min", "120 min" };
+        new AlertDialog.Builder(this, R.style.AppTheme)
+            .setTitle("Veille programmée")
+            .setItems(options, (dialog, which) -> {
+                if (sleepTimer != null) { sleepTimer.cancel(); sleepTimer = null; }
+                if (which == 0) {
+                    Toast.makeText(this, "Veille annulée", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                int[] mins = new int[] { 0, 15, 30, 60, 90, 120 };
+                long durationMs = mins[which] * 60L * 1000L;
+                sleepTimer = new android.os.CountDownTimer(durationMs, 60000) {
+                    @Override public void onTick(long ms) {}
+                    @Override public void onFinish() {
+                        Toast.makeText(ExoPlayerActivity.this, "Veille - lecture arrêtée", Toast.LENGTH_SHORT).show();
+                        finish();
+                    }
+                }.start();
+                Toast.makeText(this, "Veille dans " + mins[which] + " min", Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("Annuler", null)
+            .show();
+        hideBottomMenu();
     }
 
     private void launchExternalAndFinish() {

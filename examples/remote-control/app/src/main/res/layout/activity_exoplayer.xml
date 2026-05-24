@@ -15,6 +15,26 @@
         app:resize_mode="fit"
         app:auto_show="true" />
 
+    <!-- Bottom menu overlay (DPAD_DOWN to open) -->
+    <HorizontalScrollView
+        android:id="@+id/bottom_menu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#cc0f172a"
+        android:padding="14dp"
+        android:visibility="gone"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/bottom_menu_row"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center" />
+    </HorizontalScrollView>
+
     <!-- Channel sidebar overlay (slides in from left, first LEFT press) -->
     <LinearLayout
         android:id="@+id/channel_sidebar"
