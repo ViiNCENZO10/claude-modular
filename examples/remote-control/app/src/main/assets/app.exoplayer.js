@@ -35,20 +35,66 @@ async function resolveStalkerStreamUrl(apiUrl, mac) {
   return apiUrl;
 }
 
+function buildChannelsJsonForLive() {
+  try {
+    if (!AppState || !AppState.liveStreams || !AppState.api) return null;
+    var providerType = AppState.api.providerType || 'xtream';
+    var ext = (AppState.settings && AppState.settings.streamType) || 'm3u8';
+    var list = AppState.liveStreams.slice(0, 200); // cap to avoid Intent size limits
+    var data = list.map(function(s) {
+      var entry = {
+        stream_id: String(s.stream_id),
+        num: s.num || '',
+        name: s.name || ''
+      };
+      // Pre-resolve URL for Xtream and M3U (Stalker resolved on selection)
+      if (providerType === 'xtream' && typeof AppState.api.liveUrl === 'function') {
+        try { entry.url = AppState.api.liveUrl(s.stream_id, ext); } catch (e) {}
+      } else if (providerType === 'm3u' && s._url) {
+        entry.url = s._url;
+      }
+      return entry;
+    });
+    return JSON.stringify(data);
+  } catch (e) { return null; }
+}
+
 async function nativePlay(url, title, isLive) {
   try {
     var isStalker = AppState && AppState.api && AppState.api.providerType === 'stalker';
-    // For Stalker, resolve the create_link URL to the actual stream URL
     if (isStalker && url && url.indexOf('create_link') !== -1) {
       showToast && showToast('Résolution du flux...');
       url = await resolveStalkerStreamUrl(url, AppState.api.mac || '');
     }
 
+    var channelsJson = null;
+    var currentIdx = -1;
+    if (isLive && AppState && AppState.selectedChannel) {
+      channelsJson = buildChannelsJsonForLive();
+      try {
+        currentIdx = (AppState.liveStreams || []).findIndex(function(s) {
+          return String(s.stream_id) === String(AppState.selectedChannel.stream_id);
+        });
+      } catch (e) { currentIdx = -1; }
+    }
+
+    if (typeof window.AndroidBridge.playNativeFull === 'function') {
+      var cookies = '';
+      var ua = '';
+      if (isStalker) {
+        var mac = AppState.api.mac || '';
+        cookies = 'mac=' + encodeURIComponent(mac) + '; stb_lang=en; timezone=Europe%2FParis; adid=' + mac.replace(/:/g, '').toLowerCase();
+        ua = 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 4 rev: 2116 Safari/533.3';
+      }
+      window.AndroidBridge.playNativeFull(url || '', title || '', !!isLive, cookies, ua, channelsJson || '', currentIdx);
+      return true;
+    }
+
     if (isStalker && typeof window.AndroidBridge.playNativeWithAuth === 'function') {
-      var mac = AppState.api.mac || '';
-      var cookies = 'mac=' + encodeURIComponent(mac) + '; stb_lang=en; timezone=Europe%2FParis; adid=' + mac.replace(/:/g, '').toLowerCase();
-      var ua = 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 4 rev: 2116 Safari/533.3';
-      window.AndroidBridge.playNativeWithAuth(url || '', title || '', !!isLive, cookies, ua);
+      var mac2 = AppState.api.mac || '';
+      var cookies2 = 'mac=' + encodeURIComponent(mac2) + '; stb_lang=en; timezone=Europe%2FParis; adid=' + mac2.replace(/:/g, '').toLowerCase();
+      var ua2 = 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG250 stbapp ver: 4 rev: 2116 Safari/533.3';
+      window.AndroidBridge.playNativeWithAuth(url || '', title || '', !!isLive, cookies2, ua2);
       return true;
     }
     window.AndroidBridge.playNative(url || '', title || '', !!isLive);
@@ -58,6 +104,24 @@ async function nativePlay(url, title, isLive) {
     return false;
   }
 }
+
+// JS callback invoked from MainActivity when user picks a channel in sidebar
+// (Stalker case where URL needs re-resolution)
+window.iprem = window.iprem || {};
+window.iprem.switchChannel = async function(idx, streamId) {
+  try {
+    var streams = AppState.liveStreams || [];
+    var ch = streams.find(function(s) { return String(s.stream_id) === String(streamId); });
+    if (!ch) return;
+    AppState.selectedChannel = ch;
+    AppState.currentChannelIndex = idx;
+    var ext = (AppState.settings && AppState.settings.streamType) || 'm3u8';
+    var url = AppState.api.liveUrl(ch.stream_id, ext);
+    if (typeof window.startPlayer === 'function') {
+      window.startPlayer(url, ch.name, ch.num || '', 'live', ch);
+    }
+  } catch (e) { console.warn('switchChannel failed', e); }
+};
 
 // Build a setting toggle in Settings screen
 function buildNativePlayerToggle() {

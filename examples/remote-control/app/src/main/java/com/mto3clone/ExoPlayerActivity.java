@@ -1,6 +1,7 @@
 package com.mto3clone;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
@@ -11,10 +12,24 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Rational;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
+import android.widget.ArrayAdapter;
+import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
@@ -43,6 +58,11 @@ public class ExoPlayerActivity extends AppCompatActivity {
     private boolean isLive;
     private String customCookies;
     private String customUserAgent;
+    private LinearLayout channelSidebar;
+    private ListView channelListView;
+    private List<JSONObject> sidebarChannels = new ArrayList<>();
+    private int sidebarCurrentIdx = -1;
+    private boolean sidebarOpen = false;
 
     @Override
     @SuppressLint("UnsafeOptInUsageError")
@@ -63,6 +83,11 @@ public class ExoPlayerActivity extends AppCompatActivity {
         isLive = getIntent().getBooleanExtra("isLive", true);
         customCookies = getIntent().getStringExtra("cookies");
         customUserAgent = getIntent().getStringExtra("userAgent");
+
+        // Channel sidebar setup
+        channelSidebar = findViewById(R.id.channel_sidebar);
+        channelListView = findViewById(R.id.channel_list_view);
+        setupChannelSidebar();
 
         if (url == null || url.isEmpty()) {
             Toast.makeText(this, "No URL", Toast.LENGTH_SHORT).show();
@@ -231,6 +256,16 @@ public class ExoPlayerActivity extends AppCompatActivity {
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (player == null) return super.onKeyDown(keyCode, event);
+
+        // While sidebar is open, let it handle DPAD events
+        if (sidebarOpen) {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT || keyCode == KeyEvent.KEYCODE_BACK) {
+                hideSidebar();
+                return true;
+            }
+            return super.onKeyDown(keyCode, event); // ListView consumes up/down/enter
+        }
+
         switch (keyCode) {
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
             case KeyEvent.KEYCODE_SPACE:
@@ -240,15 +275,126 @@ public class ExoPlayerActivity extends AppCompatActivity {
                 finish();
                 return true;
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
-            case KeyEvent.KEYCODE_DPAD_RIGHT:
                 if (!isLive) player.seekTo(player.getCurrentPosition() + 10000);
                 return true;
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+                if (!isLive) {
+                    player.seekTo(player.getCurrentPosition() + 10000);
+                    return true;
+                }
+                break;
             case KeyEvent.KEYCODE_MEDIA_REWIND:
-            case KeyEvent.KEYCODE_DPAD_LEFT:
                 if (!isLive) player.seekTo(Math.max(0, player.getCurrentPosition() - 10000));
                 return true;
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+                if (isLive && sidebarChannels.size() > 0) {
+                    showSidebar();
+                    return true;
+                }
+                if (!isLive) {
+                    player.seekTo(Math.max(0, player.getCurrentPosition() - 10000));
+                    return true;
+                }
+                break;
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+    // ===== Channel sidebar =====
+    private void setupChannelSidebar() {
+        String channelsJson = getIntent().getStringExtra("channels");
+        sidebarCurrentIdx = getIntent().getIntExtra("currentChannelIdx", -1);
+
+        if (channelsJson == null || channelsJson.isEmpty()) return;
+        try {
+            JSONArray arr = new JSONArray(channelsJson);
+            for (int i = 0; i < arr.length(); i++) sidebarChannels.add(arr.getJSONObject(i));
+        } catch (Exception e) {
+            sidebarChannels.clear();
+        }
+        if (sidebarChannels.isEmpty()) return;
+
+        ChannelAdapter adapter = new ChannelAdapter(this, sidebarChannels);
+        channelListView.setAdapter(adapter);
+        channelListView.setOnItemClickListener((parent, view, position, id) -> selectChannel(position));
+        if (sidebarCurrentIdx >= 0 && sidebarCurrentIdx < sidebarChannels.size()) {
+            channelListView.setItemChecked(sidebarCurrentIdx, true);
+        }
+    }
+
+    private void showSidebar() {
+        if (channelSidebar == null) return;
+        channelSidebar.setVisibility(View.VISIBLE);
+        AlphaAnimation a = new AlphaAnimation(0f, 1f);
+        a.setDuration(180);
+        channelSidebar.startAnimation(a);
+        sidebarOpen = true;
+        channelListView.requestFocus();
+        int sel = sidebarCurrentIdx >= 0 ? sidebarCurrentIdx : 0;
+        if (sel < sidebarChannels.size()) {
+            channelListView.setSelection(sel);
+        }
+    }
+
+    private void hideSidebar() {
+        if (channelSidebar == null) return;
+        AlphaAnimation a = new AlphaAnimation(1f, 0f);
+        a.setDuration(180);
+        a.setAnimationListener(new Animation.AnimationListener() {
+            @Override public void onAnimationStart(Animation animation) {}
+            @Override public void onAnimationEnd(Animation animation) { channelSidebar.setVisibility(View.GONE); }
+            @Override public void onAnimationRepeat(Animation animation) {}
+        });
+        channelSidebar.startAnimation(a);
+        sidebarOpen = false;
+        playerView.requestFocus();
+    }
+
+    private void selectChannel(int position) {
+        if (position < 0 || position >= sidebarChannels.size()) return;
+        JSONObject ch = sidebarChannels.get(position);
+        String newUrl = ch.optString("url", "");
+        if (newUrl.isEmpty()) {
+            // For Stalker/M3U with no pre-resolved URL: bail back to MainActivity
+            Intent result = new Intent();
+            result.putExtra("switchToStreamId", ch.optString("stream_id"));
+            result.putExtra("switchToIndex", position);
+            setResult(RESULT_OK, result);
+            finish();
+            return;
+        }
+        sidebarCurrentIdx = position;
+        title = ch.optString("name", title);
+        url = newUrl;
+        if (player != null) {
+            MediaItem.Builder b = new MediaItem.Builder().setUri(Uri.parse(newUrl));
+            String lower = newUrl.toLowerCase();
+            if (lower.contains("/live/") || lower.contains(".m3u8") || lower.contains("/hls/")) {
+                b.setMimeType(MimeTypes.APPLICATION_M3U8);
+            } else if (lower.endsWith(".ts") || lower.contains(".ts?")) {
+                b.setMimeType(MimeTypes.VIDEO_MP2T);
+            }
+            player.setMediaItem(b.build());
+            player.prepare();
+            player.play();
+        }
+        hideSidebar();
+        Toast.makeText(this, ch.optString("name"), Toast.LENGTH_SHORT).show();
+    }
+
+    private static class ChannelAdapter extends ArrayAdapter<JSONObject> {
+        ChannelAdapter(Context ctx, List<JSONObject> items) { super(ctx, 0, items); }
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            View v = convertView;
+            if (v == null) v = LayoutInflater.from(getContext()).inflate(R.layout.item_channel, parent, false);
+            JSONObject ch = getItem(position);
+            if (ch == null) return v;
+            ((TextView) v.findViewById(R.id.channel_num)).setText(ch.optString("num", String.valueOf(position + 1)));
+            ((TextView) v.findViewById(R.id.channel_name)).setText(ch.optString("name", "?"));
+            ((TextView) v.findViewById(R.id.channel_now)).setText(ch.optString("now", ""));
+            return v;
+        }
     }
 
     @Override

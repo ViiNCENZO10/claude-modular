@@ -208,6 +208,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 1001 && resultCode == RESULT_OK && data != null) {
+            String streamId = data.getStringExtra("switchToStreamId");
+            int idx = data.getIntExtra("switchToIndex", -1);
+            if (streamId != null && !streamId.isEmpty()) {
+                String js = "window.iprem && window.iprem.switchChannel && window.iprem.switchChannel(" + idx + ", " + streamId + ")";
+                webView.evaluateJavascript(js, null);
+            }
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         if (webView != null) {
             webView.destroy();
@@ -271,6 +284,11 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void playNativeWithAuth(String url, String title, boolean isLive, String cookies, String userAgent) {
+            playNativeFull(url, title, isLive, cookies, userAgent, null, -1);
+        }
+
+        @JavascriptInterface
+        public void playNativeFull(String url, String title, boolean isLive, String cookies, String userAgent, String channelsJson, int currentIdx) {
             if (url == null || url.isEmpty()) return;
             Intent i = new Intent(MainActivity.this, ExoPlayerActivity.class);
             i.putExtra("url", url);
@@ -278,7 +296,9 @@ public class MainActivity extends AppCompatActivity {
             i.putExtra("isLive", isLive);
             if (cookies != null && !cookies.isEmpty()) i.putExtra("cookies", cookies);
             if (userAgent != null && !userAgent.isEmpty()) i.putExtra("userAgent", userAgent);
-            startActivity(i);
+            if (channelsJson != null && !channelsJson.isEmpty()) i.putExtra("channels", channelsJson);
+            if (currentIdx >= 0) i.putExtra("currentChannelIdx", currentIdx);
+            startActivityForResult(i, 1001);
         }
 
         @JavascriptInterface
