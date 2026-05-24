@@ -150,11 +150,61 @@
     });
   }
 
+  // ====== Background polling + foreground re-check ======
+  var POLL_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+  var pollTimer = null;
+  var lastSeenVersion = null;
+
+  function showUpdateBanner(newVersion, message) {
+    var existing = document.getElementById('hotreloadBanner');
+    if (existing) existing.remove();
+    var banner = document.createElement('div');
+    banner.id = 'hotreloadBanner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;background:linear-gradient(90deg,#16a34a,#22c55e);color:#fff;padding:10px 16px;display:flex;justify-content:center;align-items:center;gap:14px;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+    banner.innerHTML =
+      '<span>🔄 Mise à jour disponible (v' + (newVersion || '?') + ')' + (message ? ' — ' + message : '') + '</span>' +
+      '<button class="btn btn-primary btn-sm" id="hotreloadReload">Recharger maintenant</button>' +
+      '<button style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer" id="hotreloadDismiss">×</button>';
+    document.body.appendChild(banner);
+    document.getElementById('hotreloadReload').addEventListener('click', function() {
+      location.reload();
+    });
+    document.getElementById('hotreloadDismiss').addEventListener('click', function() {
+      banner.remove();
+    });
+  }
+
+  async function checkForNewVersion() {
+    var manifest = await fetchManifest();
+    if (!manifest) return;
+    var currentVersion = localStorage.getItem(LAST_VERSION_KEY) || '';
+    if (manifest.version && manifest.version !== currentVersion && manifest.version !== lastSeenVersion) {
+      lastSeenVersion = manifest.version;
+      showUpdateBanner(manifest.version, manifest.message);
+    }
+  }
+
+  function startBackgroundPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(checkForNewVersion, POLL_INTERVAL_MS);
+  }
+
+  // Re-check when app comes back to foreground
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+      setTimeout(checkForNewVersion, 1000);
+    }
+  });
+
   // Bootstrap as soon as possible
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootstrap);
+    document.addEventListener('DOMContentLoaded', function() {
+      bootstrap();
+      setTimeout(startBackgroundPolling, 5000);
+    });
   } else {
     bootstrap();
+    setTimeout(startBackgroundPolling, 5000);
   }
 
   // Build Settings UI when settings screen is shown
