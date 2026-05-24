@@ -805,41 +805,73 @@ function selectChannel(index) {
   loadMiniEPG(stream.stream_id);
 }
 
+function _setText(id, text) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = text || '';
+}
+
+function _decodeEpgTitle(item) {
+  try { return item.title ? atob(item.title) : (item.title_decoded || ''); }
+  catch (e) { return item.title_decoded || item.title || ''; }
+}
+
+function _decodeEpgDesc(item) {
+  try { return item.description ? atob(item.description) : (item.description_decoded || ''); }
+  catch (e) { return item.description_decoded || item.description || ''; }
+}
+
 async function loadMiniEPG(streamId) {
+  // Reset fiche
+  _setText('epgNowTime', '--:--');
+  _setText('epgNowTitle', 'Chargement…');
+  _setText('epgNowDesc', '');
+  _setText('epgNextTime', '');
+  _setText('epgNextTitle', '');
+  var nextBlock = document.getElementById('epgNextBlock');
+  if (nextBlock) nextBlock.style.display = 'none';
   var list = document.getElementById('miniEpgList');
-  list.innerHTML = '<li class="mini-epg-item"><span class="mini-epg-title">Loading...</span></li>';
+  if (list) list.innerHTML = '';
 
   try {
     var data = await AppState.api.getShortEPG(streamId);
-    list.innerHTML = '';
+    var listings = (data && data.epg_listings) ? data.epg_listings : [];
 
-    if (!data || !data.epg_listings || data.epg_listings.length === 0) {
-      list.innerHTML = '<li class="mini-epg-item"><span class="mini-epg-title">No EPG data</span></li>';
+    if (listings.length === 0) {
+      _setText('epgNowTitle', 'Pas de programme EPG');
+      _setText('epgNowDesc', 'Aucune information disponible pour cette chaîne.');
       return;
     }
 
-    data.epg_listings.slice(0, 6).forEach(function(item, i) {
-      var li = document.createElement('li');
-      li.className = 'mini-epg-item' + (i === 0 ? ' now' : '');
+    // Now (premier listing)
+    var now = listings[0];
+    var nowTitle = _decodeEpgTitle(now) || 'Programme en cours';
+    var nowDesc = _decodeEpgDesc(now);
+    _setText('epgNowTime', formatEpgTime(now.start) + ' · ' + formatEpgTime(now.end));
+    _setText('epgNowTitle', nowTitle);
+    _setText('epgNowDesc', nowDesc);
 
-      var title = '';
-      try {
-        title = item.title ? atob(item.title) : (item.title_decoded || 'Unknown');
-      } catch (e) {
-        title = item.title_decoded || item.title || 'Unknown';
-      }
+    // Next (deuxieme listing) - affiche seulement si dispo
+    if (listings.length > 1 && nextBlock) {
+      var nxt = listings[1];
+      _setText('epgNextTime', formatEpgTime(nxt.start));
+      _setText('epgNextTitle', _decodeEpgTitle(nxt) || 'Programme suivant');
+      nextBlock.style.display = '';
+    }
 
-      var startTime = item.start || '';
-      var endTime = item.end || '';
-
-      li.innerHTML =
-        '<span class="mini-epg-time">' + formatEpgTime(startTime) + ' - ' + formatEpgTime(endTime) + '</span>' +
-        '<span class="mini-epg-title">' + escapeHtml(title) + '</span>';
-
-      list.appendChild(li);
-    });
+    // Suite du programme (3-6) en mini-liste
+    if (list && listings.length > 2) {
+      listings.slice(2, 6).forEach(function(it) {
+        var li = document.createElement('li');
+        li.className = 'mini-epg-item';
+        li.innerHTML =
+          '<span class="mini-epg-time">' + formatEpgTime(it.start) + '</span> ' +
+          '<span class="mini-epg-title">' + escapeHtml(_decodeEpgTitle(it) || '?') + '</span>';
+        list.appendChild(li);
+      });
+    }
   } catch (e) {
-    list.innerHTML = '<li class="mini-epg-item"><span class="mini-epg-title">EPG unavailable</span></li>';
+    _setText('epgNowTitle', 'EPG indisponible');
+    _setText('epgNowDesc', '');
   }
 }
 

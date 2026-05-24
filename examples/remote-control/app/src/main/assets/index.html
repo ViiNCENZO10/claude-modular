@@ -155,31 +155,45 @@
       </div>
       <div class="channel-preview-panel" id="livePreviewPanel">
         <div class="preview-placeholder">
-          <p>Select a channel to preview</p>
+          <p>Sélectionnez une chaîne</p>
         </div>
         <div class="preview-content" id="livePreviewContent" style="display:none;">
+          <!-- Carré preview agrandi (16:9) -->
           <div class="preview-video-area">
             <div class="preview-no-signal">
-              <svg viewBox="0 0 48 48" width="48" height="48"><rect x="6" y="10" width="36" height="24" rx="3" stroke="#3b82f6" stroke-width="2" fill="none"/><line x1="14" y1="18" x2="34" y2="28" stroke="#3b82f6" stroke-width="2"/><line x1="34" y1="18" x2="14" y2="28" stroke="#3b82f6" stroke-width="2"/></svg>
-              <span>Press OK to watch</span>
+              <svg viewBox="0 0 48 48" width="56" height="56"><rect x="6" y="10" width="36" height="24" rx="3" stroke="#3b82f6" stroke-width="2" fill="none"/><circle cx="24" cy="22" r="6" stroke="#3b82f6" stroke-width="2" fill="none"/><path d="M22 19l5 3-5 3z" fill="#3b82f6"/></svg>
+              <span id="previewHint">OK pour regarder en plein écran</span>
             </div>
           </div>
+          <!-- Bloc info chaîne -->
           <div class="preview-info">
             <h3 id="previewChannelName"></h3>
             <p id="previewChannelNum" class="preview-num"></p>
           </div>
-          <div class="mini-epg" id="miniEpg">
-            <h4>Program Guide</h4>
-            <ul id="miniEpgList"></ul>
+          <!-- Fiche programme : EPG now + next + description -->
+          <div class="preview-epg-card" id="previewEpgCard">
+            <div class="epg-now">
+              <div class="epg-tag-now">EN COURS</div>
+              <div class="epg-time" id="epgNowTime">--:-- · --:--</div>
+              <div class="epg-title" id="epgNowTitle">Chargement…</div>
+              <div class="epg-desc" id="epgNowDesc"></div>
+            </div>
+            <div class="epg-next" id="epgNextBlock" style="display:none;">
+              <div class="epg-tag-next">À SUIVRE</div>
+              <div class="epg-time" id="epgNextTime">--:--</div>
+              <div class="epg-title" id="epgNextTitle"></div>
+            </div>
+            <ul class="mini-epg-list" id="miniEpgList"></ul>
+          </div>
+          <!-- Actions deplacees ici (anciens IDs preserves pour compat handlers) -->
+          <div class="preview-actions">
+            <div class="color-btn red focusable" tabindex="0" id="btnEpg"><span class="color-dot"></span>EPG</div>
+            <div class="color-btn green focusable" tabindex="0" id="btnSearch"><span class="color-dot"></span>Rech.</div>
+            <div class="color-btn yellow focusable" tabindex="0" id="btnSort"><span class="color-dot"></span>Tri</div>
+            <div class="color-btn blue focusable" tabindex="0" id="btnFavorite"><span class="color-dot"></span>Favori</div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="bottom-bar">
-      <div class="color-btn red focusable" tabindex="0" id="btnEpg"><span class="color-dot"></span> EPG</div>
-      <div class="color-btn green focusable" tabindex="0" id="btnSearch"><span class="color-dot"></span> Search</div>
-      <div class="color-btn yellow focusable" tabindex="0" id="btnSort"><span class="color-dot"></span> Sort</div>
-      <div class="color-btn blue focusable" tabindex="0" id="btnFavorite"><span class="color-dot"></span> Favorite</div>
     </div>
   </div>
 
