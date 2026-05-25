@@ -327,19 +327,17 @@ public class ExoPlayerActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return; // API 23+
         if (player == null) return;
         try {
-            float fps = player.getRate() > 0 ? 0 : 0; // not directly available
-            // Inspecte les media tracks pour trouver le video track + fps
-            org.videolan.libvlc.Media.VideoTrack[] vtracks = null;
+            float fps = 0f;
+            // Inspecte les media tracks via IMedia (libVLC 3.6+ retourne IMedia, pas Media)
             try {
-                org.videolan.libvlc.MediaPlayer.TrackDescription[] tracks = player.getVideoTracks();
-                // libVLC 3.x : on doit passer par Media.getTracks() pour fps
-                Media m = player.getMedia();
+                org.videolan.libvlc.interfaces.IMedia m = player.getMedia();
                 if (m != null) {
                     int n = m.getTrackCount();
                     for (int i = 0; i < n; i++) {
-                        Media.Track t = m.getTrack(i);
-                        if (t != null && t.type == Media.Track.Type.Video) {
-                            Media.VideoTrack vt = (Media.VideoTrack) t;
+                        org.videolan.libvlc.interfaces.IMedia.Track t = m.getTrack(i);
+                        if (t != null && t.type == org.videolan.libvlc.interfaces.IMedia.Track.Type.Video) {
+                            org.videolan.libvlc.interfaces.IMedia.VideoTrack vt =
+                                (org.videolan.libvlc.interfaces.IMedia.VideoTrack) t;
                             if (vt.frameRateNum > 0 && vt.frameRateDen > 0) {
                                 fps = (float) vt.frameRateNum / (float) vt.frameRateDen;
                                 break;
@@ -348,7 +346,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
                     }
                     m.release();
                 }
-            } catch (Exception ignored) {}
+            } catch (Throwable ignored) {}
             if (fps <= 0f || fps > 200f) return;
 
             // Cherche le mode display qui match le mieux
@@ -380,7 +378,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
                 getWindow().setAttributes(lp);
                 Toast.makeText(this, "Display " + Math.round(best.getRefreshRate()) + "Hz (video " + Math.round(fps) + "fps)", Toast.LENGTH_SHORT).show();
             }
-        } catch (Exception ignored) {}
+        } catch (Throwable ignored) {}
     }
 
     private void handlePlayerError() {
@@ -423,28 +421,6 @@ public class ExoPlayerActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         if (player != null && !isInPipMode()) player.pause();
-    }
-
-    @Override
-    protected void onDestroy() {
-        stopProgressTracking();
-        // Sauve une derniere fois la position avant de quitter
-        try {
-            if (!isLive && contentId != null && player != null) {
-                long posSec = player.getTime() / 1000;
-                long durSec = player.getLength() / 1000;
-                if (posSec > 5 && durSec > 0) {
-                    Intent broadcast = new Intent("com.mto3clone.SAVE_PROGRESS");
-                    broadcast.putExtra("contentId", contentId);
-                    broadcast.putExtra("contentType", contentType != null ? contentType : "vod");
-                    broadcast.putExtra("position", posSec);
-                    broadcast.putExtra("duration", durSec);
-                    broadcast.putExtra("name", title != null ? title : "");
-                    sendBroadcast(broadcast);
-                }
-            }
-        } catch (Exception ignored) {}
-        super.onDestroy();
     }
 
     private boolean isInPipMode() {
@@ -561,26 +537,25 @@ public class ExoPlayerActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onUserLeaveHint() {
-        super.onUserLeaveHint();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                && getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-                && player != null && player.isPlaying()) {
-            try {
-                android.app.PictureInPictureParams params = new android.app.PictureInPictureParams.Builder()
-                        .setAspectRatio(new Rational(16, 9)).build();
-                enterPictureInPictureMode(params);
-            } catch (Exception ignored) { }
-        }
-    }
-
-    @Override
-    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
-    }
-
-    @Override
     protected void onDestroy() {
+        stopProgressTracking();
+        // Sauve une derniere fois la position avant de quitter (Continue Watching)
+        try {
+            if (!isLive && contentId != null && player != null) {
+                long posSec = player.getTime() / 1000;
+                long durSec = player.getLength() / 1000;
+                if (posSec > 5 && durSec > 0) {
+                    Intent broadcast = new Intent("com.mto3clone.SAVE_PROGRESS");
+                    broadcast.putExtra("contentId", contentId);
+                    broadcast.putExtra("contentType", contentType != null ? contentType : "vod");
+                    broadcast.putExtra("position", posSec);
+                    broadcast.putExtra("duration", durSec);
+                    broadcast.putExtra("name", title != null ? title : "");
+                    sendBroadcast(broadcast);
+                }
+            }
+        } catch (Exception ignored) {}
+        // Cleanup VLC
         if (sleepTimer != null) { sleepTimer.cancel(); sleepTimer = null; }
         if (player != null) {
             try { player.stop(); } catch (Exception ignored) {}
