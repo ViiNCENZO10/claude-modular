@@ -196,16 +196,21 @@
     }
   });
 
-  // Bootstrap as soon as possible
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-      bootstrap();
-      setTimeout(startBackgroundPolling, 5000);
-    });
-  } else {
-    bootstrap();
-    setTimeout(startBackgroundPolling, 5000);
-  }
+  // ===== HOTRELOAD DESACTIVE (v4.2.1) =====
+  // Cause confirmee du SyntaxError "[index.html:1:56]" qui pollue depuis v3.4.0 :
+  // executePatches() inject des <script> dynamiques dans le DOM. Si le contenu
+  // fetched depuis GitHub est HTML (404), JS minifie/casse, ou si le cache LS
+  // contient un patch corrompu, le browser throw SyntaxError dont la POSITION
+  // est rapportee comme "[index.html:1:56]" (la position du <script> tag injecte).
+  //
+  // Solution : on PURGE le cache LS et on n'execute plus le hotreload du tout.
+  // Les mises a jour passent par l'OTA APK natif (deja en place).
+  try {
+    localStorage.removeItem(CACHED_SCRIPTS_KEY);
+    localStorage.removeItem(LAST_VERSION_KEY);
+  } catch (e) {}
+  // Bootstrap reste defini pour le bouton Settings "Verifier maintenant"
+  // mais on ne l'appelle plus automatiquement.
 
   // Build Settings UI when settings screen is shown
   window.addEventListener('DOMContentLoaded', function() {
