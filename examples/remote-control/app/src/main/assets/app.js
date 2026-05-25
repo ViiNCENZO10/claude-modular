@@ -760,6 +760,16 @@ function renderChannelList() {
       }
     });
 
+    // Auto-preview au focus (navigation D-pad sans clic) :
+    // remplit le panel droit avec EPG + nom + num des qu'on survole une chaine.
+    // Debounce 150ms pour ne pas spam quand l'user scrolle vite.
+    li.addEventListener('focus', function() {
+      clearTimeout(window._previewDebounce);
+      window._previewDebounce = setTimeout(function() {
+        selectChannel(index);
+      }, 150);
+    });
+
     channelList.appendChild(li);
   });
 

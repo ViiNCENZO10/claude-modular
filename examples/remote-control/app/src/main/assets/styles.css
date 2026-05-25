@@ -119,9 +119,9 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 56px;
-  min-height: 56px;
-  padding: 0 24px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0 20px;
   background: linear-gradient(180deg, var(--bg-light) 0%, var(--bg-mid) 100%);
   border-bottom: 1px solid var(--border);
   z-index: 10;
@@ -703,9 +703,9 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
+  padding: 8px 18px;
   border-bottom: 1px solid var(--border);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -814,10 +814,13 @@ html, body {
 }
 
 .preview-placeholder {
-  flex: 1;
+  /* Placeholder remonte en haut (et non centre vertical) pour ne pas laisser
+     un vide visuel en haut du panel droit quand aucune chaine selectionnee */
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: 30px;
   color: var(--text-muted);
   font-size: 14px;
 }

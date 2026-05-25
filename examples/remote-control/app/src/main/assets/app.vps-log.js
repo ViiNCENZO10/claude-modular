@@ -81,9 +81,23 @@
     }
   }
 
+  function _safeReadQueue() {
+    try {
+      var raw = localStorage.getItem(QUEUE_KEY);
+      if (!raw) return [];
+      var q = JSON.parse(raw);
+      return Array.isArray(q) ? q : [];
+    } catch (e) {
+      // Queue corrompue : on la PURGE silencieusement plutot que de la laisser
+      // declencher SyntaxError a chaque appel.
+      try { localStorage.removeItem(QUEUE_KEY); } catch (e2) {}
+      return [];
+    }
+  }
+
   function queuePayload(p) {
     try {
-      var q = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+      var q = _safeReadQueue();
       q.push(p);
       if (q.length > MAX_QUEUE) q = q.slice(-MAX_QUEUE);
       localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
@@ -93,7 +107,7 @@
   function flushQueue() {
     if (!isLoggingEnabled()) return;
     try {
-      var q = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+      var q = _safeReadQueue();
       if (!q.length) return;
       localStorage.setItem(QUEUE_KEY, '[]');
       q.forEach(function(p) {
@@ -118,14 +132,35 @@
     isEnabled: isLoggingEnabled
   };
 
-  // Capture window errors
+  // Capture window errors - on enrichit le message avec file:line pour pouvoir
+  // tracer rapidement depuis le dashboard
   window.addEventListener('error', function(e) {
     if (!isLoggingEnabled()) return;
+    var file = (e.filename || '').split('/').pop() || '?';
+    var line = e.lineno || 0;
+    var col = e.colno || 0;
+    // Filtre des erreurs benines (JSON.parse de cache localStorage corrompu)
+    var msg = e.message || 'Unknown JS error';
+    if (/Unexpected (token|end of JSON|string in JSON)/i.test(msg) && (!e.error || !e.error.stack)) {
+      // Localstorage cache corrompu : on PURGE silencieusement et on ignore
+      try {
+        Object.keys(localStorage).forEach(function(k) {
+          if (k.indexOf('iprem_cache_') === 0 || k.indexOf('iprem_tmdb_') === 0) {
+            try { JSON.parse(localStorage.getItem(k)); }
+            catch (e2) { localStorage.removeItem(k); }
+          }
+        });
+      } catch (e3) {}
+      return;
+    }
+    // On encode l'origine dans le message pour qu'elle apparaisse au-dessus
+    // de la mini-box explication du dashboard
+    var locationTag = (file !== '?') ? ' [' + file + ':' + line + ':' + col + ']' : '';
     send({
       severity: 'ERROR',
-      message: e.message || 'Unknown JS error',
+      message: msg + locationTag,
       stack: (e.error && e.error.stack) || '',
-      context: { file: e.filename || '', line: e.lineno || 0, col: e.colno || 0 }
+      context: { file: e.filename || '', line: line, col: col }
     });
   });
 
@@ -133,9 +168,12 @@
   window.addEventListener('unhandledrejection', function(e) {
     if (!isLoggingEnabled()) return;
     var reason = e.reason || {};
+    var msg = 'Unhandled promise: ' + (reason.message || String(reason));
+    // Ignore les AbortError (user a change d'ecran/chaine en plein fetch)
+    if (/AbortError/i.test(msg)) return;
     send({
-      severity: 'ERROR',
-      message: 'Unhandled promise: ' + (reason.message || String(reason)),
+      severity: 'WARNING',
+      message: msg,
       stack: reason.stack || ''
     });
   });
