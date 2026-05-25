@@ -574,42 +574,59 @@ function initHomeScreen() {
 // Live TV Screen
 // ============================================
 async function initLiveScreen() {
-  if (AppState.liveCategories.length > 0) return; // already loaded
+  // FAST PATH : si tout est deja en cache (post full-sync), on rebuild SYNCHRONE
+  // et on quitte. Plus d'ecran noir pendant le fetch.
+  if (AppState.liveCategories && AppState.liveCategories.length > 0) {
+    // Verifier que le DOM existe et est rempli (sinon rebuild depuis cache)
+    var cl = document.getElementById('liveCategoryList');
+    if (cl && cl.children.length > 0) return; // deja monte ET visible
+  }
 
   var categoryList = document.getElementById('liveCategoryList');
   var channelList = document.getElementById('liveChannelList');
   var loading = document.getElementById('liveChannelLoading');
+  if (!categoryList || !channelList) return;
 
-  categoryList.innerHTML = '';
-  channelList.innerHTML = '';
-  loading.style.display = 'flex';
+  // === SKELETON INSTANT pour ne plus avoir l'ecran noir ===
+  // Categories : 8 placeholders gris shimmer
+  var catSkel = '';
+  for (var i = 0; i < 8; i++) {
+    catSkel += '<li class="iprem-skel" style="height:28px;margin:4px 8px;border-radius:6px"></li>';
+  }
+  categoryList.innerHTML = catSkel;
+  // Channels : 14 lignes shimmer (deja stylees via app.perf-cache.js)
+  if (window.ipremCache && window.ipremCache.showSkeletonChannels) {
+    window.ipremCache.showSkeletonChannels(channelList, 14);
+  }
+  if (loading) loading.style.display = 'none'; // skeleton suffit, pas besoin du spinner en plus
 
   try {
-    var categories = await AppState.api.getLiveCategories();
-    AppState.liveCategories = Array.isArray(categories) ? categories : [];
+    // Si on a deja les categories en cache memoire (full-sync), on les utilise SANS fetch
+    var categories;
+    if (AppState.liveCategories && AppState.liveCategories.length > 0) {
+      categories = AppState.liveCategories;
+    } else {
+      categories = await AppState.api.getLiveCategories();
+      AppState.liveCategories = Array.isArray(categories) ? categories : [];
+    }
 
-    // Build category list
+    // Rebuild category list (remplace les skeletons)
     categoryList.innerHTML = '';
-
-    // "All" item
     var allItem = createCategoryItem('All', null, true);
     categoryList.appendChild(allItem);
-
-    // Favorites item
     var favItem = createCategoryItem('★ Favorites', 'favorites', false);
     categoryList.appendChild(favItem);
-
-    AppState.liveCategories.forEach(function(cat) {
+    (AppState.liveCategories || []).forEach(function(cat) {
       var item = createCategoryItem(cat.category_name, cat.category_id, false);
       categoryList.appendChild(item);
     });
 
-    // Load all streams
+    // Load all streams (utilisera le cache memoire AppState.allLiveStreams si dispo)
     await loadLiveStreams(null);
   } catch (err) {
     showToast('Failed to load channels: ' + err.message);
   } finally {
-    loading.style.display = 'none';
+    if (loading) loading.style.display = 'none';
   }
 }
 
@@ -1084,13 +1101,28 @@ function playChannel(stream) {
 // VOD / Movies Screen
 // ============================================
 async function initVodScreen() {
-  if (AppState.vodCategories.length > 0) return;
+  // Fast path : deja monte ?
+  if (AppState.vodCategories.length > 0) {
+    var clCheck = document.getElementById('vodCategoryList');
+    if (clCheck && clCheck.children.length > 0) return;
+  }
 
   var categoryList = document.getElementById('vodCategoryList');
+  var grid = document.getElementById('vodGrid');
   var loading = document.getElementById('vodLoading');
+  if (!categoryList) return;
 
-  categoryList.innerHTML = '';
-  loading.style.display = 'flex';
+  // Skeleton categories INSTANT (plus de flash noir)
+  var catSkel = '';
+  for (var sk = 0; sk < 10; sk++) {
+    catSkel += '<li class="iprem-skel" style="height:28px;margin:4px 8px;border-radius:6px"></li>';
+  }
+  categoryList.innerHTML = catSkel;
+  // Skeleton cards
+  if (grid && window.ipremCache && window.ipremCache.showSkeletonCards) {
+    window.ipremCache.showSkeletonCards(grid, 18);
+  }
+  if (loading) loading.style.display = 'none';
 
   try {
     var categories = await AppState.api.getVodCategories();
@@ -1547,13 +1579,26 @@ async function showVodDetail(vod) {
 // Series Screen
 // ============================================
 async function initSeriesScreen() {
-  if (AppState.seriesCategories.length > 0) return;
+  if (AppState.seriesCategories.length > 0) {
+    var clCheck = document.getElementById('seriesCategoryList');
+    if (clCheck && clCheck.children.length > 0) return;
+  }
 
   var categoryList = document.getElementById('seriesCategoryList');
+  var grid = document.getElementById('seriesGrid');
   var loading = document.getElementById('seriesLoading');
+  if (!categoryList) return;
 
-  categoryList.innerHTML = '';
-  loading.style.display = 'flex';
+  // Skeleton INSTANT
+  var catSkel = '';
+  for (var sk = 0; sk < 10; sk++) {
+    catSkel += '<li class="iprem-skel" style="height:28px;margin:4px 8px;border-radius:6px"></li>';
+  }
+  categoryList.innerHTML = catSkel;
+  if (grid && window.ipremCache && window.ipremCache.showSkeletonCards) {
+    window.ipremCache.showSkeletonCards(grid, 18);
+  }
+  if (loading) loading.style.display = 'none';
 
   try {
     var categories = await AppState.api.getSeriesCategories();
