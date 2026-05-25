@@ -965,14 +965,13 @@ async function initVodScreen() {
     AppState.vodCategories = Array.isArray(categories) ? categories : [];
 
     // === SMART CATEGORIES (virtuelles, en tete du menu) ===
+    // On garde uniquement ce qui n'existe PAS deja chez le provider :
+    // Tous, Favoris (filtre personnel), Recents (historique).
+    // Les doublons (Nouveautes/Top/4K/Dolby) sont fournis par le provider lui-meme.
     var smartCats = [
-      { id: '__all__',      label: '★ Tous les films',  hint: 'All' },
-      { id: '__favorites__',label: '♥ Favoris',          hint: 'fav' },
-      { id: '__recent__',   label: '⏱ Récents',          hint: 'recent' },
-      { id: '__new__',      label: '✨ Nouveautés',      hint: 'new' },
-      { id: '__top__',      label: '🏆 Top 100',         hint: 'top' },
-      { id: '__4k__',       label: '◆ 4K HDR',           hint: '4k' },
-      { id: '__dv__',       label: '◇ Dolby Vision',     hint: 'dv' }
+      { id: '__all__',       label: '★ Tous les films' },
+      { id: '__favorites__', label: '♥ Favoris' },
+      { id: '__recent__',    label: '⏱ Récents' }
     ];
     smartCats.forEach(function(sc, idx) {
       var li = document.createElement('li');
@@ -1410,13 +1409,11 @@ async function initSeriesScreen() {
     AppState.seriesCategories = Array.isArray(categories) ? categories : [];
 
     // === SMART CATEGORIES (virtuelles, en tete du menu) ===
+    // Idem VOD : on garde uniquement ce qui n'existe pas chez le provider.
     var smartCats = [
       { id: '__all__',       label: '★ Toutes les séries' },
       { id: '__favorites__', label: '♥ Favoris' },
-      { id: '__inprogress__',label: '▶ En cours' },
-      { id: '__new__',       label: '✨ Nouveautés' },
-      { id: '__top__',       label: '🏆 Top 100' },
-      { id: '__4k__',        label: '◆ 4K HDR' }
+      { id: '__inprogress__',label: '▶ En cours' }
     ];
     smartCats.forEach(function(sc, idx) {
       var li = document.createElement('li');

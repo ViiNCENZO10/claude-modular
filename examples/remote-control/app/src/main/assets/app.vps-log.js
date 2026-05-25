@@ -17,6 +17,9 @@
 
   var recentSignatures = {};
   var deviceInfo = null;
+  // Memoire long-terme : evite de re-envoyer la meme signature plusieurs fois
+  // par minute (en cas d'erreur en boucle, ex: click qui throw a chaque fois)
+  var SESSION_DEDUP_MS = 60 * 1000;
 
   function computeDeviceInfo() {
     if (deviceInfo) return deviceInfo;
@@ -61,7 +64,9 @@
     if (!isLoggingEnabled()) return;
     var sig = buildSignature(payload);
     var now = Date.now();
-    if (recentSignatures[sig] && now - recentSignatures[sig] < THROTTLE_MS) return;
+    // Dedup agressif : si la meme erreur a deja ete envoyee dans la derniere
+    // minute, on la skip (evite de spammer le dashboard 50x sur un click qui throw)
+    if (recentSignatures[sig] && now - recentSignatures[sig] < SESSION_DEDUP_MS) return;
     recentSignatures[sig] = now;
 
     payload.signature = sig;
