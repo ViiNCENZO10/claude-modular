@@ -376,17 +376,17 @@ public class ExoPlayerActivity extends AppCompatActivity {
 
             android.view.Display.Mode best = currentMode;
             float bestDiff = Math.abs(currentMode.getRefreshRate() - fps);
-            for (android.view.Display.Mode m : modes) {
+            for (android.view.Display.Mode mode : modes) {
                 // Meme resolution que mode actuel (ne change que le refresh)
-                if (m.getPhysicalWidth() == currentMode.getPhysicalWidth() &&
-                    m.getPhysicalHeight() == currentMode.getPhysicalHeight()) {
-                    float diff = Math.abs(m.getRefreshRate() - fps);
+                if (mode.getPhysicalWidth() == currentMode.getPhysicalWidth() &&
+                    mode.getPhysicalHeight() == currentMode.getPhysicalHeight()) {
+                    float diff = Math.abs(mode.getRefreshRate() - fps);
                     // Cherche aussi les multiples (50 Hz video sur 100 Hz display = OK)
-                    float halfDiff = Math.abs(m.getRefreshRate() - fps * 2);
+                    float halfDiff = Math.abs(mode.getRefreshRate() - fps * 2);
                     if (halfDiff < diff) diff = halfDiff;
                     if (diff < bestDiff) {
                         bestDiff = diff;
-                        best = m;
+                        best = mode;
                     }
                 }
             }
