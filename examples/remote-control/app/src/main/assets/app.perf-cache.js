@@ -131,41 +131,16 @@
     withCache(api, 'getShortEPG', 0);
     withCache(api, 'getFullEPG', 0);
 
-    // ===== Warmup background =====
-    // 1. Categories des 3 sections en parallele (rapide, ~3 requetes)
-    // 2. Premiere liste de chaque section (Live/VOD/Series) en parallele
-    // 3. TOUTES les categories Live, par batches de 5, espacees de 200ms
-    //    => au bout de quelques secondes, TOUS les groupes sont caches
-    //    => clic sur n'importe quel pays = 0ms d'affichage
+    // ===== Warmup background DESACTIVE (v4.1.7) =====
+    // Le warmup background pouvait saturer le portail Stalker pendant que
+    // l'user cliquait sur une chaine, causant "Erreur de lecture".
+    // Le cache wrapper LS reste actif : les categories/listes sont cachees
+    // a la 1ere visite reelle de l'user, ce qui est largement suffisant.
     if (!api._warmupDone) {
       api._warmupDone = true;
-      setTimeout(function() {
-        try {
-          // Phase 1 : categories
-          var ps = [];
-          if (typeof api.getLiveCategories === 'function')
-            ps.push(api.getLiveCategories().catch(function() { return []; }));
-          if (typeof api.getVodStreamsCategories === 'function')
-            ps.push(api.getVodStreamsCategories().catch(function() { return []; }));
-          if (typeof api.getSeriesCategories === 'function')
-            ps.push(api.getSeriesCategories().catch(function() { return []; }));
-          Promise.all(ps).then(function(results) {
-            // Phase 2 : premiere liste de chaque section (parallele)
-            // SUFFIT amplement pour que le 1er clic soit instant. On evite
-            // d'exploser le portail Stalker avec un Phase 3 massif (qui
-            // causait 5 min d'attente sur le clic suivant a cause du rate-limit).
-            if (typeof api.getLiveStreams === 'function')
-              api.getLiveStreams().catch(function() {});
-            if (typeof api.getVodStreams === 'function')
-              api.getVodStreams().catch(function() {});
-            if (typeof api.getSeries === 'function')
-              api.getSeries().catch(function() {});
-            // Phase 3 (TOUTES les categories) : DESACTIVEE.
-            // Le cache de chaque categorie se remplit naturellement quand
-            // l'user la visite. Beaucoup moins de pression sur le portail.
-          });
-        } catch (e) {}
-      }, 600);
+      // Pas de fetch background = pas de saturation portail.
+      // L'user fetche au moment ou il en a besoin, jamais avant.
+      // (no-op intentionnel)
     }
     return true;
   }

@@ -312,9 +312,10 @@ public class ExoPlayerActivity extends AppCompatActivity {
             media.release();
             player.play();
 
-            // === Watchdog : si rien ne se joue apres 12s, on quitte avec un toast clair ===
-            // Plus d'ecran noir muet : l'user voit le diagnostic et revient sur la liste.
-            scheduleStartWatchdog();
+            // Watchdog DESACTIVE (v4.1.7) : il pouvait tuer des lectures qui chargeaient
+            // lentement mais legitimement (premier zap Stalker, gros buffer adaptatif).
+            // Si le stream ne demarre vraiment pas, libVLC emet EncounteredError -> handler.
+            // scheduleStartWatchdog();
 
             // Demarre le tracking de position pour Continue Watching (VOD only)
             if (!isLive && contentId != null && !contentId.isEmpty()) {

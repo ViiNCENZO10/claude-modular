@@ -285,26 +285,12 @@
   }
 
   // ===== Hook automatique apres connexion portail =====
+  // v4.1.7 : DESACTIVE par defaut. Le full-sync pouvait saturer le portail
+  // Stalker (centaines de requetes background) et causer des "Erreur de lecture"
+  // quand l'user cliquait sur une chaine pendant la sync. L'user peut toujours
+  // lancer le sync manuellement via window.iprem.fullSync.run().
   function bootstrap() {
-    var pending = false;
-    var checkInterval = setInterval(function() {
-      if (pending) return;
-      if (!window.AppState || !window.AppState.api) return;
-      // Une seule fois par session, sauf si TTL expire
-      if (window.AppState._fullSyncTriggered) {
-        clearInterval(checkInterval);
-        return;
-      }
-      window.AppState._fullSyncTriggered = true;
-      pending = true;
-      if (needsSync()) {
-        // Attendre 800ms que l'UI soit montee
-        setTimeout(function() {
-          runFullSync(window.AppState.api).catch(function() {});
-        }, 800);
-      }
-      clearInterval(checkInterval);
-    }, 500);
+    // No-op (sync auto desactivee)
   }
 
   // Public API : pour bouton "Recharger tout" dans Settings
