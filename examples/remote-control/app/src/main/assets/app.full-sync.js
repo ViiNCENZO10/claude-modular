@@ -26,8 +26,21 @@
       '@keyframes fsyncFadeIn{from{opacity:0}to{opacity:1}}' +
       '@keyframes fsyncFadeOut{from{opacity:1}to{opacity:0}}' +
       '@keyframes fsyncPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}' +
+      '@keyframes fsyncSpin{to{transform:rotate(360deg)}}' +
+      '@keyframes fsyncSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}' +
       '#fsync-overlay.closing{animation:fsyncFadeOut .4s ease-in forwards}' +
+      // === Phase 1 : spinner "Chargement en cours..." ===
+      '#fsync-overlay .fsync-phase1{display:flex;flex-direction:column;align-items:center;gap:20px;transition:opacity .4s}' +
+      '#fsync-overlay.phase2 .fsync-phase1{opacity:0;pointer-events:none;position:absolute}' +
+      '#fsync-overlay .fsync-spinner{width:64px;height:64px;border:4px solid rgba(6,182,212,.15);border-top-color:#06b6d4;border-right-color:#67e8f9;border-radius:50%;animation:fsyncSpin .9s linear infinite}' +
+      '#fsync-overlay .fsync-loading{font-size:18px;font-weight:600;color:#cbd5e1;letter-spacing:.5px}' +
+      '#fsync-overlay .fsync-loading-dots::after{content:"";animation:fsyncDots 1.5s steps(4,end) infinite}' +
+      '@keyframes fsyncDots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}100%{content:""}}' +
+      // === Phase 2 : portal name + progress ===
+      '#fsync-overlay .fsync-phase2{display:flex;flex-direction:column;align-items:center;opacity:0;pointer-events:none}' +
+      '#fsync-overlay.phase2 .fsync-phase2{opacity:1;pointer-events:auto;animation:fsyncSlideUp .5s ease-out}' +
       '#fsync-overlay .fsync-logo{font-size:42px;font-weight:800;letter-spacing:-1px;margin-bottom:6px;background:linear-gradient(135deg,#06b6d4,#67e8f9 50%,#fff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:fsyncPulse 2s ease-in-out infinite}' +
+      '#fsync-overlay .fsync-portal-name{font-size:14px;color:#67e8f9;font-weight:600;margin-bottom:8px;letter-spacing:.3px}' +
       '#fsync-overlay .fsync-sub{font-size:13px;color:#94a3b8;margin-bottom:36px}' +
       '#fsync-overlay .fsync-bar{width:60vw;max-width:600px;height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;position:relative;box-shadow:0 0 24px rgba(6,182,212,.15)}' +
       '#fsync-overlay .fsync-fill{height:100%;background:linear-gradient(90deg,#06b6d4 0%,#67e8f9 50%,#3b82f6 100%);background-size:200% 100%;animation:fsyncShimmer 1.5s linear infinite;width:0%;border-radius:4px;transition:width .35s cubic-bezier(.4,0,.2,1);box-shadow:0 0 12px rgba(6,182,212,.6)}' +
@@ -52,18 +65,34 @@
     overlay = document.createElement('div');
     overlay.id = 'fsync-overlay';
     overlay.innerHTML =
-      '<div class="fsync-done-ico">✓</div>' +
-      '<div class="fsync-logo">iPremTvOnline</div>' +
-      '<div class="fsync-sub">Synchronisation du portail</div>' +
-      '<div class="fsync-bar"><div class="fsync-fill"></div></div>' +
-      '<div class="fsync-pct">0%</div>' +
-      '<div class="fsync-step">Initialisation...</div>' +
-      '<div class="fsync-detail"></div>';
+      // Phase 1 : spinner avec "Chargement en cours..."
+      '<div class="fsync-phase1">' +
+        '<div class="fsync-spinner"></div>' +
+        '<div class="fsync-loading">Chargement en cours<span class="fsync-loading-dots"></span></div>' +
+      '</div>' +
+      // Phase 2 : portail name + progress
+      '<div class="fsync-phase2">' +
+        '<div class="fsync-done-ico">✓</div>' +
+        '<div class="fsync-logo">iPremTvOnline</div>' +
+        '<div class="fsync-portal-name" id="fsync-portal"></div>' +
+        '<div class="fsync-sub">Synchronisation du portail</div>' +
+        '<div class="fsync-bar"><div class="fsync-fill"></div></div>' +
+        '<div class="fsync-pct">0%</div>' +
+        '<div class="fsync-step">Initialisation...</div>' +
+        '<div class="fsync-detail"></div>' +
+      '</div>';
     document.body.appendChild(overlay);
     fill = overlay.querySelector('.fsync-fill');
     pctEl = overlay.querySelector('.fsync-pct');
     stepEl = overlay.querySelector('.fsync-step');
     detailEl = overlay.querySelector('.fsync-detail');
+  }
+
+  function switchToPhase2(portalName) {
+    if (!overlay) return;
+    var pn = overlay.querySelector('#fsync-portal');
+    if (pn) pn.textContent = portalName || '';
+    overlay.classList.add('phase2');
   }
 
   function setProgress(pct, step, detail) {
@@ -101,93 +130,79 @@
     if (!api) return false;
     openOverlay();
 
-    var t0 = Date.now();
+    // Affiche le nom du portail dans la phase 2 dès que dispo
+    var portalName = '';
     try {
-      // === Phase 1 : Categories (3 reqs en parallele, ~5%) ===
-      setProgress(2, 'Chargement des catégories...');
-      var pCats = [];
-      if (typeof api.getLiveCategories === 'function')
-        pCats.push(api.getLiveCategories().catch(function() { return []; }));
-      else pCats.push([]);
-      if (typeof api.getVodCategories === 'function')
-        pCats.push(api.getVodCategories().catch(function() { return []; }));
-      else pCats.push([]);
-      if (typeof api.getSeriesCategories === 'function')
-        pCats.push(api.getSeriesCategories().catch(function() { return []; }));
-      else pCats.push([]);
-      var results = await Promise.all(pCats);
-      var liveCats = results[0] || [], vodCats = results[1] || [], seriesCats = results[2] || [];
-      setProgress(8, 'Catégories chargées', liveCats.length + ' Live · ' + vodCats.length + ' Films · ' + seriesCats.length + ' Séries');
-
-      // === Phase 2 : Listes COMPLETES en parallele (~3 reqs lourdes, 40%) ===
-      setProgress(12, 'Chargement de la chaîne TV...');
-      var pLists = [];
-      pLists.push((async function() {
-        if (typeof api.getLiveStreams !== 'function') return [];
-        try {
-          var r = await api.getLiveStreams();
-          if (window.AppState) window.AppState.allLiveStreams = r || [];
-          setProgress(25, 'Live TV chargé', (r ? r.length : 0) + ' chaînes');
-          return r || [];
-        } catch (e) { return []; }
-      })());
-      pLists.push((async function() {
-        if (typeof api.getVodStreams !== 'function') return [];
-        try {
-          var r = await api.getVodStreams();
-          if (window.AppState) window.AppState.vodAllStreams = r || [];
-          setProgress(40, 'Films chargés', (r ? r.length : 0) + ' films');
-          return r || [];
-        } catch (e) { return []; }
-      })());
-      pLists.push((async function() {
-        if (typeof api.getSeries !== 'function') return [];
-        try {
-          var r = await api.getSeries();
-          if (window.AppState) window.AppState.seriesAllStreams = r || [];
-          setProgress(55, 'Séries chargées', (r ? r.length : 0) + ' séries');
-          return r || [];
-        } catch (e) { return []; }
-      })());
-      var [allLive, allVod, allSeries] = await Promise.all(pLists);
-
-      // === Phase 3 : EPG des 50 premieres chaines (~50 reqs parallel, 30%) ===
-      if (allLive.length && typeof api.getShortEPG === 'function') {
-        setProgress(60, 'Guide EPG en cours...', '0 / 50');
-        if (window.AppState) window.AppState._nowEpgMap = window.AppState._nowEpgMap || {};
-        var topChannels = allLive.slice(0, 50);
-        var done = 0;
-        var BATCH = 8;
-        for (var i = 0; i < topChannels.length; i += BATCH) {
-          var slice = topChannels.slice(i, i + BATCH);
-          await Promise.all(slice.map(async function(ch) {
-            try {
-              var data = await api.getShortEPG(ch.stream_id);
-              var listings = (data && data.epg_listings) ? data.epg_listings : [];
-              if (listings.length && window.AppState) {
-                // Trouve le programme en cours
-                var nowMs = Date.now();
-                for (var j = 0; j < listings.length; j++) {
-                  var p = listings[j];
-                  var startMs = parseInt(p.start) * 1000;
-                  var endMs = parseInt(p.end || p.stop) * 1000;
-                  if (isNaN(startMs)) { startMs = Date.parse(p.start); endMs = Date.parse(p.end || p.stop || ''); }
-                  if (!isNaN(startMs) && !isNaN(endMs) && startMs <= nowMs && nowMs <= endMs) {
-                    try {
-                      var t = p.title ? atob(p.title) : (p.title_decoded || '');
-                      if (t) window.AppState._nowEpgMap[ch.stream_id] = t;
-                    } catch (e) {}
-                    break;
-                  }
-                }
-              }
-            } catch (e) {}
-            done++;
-          }));
-          var pct = 60 + (done / topChannels.length) * 30;
-          setProgress(pct, 'Guide EPG en cours...', done + ' / ' + topChannels.length);
-        }
+      if (window.AppState && AppState.activePortal) {
+        portalName = AppState.activePortal.name || AppState.activePortal.server || '';
+      } else if (window.AppState && AppState.portals && AppState.portals[0]) {
+        portalName = AppState.portals[0].name || AppState.portals[0].server || '';
       }
+    } catch (e) {}
+
+    // Phase 1 : 3 secondes d'attente animation spinner pendant la sync background
+    // En parallele on lance la sync en BG. Au bout de 3s on switch en phase 2.
+    var t0 = Date.now();
+    setTimeout(function() { switchToPhase2(portalName); }, 3000);
+
+    try {
+      // === ULTRA-PARALLEL : TOUT en parallele d'un coup (haut debit fibre) ===
+      // 6 reqs en flight simultanees (3 cats + 3 listes complètes)
+      // Au lieu de phase 1 puis phase 2 séquentielles, tout en même temps
+      setProgress(5, 'Connexion au portail...');
+
+      var jobs = {
+        liveCats: typeof api.getLiveCategories === 'function'
+          ? api.getLiveCategories().catch(function() { return []; })
+          : Promise.resolve([]),
+        vodCats: typeof api.getVodCategories === 'function'
+          ? api.getVodCategories().catch(function() { return []; })
+          : Promise.resolve([]),
+        seriesCats: typeof api.getSeriesCategories === 'function'
+          ? api.getSeriesCategories().catch(function() { return []; })
+          : Promise.resolve([]),
+        liveStreams: typeof api.getLiveStreams === 'function'
+          ? api.getLiveStreams().catch(function() { return []; })
+          : Promise.resolve([]),
+        vodStreams: typeof api.getVodStreams === 'function'
+          ? api.getVodStreams().catch(function() { return []; })
+          : Promise.resolve([]),
+        seriesStreams: typeof api.getSeries === 'function'
+          ? api.getSeries().catch(function() { return []; })
+          : Promise.resolve([])
+      };
+
+      // Track progress as each finishes (visual feedback)
+      var doneCount = 0;
+      var TOTAL = 6;
+      function bump(label, count) {
+        doneCount++;
+        setProgress(5 + (doneCount / TOTAL) * 85, label, count != null ? (count + ' éléments') : '');
+      }
+      jobs.liveCats = jobs.liveCats.then(function(r) { bump('Catégories Live', (r||[]).length); return r; });
+      jobs.vodCats = jobs.vodCats.then(function(r) { bump('Catégories Films', (r||[]).length); return r; });
+      jobs.seriesCats = jobs.seriesCats.then(function(r) { bump('Catégories Séries', (r||[]).length); return r; });
+      jobs.liveStreams = jobs.liveStreams.then(function(r) {
+        if (window.AppState) window.AppState.allLiveStreams = r || [];
+        bump('Chaînes Live TV', (r||[]).length);
+        return r;
+      });
+      jobs.vodStreams = jobs.vodStreams.then(function(r) {
+        if (window.AppState) window.AppState.vodAllStreams = r || [];
+        bump('Films', (r||[]).length);
+        return r;
+      });
+      jobs.seriesStreams = jobs.seriesStreams.then(function(r) {
+        if (window.AppState) window.AppState.seriesAllStreams = r || [];
+        bump('Séries', (r||[]).length);
+        return r;
+      });
+
+      var all = await Promise.all([
+        jobs.liveCats, jobs.vodCats, jobs.seriesCats,
+        jobs.liveStreams, jobs.vodStreams, jobs.seriesStreams
+      ]);
+      var allLive = all[3] || [], allVod = all[4] || [], allSeries = all[5] || [];
 
       // === Phase 4 : Marqueur LS + finalisation (95-100%) ===
       setProgress(95, 'Finalisation du cache...');
@@ -200,7 +215,7 @@
         }));
       } catch (e) {}
 
-      var elapsedSec = Math.round((Date.now() - t0) / 1000);
+      var elapsedSec = ((Date.now() - t0) / 1000).toFixed(1);
       setProgress(100, 'Synchronisation terminée', 'Terminée en ' + elapsedSec + 's');
       closeOverlay(true);
       // Toast final non bloquant
@@ -208,6 +223,41 @@
         setTimeout(function() {
           window.showToast('Portail synchronisé : ' + allLive.length + ' chaînes · ' + allVod.length + ' films · ' + allSeries.length + ' séries');
         }, 1300);
+      }
+
+      // === EPG en background APRES la fermeture de l'overlay ===
+      // (ne bloque plus l'utilisateur. Quand il arrive sur Live TV ce sera deja chaud)
+      if (allLive.length && typeof api.getShortEPG === 'function') {
+        if (window.AppState) window.AppState._nowEpgMap = window.AppState._nowEpgMap || {};
+        var topChannels = allLive.slice(0, 50);
+        var BATCH_EPG = 10;
+        (async function backgroundEpg() {
+          for (var i = 0; i < topChannels.length; i += BATCH_EPG) {
+            var slice = topChannels.slice(i, i + BATCH_EPG);
+            await Promise.all(slice.map(async function(ch) {
+              try {
+                var data = await api.getShortEPG(ch.stream_id);
+                var listings = (data && data.epg_listings) ? data.epg_listings : [];
+                if (listings.length && window.AppState) {
+                  var nowMs = Date.now();
+                  for (var j = 0; j < listings.length; j++) {
+                    var p = listings[j];
+                    var startMs = parseInt(p.start) * 1000;
+                    var endMs = parseInt(p.end || p.stop) * 1000;
+                    if (isNaN(startMs)) { startMs = Date.parse(p.start); endMs = Date.parse(p.end || p.stop || ''); }
+                    if (!isNaN(startMs) && !isNaN(endMs) && startMs <= nowMs && nowMs <= endMs) {
+                      try {
+                        var t = p.title ? atob(p.title) : (p.title_decoded || '');
+                        if (t) window.AppState._nowEpgMap[ch.stream_id] = t;
+                      } catch (e) {}
+                      break;
+                    }
+                  }
+                }
+              } catch (e) {}
+            }));
+          }
+        })();
       }
       return true;
     } catch (e) {

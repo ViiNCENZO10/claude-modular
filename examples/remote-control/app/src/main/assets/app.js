@@ -650,8 +650,15 @@ async function loadLiveStreams(categoryId) {
 
   try {
     var streams;
+    // INSTANT : si on a deja le catalogue complet en cache memoire (full-sync),
+    // on filtre cote JS au lieu de refetcher le portail (= 0ms)
     if (!categoryId && AppState.allLiveStreams.length > 0) {
       streams = AppState.allLiveStreams;
+    } else if (categoryId && categoryId !== 'favorites' && AppState.allLiveStreams.length > 0) {
+      // Filtre depuis le cache complet (instant, pas de fetch reseau)
+      streams = AppState.allLiveStreams.filter(function(s) {
+        return String(s.category_id) === String(categoryId);
+      });
     } else {
       streams = await AppState.api.getLiveStreams(categoryId);
       if (!categoryId) AppState.allLiveStreams = streams || [];
@@ -717,7 +724,107 @@ function renderChannelList() {
   var channelList = document.getElementById('liveChannelList');
   channelList.innerHTML = '';
 
-  AppState.liveStreams.forEach(function(stream, index) {
+  // RENDER INCREMENTAL : insertion synchrone des 50 premiers items immediatement,
+  // puis le reste via requestIdleCallback/setTimeout 0 par batches de 100.
+  // L'UI reste responsive meme avec 500+ chaines.
+  var streams = AppState.liveStreams || [];
+  var FIRST_BATCH = 50;
+  var BATCH_SIZE = 100;
+  var first = streams.slice(0, FIRST_BATCH);
+  _appendChannelItems(channelList, first, 0);
+
+  // Reste en background (non bloquant)
+  if (streams.length > FIRST_BATCH) {
+    var i = FIRST_BATCH;
+    function appendNext() {
+      var slice = streams.slice(i, i + BATCH_SIZE);
+      if (!slice.length) {
+        // EPG seulement APRES que le DOM soit fini de monter
+        loadVisibleEPG();
+        return;
+      }
+      _appendChannelItems(channelList, slice, i);
+      i += BATCH_SIZE;
+      if (window.requestIdleCallback) {
+        requestIdleCallback(appendNext, { timeout: 50 });
+      } else {
+        setTimeout(appendNext, 0);
+      }
+    }
+    if (window.requestIdleCallback) requestIdleCallback(appendNext, { timeout: 100 });
+    else setTimeout(appendNext, 16);
+  } else {
+    loadVisibleEPG();
+  }
+  return;
+}
+
+function _appendChannelItems(channelList, streams, startIndex) {
+  var frag = document.createDocumentFragment();
+  streams.forEach(function(stream, j) {
+    var index = startIndex + j;
+    var li = document.createElement('li');
+    li.className = 'channel-item focusable';
+    if (AppState.favorites[stream.stream_id]) {
+      li.className += ' favorite';
+    }
+    li.tabIndex = 0;
+    li.setAttribute('data-index', index);
+
+    var logoHtml;
+    if (stream.stream_icon) {
+      logoHtml = '<div class="channel-logo"><img src="' + escapeHtml(stream.stream_icon) + '" alt="" loading="lazy" onerror="this.parentElement.innerHTML=\'<span class=channel-logo-placeholder>' + escapeHtml((stream.name || '?').charAt(0)) + '</span>\'"></div>';
+    } else {
+      logoHtml = '<div class="channel-logo"><span class="channel-logo-placeholder">' + escapeHtml((stream.name || '?').charAt(0)) + '</span></div>';
+    }
+    // Pre-fill EPG si on l'a en cache (depuis full-sync background)
+    var preNow = '';
+    try {
+      if (window.AppState && AppState._nowEpgMap && AppState._nowEpgMap[stream.stream_id]) {
+        preNow = AppState._nowEpgMap[stream.stream_id];
+      }
+    } catch (e) {}
+
+    li.innerHTML =
+      '<span class="channel-num">' + (stream.num || index + 1) + '</span>' +
+      logoHtml +
+      '<div class="channel-info">' +
+        '<div class="channel-name">' + escapeHtml(stream.name || 'Unknown') + '</div>' +
+        '<div class="channel-epg" id="epg_' + stream.stream_id + '">' + escapeHtml(preNow) + '</div>' +
+      '</div>';
+
+    li.addEventListener('click', function() {
+      selectChannel(index);
+    });
+    li.addEventListener('dblclick', function() {
+      selectChannel(index);
+      playChannel(stream);
+    });
+    li.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        if (AppState.selectedChannel && AppState.selectedChannel.stream_id === stream.stream_id) {
+          playChannel(stream);
+        } else {
+          selectChannel(index);
+        }
+      }
+    });
+    li.addEventListener('focus', function() {
+      clearTimeout(window._previewDebounce);
+      window._previewDebounce = setTimeout(function() {
+        selectChannel(index);
+      }, 150);
+    });
+    frag.appendChild(li);
+  });
+  channelList.appendChild(frag);
+}
+
+// === Render WAS like this - kept as dead code but never reached after early return above ===
+function _legacyRender_dead() {
+  var channelList = document.getElementById('liveChannelList');
+  var dummy = AppState.liveStreams || [];
+  dummy.forEach(function(stream, index) {
     var li = document.createElement('li');
     li.className = 'channel-item focusable';
     if (AppState.favorites[stream.stream_id]) {
