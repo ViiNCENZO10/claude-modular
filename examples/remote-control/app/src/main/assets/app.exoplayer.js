@@ -35,6 +35,49 @@ async function resolveStalkerStreamUrl(apiUrl, mac) {
   return apiUrl;
 }
 
+// ===== Pre-resolution Stalker au focus chaine =====
+// Quand l'user navigue D-pad sur une chaine, on resout l'URL en arriere-plan.
+// Au moment du clic Play, l'URL est deja resolue => GAIN 2-5 SECONDES.
+// Cache 5 min par chaine (le ttl Stalker des links est typiquement court).
+var _stalkerResolveCache = {};
+function preResolveStalkerForChannel(stream) {
+  if (!stream || !stream.stream_id) return;
+  if (!AppState || !AppState.api || AppState.api.providerType !== 'stalker') return;
+  var sid = String(stream.stream_id);
+  // Deja resolu et frais ?
+  var cached = _stalkerResolveCache[sid];
+  if (cached && (Date.now() - cached.t < 5 * 60 * 1000)) {
+    stream._resolvedUrl = cached.url;
+    return;
+  }
+  // Marque "in flight" pour eviter de retrigger pendant qu'on attend
+  if (cached && cached.inflight) return;
+  _stalkerResolveCache[sid] = { inflight: true, t: Date.now() };
+
+  try {
+    var ext = (AppState.settings && AppState.settings.streamType) || 'm3u8';
+    var apiUrl = AppState.api.liveUrl(stream.stream_id, ext);
+    var mac = AppState.api.mac || '';
+    // Lance en background : non bloquant pour l'UI
+    (async function() {
+      try {
+        var resolved = await resolveStalkerStreamUrl(apiUrl, mac);
+        if (resolved && resolved !== apiUrl) {
+          _stalkerResolveCache[sid] = { url: resolved, t: Date.now() };
+          stream._resolvedUrl = resolved;
+        } else {
+          delete _stalkerResolveCache[sid];
+        }
+      } catch (e) {
+        delete _stalkerResolveCache[sid];
+      }
+    })();
+  } catch (e) {
+    delete _stalkerResolveCache[sid];
+  }
+}
+window.preResolveStalkerForChannel = preResolveStalkerForChannel;
+
 function buildChannelsJsonForLive() {
   try {
     if (!AppState || !AppState.liveStreams || !AppState.api) return null;
@@ -115,8 +158,15 @@ async function nativePlay(url, title, isLive) {
   try {
     var isStalker = AppState && AppState.api && AppState.api.providerType === 'stalker';
     if (isStalker && url && url.indexOf('create_link') !== -1) {
-      showToast && showToast('Résolution du flux...');
-      url = await resolveStalkerStreamUrl(url, AppState.api.mac || '');
+      // OPTIMISATION : si l'URL a deja ete resolue en pre-fetch (au focus),
+      // on l'utilise directement => GAIN 2-5s sur le demarrage
+      var ch = (AppState && AppState.selectedChannel) || null;
+      if (ch && ch._resolvedUrl) {
+        url = ch._resolvedUrl;
+      } else {
+        // Sinon resolution synchrone (cas du clic direct sans focus prealable)
+        url = await resolveStalkerStreamUrl(url, AppState.api.mac || '');
+      }
     }
 
     var channelsJson = null;

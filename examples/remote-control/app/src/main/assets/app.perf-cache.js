@@ -150,56 +150,19 @@
           if (typeof api.getSeriesCategories === 'function')
             ps.push(api.getSeriesCategories().catch(function() { return []; }));
           Promise.all(ps).then(function(results) {
-            var liveCats = results[0] || [];
-            var vodCats = results[1] || [];
-            var seriesCats = results[2] || [];
-
             // Phase 2 : premiere liste de chaque section (parallele)
+            // SUFFIT amplement pour que le 1er clic soit instant. On evite
+            // d'exploser le portail Stalker avec un Phase 3 massif (qui
+            // causait 5 min d'attente sur le clic suivant a cause du rate-limit).
+            if (typeof api.getLiveStreams === 'function')
+              api.getLiveStreams().catch(function() {});
             if (typeof api.getVodStreams === 'function')
               api.getVodStreams().catch(function() {});
             if (typeof api.getSeries === 'function')
               api.getSeries().catch(function() {});
-
-            // Phase 3 : TOUTES les categories des 3 sections, entrelacees
-            //   live, vod, series, live, vod, series, ...
-            //   en batches de 3 toutes les 250ms : ~36 categories prefetchees / 10s
-            //   sans saturer le portail Stalker (qui rate-limite vite)
-            function buildEntries() {
-              var out = [];
-              var max = Math.max(liveCats.length, vodCats.length, seriesCats.length);
-              for (var i = 0; i < max; i++) {
-                if (liveCats[i] && typeof api.getLiveStreams === 'function')
-                  out.push({ fn: api.getLiveStreams.bind(api), id: liveCats[i].category_id || liveCats[i].id });
-                if (vodCats[i] && typeof api.getVodStreams === 'function')
-                  out.push({ fn: api.getVodStreams.bind(api), id: vodCats[i].category_id || vodCats[i].id });
-                if (seriesCats[i] && typeof api.getSeries === 'function')
-                  out.push({ fn: api.getSeries.bind(api), id: seriesCats[i].category_id || seriesCats[i].id });
-              }
-              // Cap a 150 entrees totales pour eviter pathologic
-              return out.slice(0, 150);
-            }
-
-            var queue = buildEntries();
-            var i = 0;
-            // Flag pose par app.js / loadLiveStreams quand l'user clique :
-            // si l'utilisateur fait une action UI, on PAUSE le warmup pendant 2s.
-            window._warmupPause = window._warmupPause || 0;
-            function nextBatch() {
-              if (Date.now() < window._warmupPause) {
-                setTimeout(nextBatch, 500);
-                return;
-              }
-              var batch = queue.slice(i, i + 3);
-              i += 3;
-              if (!batch.length) return;
-              Promise.all(batch.map(function(e) {
-                return e.id ? e.fn(e.id).catch(function() {}) : null;
-              })).then(function() {
-                setTimeout(nextBatch, 250);
-              });
-            }
-            // Demarre apres 1.2s pour laisser le premier clic UI passer libre
-            setTimeout(nextBatch, 1200);
+            // Phase 3 (TOUTES les categories) : DESACTIVEE.
+            // Le cache de chaque categorie se remplit naturellement quand
+            // l'user la visite. Beaucoup moins de pression sur le portail.
           });
         } catch (e) {}
       }, 600);

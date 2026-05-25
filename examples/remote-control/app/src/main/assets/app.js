@@ -824,6 +824,11 @@ function selectChannel(index) {
   document.getElementById('previewChannelNum').textContent = 'Ch. ' + (stream.num || (index + 1));
 
   loadMiniEPG(stream.stream_id);
+
+  // PRE-RESOLUTION URL Stalker en background -> demarrage instant au clic Play
+  if (typeof window.preResolveStalkerForChannel === 'function') {
+    window.preResolveStalkerForChannel(stream);
+  }
 }
 
 function _setText(id, text) {
@@ -942,8 +947,12 @@ function formatEpgTime(timeStr) {
 }
 
 function playChannel(stream) {
+  // PAUSE TOTALE du warmup pendant 30s pour ne pas concurrencer le portail
+  // au moment ou on a besoin de la resolution + du stream
+  window._warmupPause = Date.now() + 30000;
   var ext = AppState.settings.streamType || 'm3u8';
-  var url = AppState.api.liveUrl(stream.stream_id, ext);
+  // Si on a deja une URL pre-resolue (pre-fetch au focus), on la passe direct
+  var url = stream._resolvedUrl || AppState.api.liveUrl(stream.stream_id, ext);
   startPlayer(url, stream.name, stream.num || '', 'live', stream);
 }
 

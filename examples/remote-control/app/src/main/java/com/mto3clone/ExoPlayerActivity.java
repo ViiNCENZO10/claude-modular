@@ -133,9 +133,9 @@ public class ExoPlayerActivity extends AppCompatActivity {
     }
 
     // === Adaptive buffering ===
-    // Démarrage à 1500ms (équilibre zap rapide / stabilité), monte jusqu'à 4000ms
-    // si on détecte des micro-freeze (plus de 2 events Buffering rapprochés).
-    private int liveCachingMs = 1500;
+    // Demarrage rapide a 800ms (premiere image affichee plus vite),
+    // monte jusqu'a 4000ms si on detecte des micro-freeze.
+    private int liveCachingMs = 800;
     private int bufferingEventsRecent = 0;
     private long lastBufferingTs = 0;
 
