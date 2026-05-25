@@ -1065,7 +1065,7 @@ async function loadVodSmartCat(smartId) {
   // Charge tout le catalogue si pas deja en cache (warmup l'a peut-etre fait)
   var all = AppState.vodAllStreams;
   if (!all || !all.length) {
-    all = await AppState.api.getVod();
+    all = await AppState.api.getVodStreams();
     AppState.vodAllStreams = Array.isArray(all) ? all : [];
     all = AppState.vodAllStreams;
   }
@@ -1216,6 +1216,10 @@ async function updateVodHero(vod) {
   var castEl = document.getElementById('vodHeroCast');
   var bgEl = document.getElementById('vodHeroBg');
 
+  // Guard : si l'ecran n'est pas encore monte (focus tres rapide en navigation),
+  // bgEl peut etre null -> abort proprement plutot que de throw
+  if (!titleEl || !metaEl || !descEl || !castEl || !bgEl) return;
+
   // Reset visuel pendant la transition
   bgEl.style.backgroundImage = vod.stream_icon ? 'url(' + vod.stream_icon + ')' : '';
 
@@ -1272,7 +1276,7 @@ async function updateVodHero(vod) {
         if (details && details.backdrop_path) {
           var backdropUrl = 'https://image.tmdb.org/t/p/w1280' + details.backdrop_path;
           var preload = new Image();
-          preload.onload = function() { bgEl.style.backgroundImage = 'url(' + backdropUrl + ')'; };
+          preload.onload = function() { if (bgEl) bgEl.style.backgroundImage = 'url(' + backdropUrl + ')'; };
           preload.src = backdropUrl;
         }
         // Synopsis

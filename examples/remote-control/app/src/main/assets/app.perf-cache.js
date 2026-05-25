@@ -125,7 +125,7 @@
     withCache(api, 'getSeriesCategories', LS_TTL_CATS);
     // Listes contenus (peuvent changer plus souvent) -> LS 6h
     withCache(api, 'getLiveStreams', LS_TTL_LISTS);
-    withCache(api, 'getVod', LS_TTL_LISTS);
+    withCache(api, 'getVodStreams', LS_TTL_LISTS);
     withCache(api, 'getSeries', LS_TTL_LISTS);
     // EPG : RAM seulement (change toutes les 30 min, pas la peine de persister)
     withCache(api, 'getShortEPG', 0);
@@ -145,8 +145,8 @@
           var ps = [];
           if (typeof api.getLiveCategories === 'function')
             ps.push(api.getLiveCategories().catch(function() { return []; }));
-          if (typeof api.getVodCategories === 'function')
-            ps.push(api.getVodCategories().catch(function() { return []; }));
+          if (typeof api.getVodStreamsCategories === 'function')
+            ps.push(api.getVodStreamsCategories().catch(function() { return []; }));
           if (typeof api.getSeriesCategories === 'function')
             ps.push(api.getSeriesCategories().catch(function() { return []; }));
           Promise.all(ps).then(function(results) {
@@ -155,8 +155,8 @@
             var seriesCats = results[2] || [];
 
             // Phase 2 : premiere liste de chaque section (parallele)
-            if (typeof api.getVod === 'function')
-              api.getVod().catch(function() {});
+            if (typeof api.getVodStreams === 'function')
+              api.getVodStreams().catch(function() {});
             if (typeof api.getSeries === 'function')
               api.getSeries().catch(function() {});
 
@@ -170,8 +170,8 @@
               for (var i = 0; i < max; i++) {
                 if (liveCats[i] && typeof api.getLiveStreams === 'function')
                   out.push({ fn: api.getLiveStreams.bind(api), id: liveCats[i].category_id || liveCats[i].id });
-                if (vodCats[i] && typeof api.getVod === 'function')
-                  out.push({ fn: api.getVod.bind(api), id: vodCats[i].category_id || vodCats[i].id });
+                if (vodCats[i] && typeof api.getVodStreams === 'function')
+                  out.push({ fn: api.getVodStreams.bind(api), id: vodCats[i].category_id || vodCats[i].id });
                 if (seriesCats[i] && typeof api.getSeries === 'function')
                   out.push({ fn: api.getSeries.bind(api), id: seriesCats[i].category_id || seriesCats[i].id });
               }
@@ -280,8 +280,8 @@
         try {
           if (section === 'live' && typeof AppState.api.getLiveStreams === 'function') {
             AppState.api.getLiveStreams(cid).catch(function() {});
-          } else if (section === 'vod' && typeof AppState.api.getVod === 'function') {
-            AppState.api.getVod(cid).catch(function() {});
+          } else if (section === 'vod' && typeof AppState.api.getVodStreams === 'function') {
+            AppState.api.getVodStreams(cid).catch(function() {});
           } else if (section === 'series' && typeof AppState.api.getSeries === 'function') {
             AppState.api.getSeries(cid).catch(function() {});
           }
