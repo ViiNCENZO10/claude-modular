@@ -1108,12 +1108,23 @@ function playChannel(stream) {
   if (!stream || !AppState.api) return;
   window._warmupPause = Date.now() + 30000;
   var ext = AppState.settings.streamType || 'm3u8';
-  // _resolvedUrl peut etre expire (Stalker = TTL ~5min). On verifie l'age.
+  var isStalker = AppState.api.providerType === 'stalker';
+
   var url = null;
+  // Priorite 1 : URL deja resolue (pre-fetch au focus, valide 4min)
   if (stream._resolvedUrl && stream._resolvedAt &&
-      (Date.now() - stream._resolvedAt) < 240000 /* 4min */) {
+      (Date.now() - stream._resolvedAt) < 240000) {
     url = stream._resolvedUrl;
-  } else {
+  }
+  // Priorite 2 : Stalker -> build avec le cmd directement sur l'objet stream
+  // (evite de passer par _liveCmdMap qui peut etre vide si l'user n'a pas
+  //  charge la categorie qui contient cette chaine - bug typique scroll infini)
+  else if (isStalker && stream._stalker_cmd && AppState.api.baseUrl) {
+    url = AppState.api.baseUrl + '/portal.php?type=itv&action=create_link&cmd='
+        + encodeURIComponent(stream._stalker_cmd) + '&JsHttpRequest=1-xml';
+  }
+  // Priorite 3 : fallback via liveUrl du provider (cache _liveCmdMap)
+  else {
     url = AppState.api.liveUrl(stream.stream_id, ext);
   }
   startPlayer(url, stream.name, stream.num || '', 'live', stream);

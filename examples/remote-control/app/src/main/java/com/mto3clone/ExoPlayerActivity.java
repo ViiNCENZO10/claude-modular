@@ -411,9 +411,17 @@ public class ExoPlayerActivity extends AppCompatActivity {
                 return;
             }
         }
-        // Else: fallback to external player
-        Toast.makeText(this, "Erreur lecture - bascule externe", Toast.LENGTH_SHORT).show();
-        launchExternalAndFinish();
+        // Plus de bascule auto vers VLC externe / Galerie (chooser Android desagreable
+        // qui surprenait l'utilisateur). On quitte proprement avec un toast clair :
+        // l'utilisateur revient sur la liste des chaines et peut reessayer / changer.
+        Toast.makeText(this,
+            "Lecture impossible : URL invalide ou flux indisponible. Reessayez ou changez de chaine.",
+            Toast.LENGTH_LONG).show();
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override public void run() {
+                if (!isFinishing() && !isDestroyed()) finish();
+            }
+        }, 1500);
     }
 
     private void hideSystemUi() {

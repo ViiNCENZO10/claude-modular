@@ -163,11 +163,26 @@ async function nativePlay(url, title, isLive) {
       // OPTIMISATION : si l'URL a deja ete resolue en pre-fetch (au focus),
       // on l'utilise directement => GAIN 2-5s sur le demarrage
       var ch = (AppState && AppState.selectedChannel) || null;
-      if (ch && ch._resolvedUrl) {
+      var resolvedFresh = (ch && ch._resolvedUrl && ch._resolvedAt &&
+                          (Date.now() - ch._resolvedAt) < 240000);
+      if (resolvedFresh) {
         url = ch._resolvedUrl;
       } else {
-        // Sinon resolution synchrone (cas du clic direct sans focus prealable)
-        url = await resolveStalkerStreamUrl(url, AppState.api.mac || '');
+        // Resolution synchrone
+        var resolved = await resolveStalkerStreamUrl(url, AppState.api.mac || '');
+        // SAFETY : si la resolution echoue (retourne l'apiUrl create_link sans changement),
+        // on ne lance PAS libVLC sur du JSON -> on bloque avec toast informatif
+        if (resolved && resolved.indexOf('create_link') === -1 && /^https?:\/\//i.test(resolved)) {
+          url = resolved;
+          // Cache pour la suite
+          if (ch) {
+            ch._resolvedUrl = resolved;
+            ch._resolvedAt = Date.now();
+          }
+        } else {
+          showToast && showToast('Stream introuvable : le portail n a pas pu resoudre l URL');
+          return false;
+        }
       }
     }
 
