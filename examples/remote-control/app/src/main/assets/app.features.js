@@ -100,7 +100,7 @@ async function decryptString(encrypted) {
 
 
 // ========== Auto-update (GitHub Releases) ==========
-const APP_VERSION = '3.7.3';
+const APP_VERSION = '3.8.0';
 const UPDATE_REPO = 'ViiNCENZO10/claude-modular';
 
 function getInstalledVersionCode() {
