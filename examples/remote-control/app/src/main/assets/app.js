@@ -1405,14 +1405,32 @@ async function initSeriesScreen() {
     var categories = await AppState.api.getSeriesCategories();
     AppState.seriesCategories = Array.isArray(categories) ? categories : [];
 
-    var allItem = document.createElement('li');
-    allItem.className = 'category-item focusable active';
-    allItem.tabIndex = 0;
-    allItem.textContent = 'All';
-    allItem.addEventListener('click', function() {
-      selectSeriesCategory(null, allItem);
+    // === SMART CATEGORIES (virtuelles, en tete du menu) ===
+    var smartCats = [
+      { id: '__all__',       label: '★ Toutes les séries' },
+      { id: '__favorites__', label: '♥ Favoris' },
+      { id: '__inprogress__',label: '▶ En cours' },
+      { id: '__new__',       label: '✨ Nouveautés' },
+      { id: '__top__',       label: '🏆 Top 100' },
+      { id: '__4k__',        label: '◆ 4K HDR' }
+    ];
+    smartCats.forEach(function(sc, idx) {
+      var li = document.createElement('li');
+      li.className = 'category-item focusable smart-cat' + (idx === 0 ? ' active' : '');
+      li.tabIndex = 0;
+      li.textContent = sc.label;
+      li.setAttribute('data-smart', sc.id);
+      li.addEventListener('click', function() { selectSeriesCategory(sc.id, li); });
+      li.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.keyCode === 13) selectSeriesCategory(sc.id, li);
+      });
+      categoryList.appendChild(li);
     });
-    categoryList.appendChild(allItem);
+
+    var sep = document.createElement('li');
+    sep.className = 'category-separator';
+    sep.textContent = 'CATÉGORIES';
+    categoryList.appendChild(sep);
 
     AppState.seriesCategories.forEach(function(cat) {
       var li = document.createElement('li');
@@ -1425,7 +1443,7 @@ async function initSeriesScreen() {
       categoryList.appendChild(li);
     });
 
-    await loadSeriesList(null);
+    await loadSeriesList('__all__');
   } catch (err) {
     showToast('Failed to load series: ' + err.message);
   } finally {
@@ -1448,26 +1466,93 @@ async function loadSeriesList(categoryId) {
   var countEl = document.getElementById('seriesCount');
 
   loading.style.display = 'flex';
-  grid.innerHTML = '';
+  if (window.ipremCache && window.ipremCache.showSkeletonCards) {
+    window.ipremCache.showSkeletonCards(grid, 18);
+  } else {
+    grid.innerHTML = '';
+  }
+  window._warmupPause = Date.now() + 2000;
 
   try {
-    var series = await AppState.api.getSeries(categoryId);
-    AppState.seriesList = Array.isArray(series) ? series : [];
-
-    if (!categoryId) {
-      titleEl.textContent = 'All Series';
+    var series;
+    if (categoryId && categoryId.indexOf('__') === 0) {
+      series = await loadSeriesSmartCat(categoryId);
+      titleEl.textContent = _seriesSmartCatLabel(categoryId);
     } else {
-      var cat = AppState.seriesCategories.find(function(c) { return c.category_id === categoryId; });
-      titleEl.textContent = cat ? cat.category_name : 'Series';
+      series = await AppState.api.getSeries(categoryId);
+      if (!categoryId) titleEl.textContent = 'Toutes les séries';
+      else {
+        var cat = AppState.seriesCategories.find(function(c) { return c.category_id === categoryId; });
+        titleEl.textContent = cat ? cat.category_name : 'Séries';
+      }
     }
-
-    countEl.textContent = AppState.seriesList.length + ' series';
+    AppState.seriesList = Array.isArray(series) ? series : [];
+    countEl.textContent = AppState.seriesList.length + ' séries';
     renderSeriesGrid();
   } catch (err) {
     showToast('Failed to load series: ' + err.message);
   } finally {
     loading.style.display = 'none';
   }
+}
+
+async function loadSeriesSmartCat(smartId) {
+  var all = AppState.seriesAllStreams;
+  if (!all || !all.length) {
+    all = await AppState.api.getSeries();
+    AppState.seriesAllStreams = Array.isArray(all) ? all : [];
+    all = AppState.seriesAllStreams;
+  }
+  if (!all.length) return [];
+
+  switch (smartId) {
+    case '__all__':
+      return all;
+    case '__favorites__':
+      var favs = AppState.favorites || {};
+      return all.filter(function(s) { return !!favs[s.series_id]; });
+    case '__inprogress__':
+      // Series dont au moins 1 episode a ete commence
+      var progressList = [];
+      try { progressList = (window.iprem && window.iprem.progress) ? window.iprem.progress.list(100) : []; }
+      catch (e) {}
+      var inProgressSeriesIds = {};
+      progressList.forEach(function(p) {
+        // id format : "series_<seriesId>_s<S>e<E>" (cf reprise par episode)
+        var m = String(p.id || '').match(/^series_(\d+)/);
+        if (m) inProgressSeriesIds[m[1]] = (p.updatedAt || 0);
+      });
+      return all
+        .filter(function(s) { return inProgressSeriesIds[s.series_id] != null; })
+        .sort(function(a, b) { return (inProgressSeriesIds[b.series_id] || 0) - (inProgressSeriesIds[a.series_id] || 0); });
+    case '__new__':
+      return all.slice().sort(function(a, b) {
+        var ta = parseInt(a.last_modified || a.added) || 0;
+        var tb = parseInt(b.last_modified || b.added) || 0;
+        return tb - ta;
+      }).slice(0, 200);
+    case '__top__':
+      return all.slice().sort(function(a, b) {
+        return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
+      }).slice(0, 100);
+    case '__4k__':
+      return all.filter(function(s) {
+        return /\b(4K|UHD|HDR|HDR10)\b/i.test(s.name || '');
+      });
+  }
+  return [];
+}
+
+function _seriesSmartCatLabel(id) {
+  var map = {
+    '__all__': 'Toutes les séries',
+    '__favorites__': '♥ Favoris',
+    '__inprogress__': '▶ En cours',
+    '__new__': '✨ Nouveautés',
+    '__top__': '🏆 Top 100',
+    '__4k__': '◆ 4K / HDR'
+  };
+  return map[id] || 'Séries';
 }
 
 function renderSeriesGrid() {
@@ -1492,10 +1577,28 @@ function renderSeriesGrid() {
 
     var year = series.releaseDate ? String(series.releaseDate).substring(0, 4) : '';
 
+    // Nettoyage titre (meme logique que VOD)
+    var rawTitle = series.name || 'Unknown';
+    var cleanedTitle = rawTitle;
+    var qualityTag = '';
+    if (window.ipremPoster && window.ipremPoster.cleanTitle) {
+      cleanedTitle = window.ipremPoster.cleanTitle(rawTitle) || rawTitle;
+      var qm = rawTitle.match(/\b(4K|UHD|HDR|FHD|HD|DOLBY VISION|DV)\b/i);
+      if (qm) qualityTag = qm[0].toUpperCase();
+    }
+    var langTag = '';
+    var lm = rawTitle.match(/\b(MULTIVFF|MULTIVFQ|MULTIVF|MULTI|VFF|VFQ|VOSTFR|VOSTEN|VFI|VF|VO|VEQ)\b/i);
+    if (lm) langTag = lm[0].toUpperCase();
+
+    var metaLine = '';
+    if (year) metaLine += '<span class="meta-pill">' + escapeHtml(year) + '</span>';
+    if (qualityTag) metaLine += '<span class="meta-pill quality">' + qualityTag + '</span>';
+    if (langTag) metaLine += '<span class="meta-pill lang">' + langTag + '</span>';
+
     card.innerHTML = posterHtml +
       '<div class="vod-card-info">' +
-        '<div class="vod-card-title">' + escapeHtml(series.name || 'Unknown') + '</div>' +
-        (year ? '<div class="vod-card-year">' + year + '</div>' : '') +
+        '<div class="vod-card-title">' + escapeHtml(cleanedTitle) + '</div>' +
+        (metaLine ? '<div class="vod-card-meta">' + metaLine + '</div>' : '') +
       '</div>';
 
     card.addEventListener('click', function() {
@@ -1587,18 +1690,27 @@ function renderSeasons(episodes) {
     var tab = document.createElement('span');
     tab.className = 'season-tab focusable' + (index === 0 ? ' active' : '');
     tab.tabIndex = 0;
-    tab.textContent = 'Season ' + num;
+    tab.textContent = 'Saison ' + num;
     tab.addEventListener('click', function() {
       var tabs = document.querySelectorAll('#seasonTabs .season-tab');
       tabs.forEach(function(t) { t.classList.remove('active'); });
       tab.classList.add('active');
+      AppState.currentSeasonNum = parseInt(num);
       renderEpisodes(episodes[num]);
     });
     seasonTabs.appendChild(tab);
   });
 
   // Show first season episodes
+  AppState.currentSeasonNum = parseInt(seasonNumbers[0]);
   renderEpisodes(episodes[seasonNumbers[0]]);
+}
+
+function _formatSecsHMS(s) {
+  s = Math.floor(s || 0);
+  var m = Math.floor(s / 60);
+  var sec = s % 60;
+  return m + ':' + (sec < 10 ? '0' : '') + sec;
 }
 
 function renderEpisodes(episodes) {
@@ -1610,25 +1722,87 @@ function renderEpisodes(episodes) {
     return;
   }
 
+  var seriesId = AppState.selectedSeries ? AppState.selectedSeries.series_id : '';
+
   episodes.forEach(function(ep) {
     var item = document.createElement('div');
     item.className = 'episode-item focusable';
     item.tabIndex = 0;
 
-    var title = ep.title || ep.name || 'Episode ' + (ep.episode_num || '?');
+    var rawTitle = ep.title || ep.name || 'Episode ' + (ep.episode_num || '?');
+    var cleanTitle = rawTitle;
+    if (window.ipremPoster && window.ipremPoster.cleanTitle) {
+      var c = window.ipremPoster.cleanTitle(rawTitle);
+      if (c) cleanTitle = c;
+    }
     var ext = ep.container_extension || 'mp4';
+    var seasonNum = parseInt(ep.season || (AppState.currentSeasonNum) || 1);
+    var episodeNum = parseInt(ep.episode_num || 1);
+    var sxe = 'S' + (seasonNum < 10 ? '0' : '') + seasonNum
+            + 'E' + (episodeNum < 10 ? '0' : '') + episodeNum;
+
+    // Miniature : Xtream renvoie souvent ep.info.movie_image ou ep.info.cover_big
+    var thumb = (ep.info && (ep.info.movie_image || ep.info.cover_big)) || '';
+    // Duree
+    var durTxt = '';
+    if (ep.info && ep.info.duration) {
+      durTxt = String(ep.info.duration); // ex: "00:42:13"
+      var parts = durTxt.split(':');
+      if (parts.length === 3) durTxt = parseInt(parts[0]) > 0 ? (parts[0] + 'h' + parts[1]) : (parseInt(parts[1]) + ' min');
+    } else if (ep.info && ep.info.duration_secs) {
+      var sec = parseInt(ep.info.duration_secs);
+      durTxt = Math.floor(sec / 60) + ' min';
+    }
+    // Description
+    var plot = (ep.info && (ep.info.plot || ep.info.description)) || '';
+
+    // Continue Watching : recupere la progression pour cet episode
+    var contentId = 'series_' + seriesId + '_s' + seasonNum + 'e' + episodeNum;
+    var prog = null;
+    try { prog = (window.iprem && window.iprem.progress) ? window.iprem.progress.get(contentId) : null; }
+    catch (e) {}
+    var pct = 0, watched = false;
+    if (prog && prog.duration > 0) {
+      pct = (prog.position / prog.duration) * 100;
+      watched = pct >= 92;
+    }
 
     item.innerHTML =
-      '<span class="episode-num">E' + (ep.episode_num || '?') + '</span>' +
-      '<span class="episode-title">' + escapeHtml(title) + '</span>' +
-      '<button class="episode-play-btn" title="Play">' +
-        '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>' +
-      '</button>';
+      (thumb
+        ? '<div class="ep-thumb"><img src="' + escapeHtml(thumb) + '" alt="" loading="lazy" onerror="this.parentElement.classList.add(\'no-img\')"></div>'
+        : '<div class="ep-thumb no-img">📺</div>') +
+      '<div class="ep-content">' +
+        '<div class="ep-line1">' +
+          '<span class="ep-sxe">' + sxe + '</span>' +
+          '<span class="ep-title">' + escapeHtml(cleanTitle) + '</span>' +
+          (durTxt ? '<span class="ep-duration">' + escapeHtml(durTxt) + '</span>' : '') +
+          (watched ? '<span class="ep-badge-watched">✓ Vu</span>' : '') +
+        '</div>' +
+        (plot ? '<div class="ep-plot">' + escapeHtml(plot) + '</div>' : '') +
+        (pct > 0 && !watched
+          ? '<div class="ep-progress"><div class="ep-progress-fill" style="width:' + Math.min(100, pct).toFixed(0) + '%"></div></div>'
+          : '') +
+      '</div>' +
+      '<div class="ep-actions">' +
+        (pct > 0 && !watched
+          ? '<button class="episode-play-btn resume" title="Reprendre">▶ ' + _formatSecsHMS(prog.position) + '</button>'
+          : '<button class="episode-play-btn" title="Lire"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21"/></svg></button>') +
+      '</div>';
 
     var playFn = function() {
       var url = AppState.api.seriesUrl(ep.id, ext);
       document.getElementById('seriesDetailModal').style.display = 'none';
-      startPlayer(url, title, 'E' + (ep.episode_num || ''), 'series');
+      var resumePos = (prog && prog.position > 5 && pct < 92) ? prog.position : 0;
+      // Lance le player natif avec resume position si dispo
+      if (window.AndroidBridge && typeof window.AndroidBridge.playNativeWithResume === 'function') {
+        window.AndroidBridge.playNativeWithResume(
+          url, sxe + ' ' + cleanTitle, false,
+          '', '', '', -1, '', '',
+          contentId, 'series', resumePos
+        );
+      } else {
+        startPlayer(url, cleanTitle, sxe, 'series', { stream_id: ep.id });
+      }
     };
 
     item.querySelector('.episode-play-btn').addEventListener('click', function(e) {
@@ -1639,6 +1813,8 @@ function renderEpisodes(episodes) {
     item.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') playFn();
     });
+
+    item.addEventListener('click', playFn);
 
     list.appendChild(item);
   });
