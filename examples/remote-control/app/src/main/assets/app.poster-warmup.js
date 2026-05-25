@@ -42,29 +42,34 @@
 
   // Scan le LS pour trouver toutes les entrees TMDB cachees et les precharger
   function warmupAllCachedPosters() {
-    try {
-      var found = 0;
-      for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (!k || k.indexOf('iprem_tmdb_v2_') !== 0) continue;
-        try {
-          var entry = JSON.parse(localStorage.getItem(k));
-          if (entry && entry.d && typeof entry.d === 'object' && entry.d.poster) {
-            queue.push(entry.d.poster);
-            found++;
-          }
-        } catch (e) {}
+    var found = 0;
+    var totalKeys = 0;
+    try { totalKeys = localStorage.length; } catch (_) { return; }
+    for (var i = 0; i < totalKeys; i++) {
+      var k = null;
+      try { k = localStorage.key(i); } catch (_) { continue; }
+      if (!k || k.indexOf('iprem_tmdb_v2_') !== 0) continue;
+      // try/catch INSIDE the loop : une entree corrompue ne doit pas arreter le warmup
+      try {
+        var raw = localStorage.getItem(k);
+        if (!raw) continue;
+        var entry = JSON.parse(raw);
+        if (entry && entry.d && typeof entry.d === 'object' && entry.d.poster) {
+          queue.push(entry.d.poster);
+          found++;
+        }
+      } catch (e) {
+        // Entree corrompue : on la purge pour ne plus la rencontrer
+        try { localStorage.removeItem(k); } catch (_) {}
       }
-      if (found > 0) {
-        // Stagger : on en lance MAX_PARALLEL d'un coup, puis on espace
+    }
+    if (found > 0) {
+      processQueue();
+      var pulser = setInterval(function() {
+        if (!queue.length && !inFlight) { clearInterval(pulser); return; }
         processQueue();
-        // Toutes les 200ms on relance le queue si dispo
-        var pulser = setInterval(function() {
-          if (!queue.length && !inFlight) { clearInterval(pulser); return; }
-          processQueue();
-        }, 200);
-      }
-    } catch (e) {}
+      }, 200);
+    }
   }
 
   // Hook : declenche apres la full-sync ou ~5s apres le boot si LS deja chaud

@@ -111,9 +111,12 @@
       // Speed calc
       var nowMs = Date.now();
       var dt = (nowMs - lastTime) / 1000;
+      // bytesPerSec hoiste AVANT le if pour rester visible dans le bloc ETA
+      // (sinon undefined > 0 = false => ETA jamais affichee sur connexion rapide)
+      var bytesPerSec = 0;
       if (dt > 0.5 && speedEl) {
         var delta = now - lastBytes;
-        var bytesPerSec = delta / dt;
+        bytesPerSec = delta / dt;
         speedEl.textContent = formatBytes(bytesPerSec) + '/s';
         lastBytes = now;
         lastTime = nowMs;

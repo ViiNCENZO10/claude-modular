@@ -267,6 +267,9 @@ public class ExoPlayerActivity extends AppCompatActivity {
                 final long pos = resumePositionSec;
                 new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                     @Override public void run() {
+                        // Guard : si l'activity est detruite avant 800ms (user backspace),
+                        // Toast.makeText sur context dead => crash
+                        if (isFinishing() || isDestroyed()) return;
                         Toast.makeText(ExoPlayerActivity.this,
                             "Reprise a " + (pos / 60) + ":" + String.format("%02d", pos % 60),
                             Toast.LENGTH_SHORT).show();
@@ -337,8 +340,9 @@ public class ExoPlayerActivity extends AppCompatActivity {
         try {
             float fps = 0f;
             // Inspecte les media tracks via IMedia (libVLC 3.6+ retourne IMedia, pas Media)
+            org.videolan.libvlc.interfaces.IMedia m = null;
             try {
-                org.videolan.libvlc.interfaces.IMedia m = player.getMedia();
+                m = player.getMedia();
                 if (m != null) {
                     int n = m.getTrackCount();
                     for (int i = 0; i < n; i++) {
@@ -352,9 +356,15 @@ public class ExoPlayerActivity extends AppCompatActivity {
                             }
                         }
                     }
-                    m.release();
                 }
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            } finally {
+                // try-finally garantit release() meme si throw dans la boucle
+                // (sinon fuite native libVLC media apres ~100 zaps)
+                if (m != null) {
+                    try { m.release(); } catch (Throwable ignored) {}
+                }
+            }
             if (fps <= 0f || fps > 200f) return;
 
             // Cherche le mode display qui match le mieux

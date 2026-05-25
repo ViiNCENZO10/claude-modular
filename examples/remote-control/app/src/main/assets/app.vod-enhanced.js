@@ -525,18 +525,10 @@
     if (movie.cast || movie.actors) castParts.push('<strong>Avec:</strong> ' + escapeText(movie.cast || movie.actors));
     overlay.querySelector('#cinCast').innerHTML = castParts.join(' · ');
 
-    // Trailer
-    var youtube = movie.youtube_trailer || '';
-    if (youtube) {
-      var videoId = youtube;
-      var m = String(youtube).match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-      if (m) videoId = m[1];
-      var thumb = 'https://img.youtube.com/vi/' + videoId + '/mqdefault.jpg';
-      overlay.querySelector('#cinTrailerRow').style.display = '';
-      overlay.querySelector('#cinTrailerCard').innerHTML =
-        '<img src="' + thumb + '" alt="Bande-annonce">' +
-        '<span class="cin-trailer-play">▶</span>';
-    }
+    // (Trailer rendu plus bas dans la section Medias - bloc legacy supprime
+    //  car il visait #cinTrailerRow/#cinTrailerCard inexistants dans le DOM
+    //  cinematic => TypeError 'Cannot read properties of null' qui
+    //  interrompait toute la fonction)
 
     if (tmdbId && (!ratingPct || ratingPct === 0)) {
       var bEl = overlay.querySelector('#cinBadges');
@@ -565,7 +557,9 @@
         var creds = cached;
         if (!creds) {
           var tmdbKey = localStorage.getItem('iprem_tmdb_key') || '4ef0d7355d9ffb5151e987764708ce96';
-          var credRes = await fetch('https://api.themoviedb.org/3/movie/' + tmdbId + '/credits?language=fr&api_key=' + tmdbKey);
+          // BUG FIX : pour les series il faut /tv/{id}/credits, pas /movie
+          var credEndpoint = (vod._type === 'series') ? 'tv' : 'movie';
+          var credRes = await fetch('https://api.themoviedb.org/3/' + credEndpoint + '/' + tmdbId + '/credits?language=fr&api_key=' + tmdbKey);
           if (credRes.ok) {
             creds = await credRes.json();
             try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), data: creds })); } catch (e) {}

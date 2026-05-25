@@ -244,14 +244,18 @@
                   var nowMs = Date.now();
                   for (var j = 0; j < listings.length; j++) {
                     var p = listings[j];
-                    var startMs = parseInt(p.start) * 1000;
-                    var endMs = parseInt(p.end || p.stop) * 1000;
+                    var startMs = parseInt(p.start, 10) * 1000;
+                    var endMs = parseInt(p.end || p.stop, 10) * 1000;
                     if (isNaN(startMs)) { startMs = Date.parse(p.start); endMs = Date.parse(p.end || p.stop || ''); }
                     if (!isNaN(startMs) && !isNaN(endMs) && startMs <= nowMs && nowMs <= endMs) {
-                      try {
-                        var t = p.title ? atob(p.title) : (p.title_decoded || '');
-                        if (t) window.AppState._nowEpgMap[ch.stream_id] = t;
-                      } catch (e) {}
+                      // Utilise le decoder robuste (gere base64 + garbage detection)
+                      var t = (typeof window._decodeEpgTitle === 'function')
+                        ? window._decodeEpgTitle(p)
+                        : (function() {
+                            try { return p.title ? atob(p.title) : (p.title_decoded || ''); }
+                            catch (_) { return p.title_decoded || ''; }
+                          })();
+                      if (t) window.AppState._nowEpgMap[ch.stream_id] = t;
                       break;
                     }
                   }

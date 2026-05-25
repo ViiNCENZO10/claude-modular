@@ -100,7 +100,7 @@ async function decryptString(encrypted) {
 
 
 // ========== Auto-update (GitHub Releases) ==========
-const APP_VERSION = '3.9.3';
+const APP_VERSION = '3.9.4';
 const UPDATE_REPO = 'ViiNCENZO10/claude-modular';
 
 function getInstalledVersionCode() {
@@ -202,14 +202,28 @@ function setGistConfig(token, gistId) {
 }
 
 function collectSyncPayload() {
+  // safeJSON : si une cle LS est corrompue, on ne throw pas, on retourne defaut
+  var safeJSON = function(key, defaultJson) {
+    try { return JSON.parse(localStorage.getItem(key) || defaultJson); }
+    catch (e) {
+      try { localStorage.removeItem(key); } catch (_) {}
+      return JSON.parse(defaultJson);
+    }
+  };
+  var favKeys = {};
+  try {
+    Object.keys(localStorage).filter(function(k) { return k.indexOf('iprem_favorites_') === 0; }).forEach(function(k) {
+      favKeys[k] = safeJSON(k, '{}');
+    });
+  } catch (_) {}
   return {
     version: APP_VERSION,
     timestamp: new Date().toISOString(),
-    portals: JSON.parse(localStorage.getItem('iprem_portals') || '[]'),
-    settings: JSON.parse(localStorage.getItem('iprem_settings') || '{}'),
-    favorites_keys: Object.keys(localStorage).filter(k => k.startsWith('iprem_favorites_')).reduce(function(acc, k) { acc[k] = JSON.parse(localStorage.getItem(k) || '{}'); return acc; }, {}),
-    recordings: JSON.parse(localStorage.getItem('iprem_recordings') || '[]'),
-    recommendations: JSON.parse(localStorage.getItem('iprem_recos') || '{}'),
+    portals: safeJSON('iprem_portals', '[]'),
+    settings: safeJSON('iprem_settings', '{}'),
+    favorites_keys: favKeys,
+    recordings: safeJSON('iprem_recordings', '[]'),
+    recommendations: safeJSON('iprem_recos', '{}'),
     language: CURRENT_LANG
   };
 }

@@ -357,20 +357,26 @@ function buildPortalForm(type) {
 }
 
 function submitNewPortal(type, modal, closeCallback) {
-  var name = (modal.querySelector('#apName') || { value: '' }).value.trim();
+  if (!modal) { showToast && showToast('Erreur formulaire'); return; }
+  // Helper safe : retourne la value trimee ou ''
+  var v = function(sel) {
+    var el = modal.querySelector(sel);
+    return (el && typeof el.value === 'string') ? el.value.trim() : '';
+  };
+  var name = v('#apName');
   var portal = { type: type, name: name };
 
   if (type === 'xtream') {
-    portal.server = (modal.querySelector('#apServer') || {}).value.trim();
-    portal.username = (modal.querySelector('#apUser') || {}).value.trim();
-    portal.password = (modal.querySelector('#apPass') || {}).value.trim();
+    portal.server = v('#apServer');
+    portal.username = v('#apUser');
+    portal.password = v('#apPass');
     if (!portal.server || !portal.username || !portal.password) {
       showToast && showToast('URL + identifiant + mot de passe requis');
       return;
     }
   } else if (type === 'stalker') {
-    portal.server = (modal.querySelector('#apServer') || {}).value.trim();
-    portal.mac = (modal.querySelector('#apMac') || {}).value.trim().toUpperCase();
+    portal.server = v('#apServer');
+    portal.mac = v('#apMac').toUpperCase();
     if (!portal.server || !portal.mac) {
       showToast && showToast('URL serveur + adresse MAC requis');
       return;
@@ -383,8 +389,8 @@ function submitNewPortal(type, modal, closeCallback) {
     }
     portal.mac = clean.match(/.{2}/g).join(':');
   } else if (type === 'm3u') {
-    portal.playlistUrl = (modal.querySelector('#apUrl') || {}).value.trim();
-    portal.epgUrl = (modal.querySelector('#apEpgUrl') || {}).value.trim();
+    portal.playlistUrl = v('#apUrl');
+    portal.epgUrl = v('#apEpgUrl');
     portal.server = portal.playlistUrl;
     if (!portal.playlistUrl) {
       showToast && showToast('URL de la playlist requise');

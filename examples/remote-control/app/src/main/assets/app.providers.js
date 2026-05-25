@@ -484,7 +484,8 @@ async function syncRemotePortals(silent) {
       return 0;
     }
     let existing = [];
-    try { existing = JSON.parse(localStorage.getItem('iprem_portals') || '[]'); } catch (e) {}
+    try { existing = JSON.parse(localStorage.getItem('iprem_portals') || '[]'); }
+    catch (e) { try { localStorage.removeItem('iprem_portals'); } catch (_) {} }
     const sig = function(p) {
       return (p.type || 'xtream') + '|' + (p.server || p.playlistUrl || '') + '|' + (p.username || p.mac || '');
     };
@@ -705,7 +706,8 @@ window.addEventListener('DOMContentLoaded', function() {
 
         // Save portal if not already present
         var existing = [];
-        try { existing = JSON.parse(localStorage.getItem('iprem_portals') || '[]'); } catch (e) {}
+        try { existing = JSON.parse(localStorage.getItem('iprem_portals') || '[]'); }
+    catch (e) { try { localStorage.removeItem('iprem_portals'); } catch (_) {} }
         var found = existing.find(function(p) {
           return (p.type || 'xtream') === portal.type &&
             (p.server === portal.server || p.playlistUrl === portal.playlistUrl) &&

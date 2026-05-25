@@ -183,6 +183,8 @@ function loadFromStorage(key, defaultValue) {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : defaultValue;
   } catch (e) {
+    // PURGE la cle corrompue pour ne pas re-throw a chaque appel
+    try { localStorage.removeItem(key); } catch (_) {}
     return defaultValue;
   }
 }
@@ -232,11 +234,13 @@ let toastTimer = null;
 function showToast(message, duration) {
   duration = duration || 3000;
   const el = document.getElementById('toast');
+  // Null-guard : si toast container absent, fallback console (l'app ne doit jamais crash a cause d'un toast)
+  if (!el) { try { console.log('[toast]', message); } catch(_) {} return; }
   el.textContent = message;
   el.style.display = 'block';
   clearTimeout(toastTimer);
   toastTimer = setTimeout(function() {
-    el.style.display = 'none';
+    if (el) el.style.display = 'none';
   }, duration);
 }
 
@@ -253,8 +257,13 @@ function updateClocks() {
   if (bannerClock) bannerClock.textContent = timeStr;
 }
 
-setInterval(updateClocks, 1000);
+// 1Hz forcait un layout/paint sur 8 elements toutes les secondes (sur ARM lent = jank).
+// L'horloge affiche H:M donc 60s suffit largement. Resync sur la prochaine minute exacte.
 updateClocks();
+(function clockTick() {
+  var nextMs = 60000 - (Date.now() % 60000);
+  setTimeout(function() { updateClocks(); clockTick(); }, nextMs);
+})();
 
 
 // ============================================
@@ -349,6 +358,7 @@ function initLoginScreen() {
 function renderPortalList() {
   var list = document.getElementById('portalList');
   var container = document.getElementById('savedPortals');
+  if (!list || !container) return; // DOM peut etre detache pendant un reload
 
   if (AppState.portals.length === 0) {
     container.style.display = 'none';
@@ -509,30 +519,38 @@ function initHomeScreen() {
   var userInfo = document.getElementById('topUserInfo');
   var greeting = document.getElementById('homeGreeting');
 
-  if (AppState.userInfo) {
-    portalName.textContent = AppState.api.username + '@' + new URL(AppState.api.baseUrl).hostname;
-    userInfo.textContent = AppState.api.username;
+  // Guard : si API absent (post-logout/race), on ne touche pas aux infos portail
+  if (AppState.userInfo && AppState.api) {
+    try {
+      if (portalName) portalName.textContent = (AppState.api.username || '') + '@' + new URL(AppState.api.baseUrl).hostname;
+      if (userInfo) userInfo.textContent = AppState.api.username || '';
+    } catch (e) {
+      // Si baseUrl mal forme, on continue sans crash
+    }
 
     var hours = new Date().getHours();
     var greetText = hours < 12 ? 'Good Morning' : hours < 18 ? 'Good Afternoon' : 'Good Evening';
-    greeting.textContent = greetText + ', ' + AppState.api.username;
+    if (greeting) greeting.textContent = greetText + ', ' + (AppState.api.username || '');
 
     // Account info
     var expiry = AppState.userInfo.exp_date;
     if (expiry) {
-      var expDate = new Date(parseInt(expiry) * 1000);
-      document.getElementById('homeExpiry').textContent = expDate.toLocaleDateString();
+      var expDate = new Date(parseInt(expiry, 10) * 1000);
+      var expEl = document.getElementById('homeExpiry');
+      if (expEl) expEl.textContent = expDate.toLocaleDateString();
     }
 
     var maxConn = AppState.userInfo.max_connections;
     var activeConn = AppState.userInfo.active_cons;
-    document.getElementById('homeConnections').textContent =
-      (activeConn || '0') + '/' + (maxConn || '--');
+    var connEl = document.getElementById('homeConnections');
+    if (connEl) connEl.textContent = (activeConn || '0') + '/' + (maxConn || '--');
 
     var status = AppState.userInfo.status;
     var statusEl = document.getElementById('homeStatus');
-    statusEl.textContent = status === 'Active' ? 'Active' : (status || '--');
-    statusEl.style.color = status === 'Active' ? '#22c55e' : '#ef4444';
+    if (statusEl) {
+      statusEl.textContent = status === 'Active' ? 'Active' : (status || '--');
+      statusEl.style.color = status === 'Active' ? '#22c55e' : '#ef4444';
+    }
   }
 
   // Nav cards
@@ -896,23 +914,41 @@ function _legacyRender_dead() {
 }
 
 async function loadVisibleEPG() {
+  if (!AppState.api || !AppState.liveStreams) return;
   var streams = AppState.liveStreams.slice(0, 50);
-  streams.forEach(async function(stream) {
-    try {
-      var epgData = await AppState.api.getShortEPG(stream.stream_id);
-      if (epgData && epgData.epg_listings && epgData.epg_listings.length > 0) {
-        var now = epgData.epg_listings[0];
-        var el = document.getElementById('epg_' + stream.stream_id);
-        if (el) {
-          // Decoder robuste : skip si garbage (provider qui encode mal)
-          var title = _decodeEpgTitle(now);
-          if (title) el.textContent = title;
+  // Throttle a 5 en parallele (avant 50 simultanees saturaient le portail Stalker)
+  // + token pour cancel si l'user change de categorie pendant le chargement
+  var token = (window._epgLoadToken = (window._epgLoadToken || 0) + 1);
+  var BATCH = 5;
+  for (var i = 0; i < streams.length; i += BATCH) {
+    if (token !== window._epgLoadToken) return; // cancel : autre fetch en cours
+    var slice = streams.slice(i, i + BATCH);
+    await Promise.all(slice.map(async function(stream) {
+      try {
+        // Hit du cache memoire AppState._nowEpgMap d'abord (chauffe par full-sync)
+        if (AppState._nowEpgMap && AppState._nowEpgMap[stream.stream_id]) {
+          var el0 = document.getElementById('epg_' + stream.stream_id);
+          if (el0) el0.textContent = AppState._nowEpgMap[stream.stream_id];
+          return;
         }
-      }
-    } catch (e) {
-      // EPG not available for this stream
-    }
-  });
+        var epgData = await AppState.api.getShortEPG(stream.stream_id);
+        if (token !== window._epgLoadToken) return;
+        if (epgData && epgData.epg_listings && epgData.epg_listings.length > 0) {
+          var now = epgData.epg_listings[0];
+          var el = document.getElementById('epg_' + stream.stream_id);
+          if (el) {
+            var title = _decodeEpgTitle(now);
+            if (title) {
+              el.textContent = title;
+              // Cache pour reuse instant (autre nav vers cette categorie)
+              if (!AppState._nowEpgMap) AppState._nowEpgMap = {};
+              AppState._nowEpgMap[stream.stream_id] = title;
+            }
+          }
+        }
+      } catch (e) { /* EPG indispo pour ce stream */ }
+    }));
+  }
 }
 
 function selectChannel(index) {
@@ -997,6 +1033,10 @@ function _decodeEpgDesc(item) {
   if (item.description_decoded && _looksLikeText(item.description_decoded)) return item.description_decoded;
   return (item.description && _looksLikeText(item.description)) ? item.description : '';
 }
+
+// Expose les decoders pour les autres modules (full-sync, etc.)
+window._decodeEpgTitle = _decodeEpgTitle;
+window._decodeEpgDesc = _decodeEpgDesc;
 
 async function loadMiniEPG(streamId) {
   // Reset fiche
@@ -1453,9 +1493,11 @@ function _lsCacheSet(key, val) {
 
 async function showVodDetail(vod) {
   var modal = document.getElementById('vodDetailModal');
+  if (!modal) { console.warn('vodDetailModal absent'); return; }
   modal.style.display = 'flex';
 
-  document.getElementById('vodDetailTitle').textContent = vod.name || 'Unknown';
+  var titleEl = document.getElementById('vodDetailTitle');
+  if (titleEl) titleEl.textContent = vod.name || 'Unknown';
 
   var posterEl = document.getElementById('vodDetailPoster');
   if (vod.stream_icon) {
@@ -2329,6 +2371,11 @@ var playerInfo = {
 function startPlayer(url, name, number, type, stream) {
   var video = document.getElementById('videoPlayer');
   var playerScreen = document.getElementById('player');
+  // Null-guard : sans video/playerScreen on ne peut rien faire
+  if (!video || !playerScreen) {
+    console.warn('startPlayer: video or playerScreen element absent');
+    return;
+  }
 
   playerInfo.type = type || 'live';
   playerInfo.stream = stream || null;
@@ -2350,7 +2397,16 @@ function startPlayer(url, name, number, type, stream) {
   video.src = url;
   video.load();
 
-  var playPromise = video.play();
+  // video.play() peut throw synchrone (DOMException) sur certains WebKit
+  var playPromise;
+  try {
+    playPromise = video.play();
+  } catch (e) {
+    console.warn('video.play threw:', e);
+    AppState.isPlaying = false;
+    updatePlayPauseIcon();
+    return;
+  }
   if (playPromise !== undefined) {
     playPromise.then(function() {
       AppState.isPlaying = true;
