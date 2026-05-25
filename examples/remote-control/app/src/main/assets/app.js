@@ -574,34 +574,32 @@ function initHomeScreen() {
 // Live TV Screen
 // ============================================
 async function initLiveScreen() {
-  // FAST PATH : si tout est deja en cache (post full-sync), on rebuild SYNCHRONE
-  // et on quitte. Plus d'ecran noir pendant le fetch.
-  if (AppState.liveCategories && AppState.liveCategories.length > 0) {
-    // Verifier que le DOM existe et est rempli (sinon rebuild depuis cache)
-    var cl = document.getElementById('liveCategoryList');
-    if (cl && cl.children.length > 0) return; // deja monte ET visible
-  }
-
   var categoryList = document.getElementById('liveCategoryList');
   var channelList = document.getElementById('liveChannelList');
   var loading = document.getElementById('liveChannelLoading');
-  if (!categoryList || !channelList) return;
+  if (!categoryList || !channelList) {
+    console.warn('initLiveScreen: DOM elements absent');
+    showToast && showToast('Erreur : ecran Live TV introuvable');
+    return;
+  }
+  if (!AppState.api) {
+    showToast && showToast('Connexion au portail requise');
+    return;
+  }
 
-  // === SKELETON INSTANT pour ne plus avoir l'ecran noir ===
-  // Categories : 8 placeholders gris shimmer
+  // 1. Skeleton INSTANT (synchrone, AVANT tout fetch) - plus d'ecran noir
   var catSkel = '';
   for (var i = 0; i < 8; i++) {
     catSkel += '<li class="iprem-skel" style="height:28px;margin:4px 8px;border-radius:6px"></li>';
   }
   categoryList.innerHTML = catSkel;
-  // Channels : 14 lignes shimmer (deja stylees via app.perf-cache.js)
   if (window.ipremCache && window.ipremCache.showSkeletonChannels) {
     window.ipremCache.showSkeletonChannels(channelList, 14);
   }
-  if (loading) loading.style.display = 'none'; // skeleton suffit, pas besoin du spinner en plus
+  if (loading) loading.style.display = 'none';
 
+  // 2. Build catégories (cache memoire si dispo, sinon fetch)
   try {
-    // Si on a deja les categories en cache memoire (full-sync), on les utilise SANS fetch
     var categories;
     if (AppState.liveCategories && AppState.liveCategories.length > 0) {
       categories = AppState.liveCategories;
@@ -610,7 +608,7 @@ async function initLiveScreen() {
       AppState.liveCategories = Array.isArray(categories) ? categories : [];
     }
 
-    // Rebuild category list (remplace les skeletons)
+    // 3. Rebuild category list (sync, remplace les skeletons)
     categoryList.innerHTML = '';
     var allItem = createCategoryItem('All', null, true);
     categoryList.appendChild(allItem);
@@ -621,10 +619,23 @@ async function initLiveScreen() {
       categoryList.appendChild(item);
     });
 
-    // Load all streams (utilisera le cache memoire AppState.allLiveStreams si dispo)
+    // 4. Load all streams
     await loadLiveStreams(null);
+
+    // SAFETY : si apres tout ca le DOM est encore vide, message clair
+    if (categoryList.children.length === 0) {
+      categoryList.innerHTML = '<li style="padding:14px;color:#ef4444">Aucune catégorie reçue du portail.</li>';
+    }
+    if (channelList.children.length === 0 && AppState.liveStreams.length === 0) {
+      channelList.innerHTML = '<li style="padding:14px;color:#ef4444">Aucune chaîne reçue. Rechargez le portail depuis Settings.</li>';
+    }
   } catch (err) {
-    showToast('Failed to load channels: ' + err.message);
+    console.warn('initLiveScreen failed', err);
+    showToast('Échec chargement chaînes : ' + (err && err.message ? err.message : 'inconnu'));
+    // Affichage erreur dans le DOM pour que l'user comprenne
+    categoryList.innerHTML = '<li style="padding:14px;color:#ef4444">Erreur de chargement<br>' +
+      '<small style="color:#94a3b8">' + escapeHtml(String(err && err.message || err)) + '</small></li>';
+    channelList.innerHTML = '';
   } finally {
     if (loading) loading.style.display = 'none';
   }
