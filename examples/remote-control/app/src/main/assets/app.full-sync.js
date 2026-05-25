@@ -218,6 +218,8 @@
       var elapsedSec = ((Date.now() - t0) / 1000).toFixed(1);
       setProgress(100, 'Synchronisation terminée', 'Terminée en ' + elapsedSec + 's');
       closeOverlay(true);
+      // Signale aux autres modules (poster-warmup, etc.) que la sync est OK
+      try { document.dispatchEvent(new Event('iprem-fsync-done')); } catch (e) {}
       // Toast final non bloquant
       if (typeof window.showToast === 'function') {
         setTimeout(function() {

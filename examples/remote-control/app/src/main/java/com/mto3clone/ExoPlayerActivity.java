@@ -132,14 +132,13 @@ public class ExoPlayerActivity extends AppCompatActivity {
         initPlayer();
     }
 
-    // === Adaptive buffering ===
-    // Demarrage 1200ms (compromis demarrage rapide / stabilite immediate),
-    // peut monter jusqu'a 6000ms si freezes detectes.
-    // VOD : 5000ms par defaut (HTTP range OK, on prefere bourrer le buffer
-    // pour exploiter la RAM dispo et avoir zero freeze).
-    private int liveCachingMs = 1200;
-    private static final int VOD_CACHING_MS = 5000;
-    private static final int MAX_LIVE_CACHING_MS = 6000;
+    // === Adaptive buffering RAM-agressif ===
+    // Live 1500ms initial (demarrage rapide), peut monter a 8000ms si freezes.
+    // VOD 8000ms d'emblee (HTTP range, on bourre le buffer pour zero stutter).
+    // Exploite la RAM native libVLC (hors heap Java, illimite par largeHeap).
+    private int liveCachingMs = 1500;
+    private static final int VOD_CACHING_MS = 8000;
+    private static final int MAX_LIVE_CACHING_MS = 8000;
     private int bufferingEventsRecent = 0;
     private long lastBufferingTs = 0;
 
@@ -162,6 +161,10 @@ public class ExoPlayerActivity extends AppCompatActivity {
         options.add("--avcodec-hw=any");
         options.add("--avcodec-threads=0");          // auto = tous les coeurs CPU
         options.add("--avcodec-skiploopfilter=0");   // qualité max
+        // Audio : resampler haute qualite (soxr est l'algo le plus propre)
+        options.add("--audio-resampler=soxr");
+        // Bourre le prefetch d'init pour demarrer plus stable
+        options.add("--prefetch-buffer-size=4194304");  // 4 MB prefetch
         // Note : on a SUPPRIME --http-continuous, --ts-cc-check=0,
         // --no-drop-late-frames, --no-skip-frames car ces options n'existent pas
         // dans libVLC 3.x => libVLC les rejetait et l'activity crashait.

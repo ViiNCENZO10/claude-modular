@@ -131,12 +131,43 @@ public class MainActivity extends AppCompatActivity {
         // position toutes les 10s, on relaie au JS via window.iprem.progress.save()
         registerProgressReceiver();
 
-        // Keep navigation inside WebView
+        // Keep navigation inside WebView + cache HTTP agressif pour images TMDB
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 view.loadUrl(url);
                 return true;
+            }
+
+            @Override
+            public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, android.webkit.WebResourceRequest request) {
+                try {
+                    String url = request.getUrl().toString();
+                    // Images TMDB : cache HTTP agressif (7 jours, jamais revalide)
+                    // Les affiches/backdrops ne changent jamais => on peut servir le cache sans verif reseau.
+                    if (url.contains("image.tmdb.org/")) {
+                        java.net.HttpURLConnection conn = (java.net.HttpURLConnection)
+                            new java.net.URL(url).openConnection();
+                        conn.setConnectTimeout(5000);
+                        conn.setReadTimeout(8000);
+                        conn.setUseCaches(true);
+                        conn.setDefaultUseCaches(true);
+                        conn.setRequestProperty("Cache-Control", "max-age=604800"); // 7j
+                        java.util.Map<String, String> headers = new java.util.HashMap<>();
+                        headers.put("Cache-Control", "public, max-age=2592000"); // 30j cote app
+                        headers.put("Access-Control-Allow-Origin", "*");
+                        return new android.webkit.WebResourceResponse(
+                            "image/jpeg",
+                            "UTF-8",
+                            200, "OK",
+                            headers,
+                            conn.getInputStream()
+                        );
+                    }
+                } catch (Throwable ignored) {
+                    // En cas de pepin on laisse WebView faire son fetch normal
+                }
+                return null;
             }
         });
 
