@@ -964,16 +964,36 @@ async function initVodScreen() {
     var categories = await AppState.api.getVodCategories();
     AppState.vodCategories = Array.isArray(categories) ? categories : [];
 
-    // Build category list
-    var allItem = document.createElement('li');
-    allItem.className = 'category-item focusable active';
-    allItem.tabIndex = 0;
-    allItem.textContent = 'All';
-    allItem.addEventListener('click', function() {
-      selectVodCategory(null, allItem);
+    // === SMART CATEGORIES (virtuelles, en tete du menu) ===
+    var smartCats = [
+      { id: '__all__',      label: '★ Tous les films',  hint: 'All' },
+      { id: '__favorites__',label: '♥ Favoris',          hint: 'fav' },
+      { id: '__recent__',   label: '⏱ Récents',          hint: 'recent' },
+      { id: '__new__',      label: '✨ Nouveautés',      hint: 'new' },
+      { id: '__top__',      label: '🏆 Top 100',         hint: 'top' },
+      { id: '__4k__',       label: '◆ 4K HDR',           hint: '4k' },
+      { id: '__dv__',       label: '◇ Dolby Vision',     hint: 'dv' }
+    ];
+    smartCats.forEach(function(sc, idx) {
+      var li = document.createElement('li');
+      li.className = 'category-item focusable smart-cat' + (idx === 0 ? ' active' : '');
+      li.tabIndex = 0;
+      li.textContent = sc.label;
+      li.setAttribute('data-smart', sc.id);
+      li.addEventListener('click', function() { selectVodCategory(sc.id, li); });
+      li.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.keyCode === 13) selectVodCategory(sc.id, li);
+      });
+      categoryList.appendChild(li);
     });
-    categoryList.appendChild(allItem);
 
+    // Separator
+    var sep = document.createElement('li');
+    sep.className = 'category-separator';
+    sep.textContent = 'CATÉGORIES';
+    categoryList.appendChild(sep);
+
+    // Vraies categories du provider
     AppState.vodCategories.forEach(function(cat) {
       var li = document.createElement('li');
       li.className = 'category-item focusable';
@@ -985,7 +1005,7 @@ async function initVodScreen() {
       categoryList.appendChild(li);
     });
 
-    await loadVodStreams(null);
+    await loadVodStreams('__all__');
   } catch (err) {
     showToast('Failed to load movies: ' + err.message);
   } finally {
@@ -1008,26 +1028,102 @@ async function loadVodStreams(categoryId) {
   var countEl = document.getElementById('vodCount');
 
   loading.style.display = 'flex';
-  grid.innerHTML = '';
+  // Skeleton instant
+  if (window.ipremCache && window.ipremCache.showSkeletonCards) {
+    window.ipremCache.showSkeletonCards(grid, 18);
+  } else {
+    grid.innerHTML = '';
+  }
+  window._warmupPause = Date.now() + 2000;
 
   try {
-    var streams = await AppState.api.getVodStreams(categoryId);
-    AppState.vodStreams = Array.isArray(streams) ? streams : [];
-
-    if (!categoryId) {
-      titleEl.textContent = 'All Movies';
+    var streams;
+    // Smart categories : filtres virtuels sur l'ensemble du catalogue
+    if (categoryId && categoryId.indexOf('__') === 0) {
+      streams = await loadVodSmartCat(categoryId);
+      titleEl.textContent = _smartCatLabel(categoryId);
     } else {
-      var cat = AppState.vodCategories.find(function(c) { return c.category_id === categoryId; });
-      titleEl.textContent = cat ? cat.category_name : 'Movies';
+      streams = await AppState.api.getVodStreams(categoryId);
+      if (!categoryId) titleEl.textContent = 'Tous les films';
+      else {
+        var cat = AppState.vodCategories.find(function(c) { return c.category_id === categoryId; });
+        titleEl.textContent = cat ? cat.category_name : 'Films';
+      }
     }
-
-    countEl.textContent = AppState.vodStreams.length + ' movies';
+    AppState.vodStreams = Array.isArray(streams) ? streams : [];
+    countEl.textContent = AppState.vodStreams.length + ' films';
     renderVodGrid();
   } catch (err) {
     showToast('Failed to load movies: ' + err.message);
   } finally {
     loading.style.display = 'none';
   }
+}
+
+// Resout une smart-category vers une liste de films filtree
+async function loadVodSmartCat(smartId) {
+  // Charge tout le catalogue si pas deja en cache (warmup l'a peut-etre fait)
+  var all = AppState.vodAllStreams;
+  if (!all || !all.length) {
+    all = await AppState.api.getVod();
+    AppState.vodAllStreams = Array.isArray(all) ? all : [];
+    all = AppState.vodAllStreams;
+  }
+  if (!all.length) return [];
+
+  switch (smartId) {
+    case '__all__':
+      return all;
+    case '__favorites__':
+      // Favoris VOD : AppState.favorites contient stream_id mappes a true
+      var favIds = AppState.favorites || {};
+      return all.filter(function(v) { return !!favIds[v.stream_id]; });
+    case '__recent__':
+      // Films de l'historique watch-progress (avec progress > 0)
+      var progressList = [];
+      try { progressList = (window.iprem && window.iprem.progress) ? window.iprem.progress.list(50) : []; }
+      catch (e) {}
+      var recentIds = {};
+      progressList.forEach(function(p) {
+        var id = String(p.id || '').replace(/^vod_/, '');
+        recentIds[id] = (p.updatedAt || 0);
+      });
+      return all
+        .filter(function(v) { return recentIds[v.stream_id] != null; })
+        .sort(function(a, b) { return (recentIds[b.stream_id] || 0) - (recentIds[a.stream_id] || 0); });
+    case '__new__':
+      // Trie par 'added' DESC (Xtream renvoie un timestamp)
+      return all.slice().sort(function(a, b) {
+        var ta = parseInt(a.added) || 0, tb = parseInt(b.added) || 0;
+        return tb - ta;
+      }).slice(0, 200);
+    case '__top__':
+      return all.slice().sort(function(a, b) {
+        return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
+      }).slice(0, 100);
+    case '__4k__':
+      return all.filter(function(v) {
+        return /\b(4K|UHD|HDR|HDR10)\b/i.test(v.name || '');
+      });
+    case '__dv__':
+      return all.filter(function(v) {
+        return /\b(DOLBY[ _-]?VISION|DV|DOVI)\b/i.test(v.name || '');
+      });
+  }
+  return [];
+}
+
+function _smartCatLabel(id) {
+  var map = {
+    '__all__': 'Tous les films',
+    '__favorites__': '♥ Favoris',
+    '__recent__': '⏱ Récemment regardés',
+    '__new__': '✨ Nouveautés',
+    '__top__': '🏆 Top 100',
+    '__4k__': '◆ 4K / HDR',
+    '__dv__': '◇ Dolby Vision'
+  };
+  return map[id] || 'Films';
 }
 
 function renderVodGrid() {
@@ -1062,10 +1158,30 @@ function renderVodGrid() {
       year = String(vod.releaseDate).substring(0, 4);
     }
 
+    // Nettoyage : "|FR| Film Name 2025 MULTIVFF 4K HDR" -> "Film Name"
+    var rawTitle = vod.name || 'Unknown';
+    var cleanedTitle = rawTitle;
+    var qualityTag = '';
+    if (window.ipremPoster && window.ipremPoster.cleanTitle) {
+      cleanedTitle = window.ipremPoster.cleanTitle(rawTitle) || rawTitle;
+      // Extraction de la qualite pour afficher en pill
+      var qm = rawTitle.match(/\b(4K|UHD|HDR|FHD|HD|DOLBY VISION|DV)\b/i);
+      if (qm) qualityTag = qm[0].toUpperCase();
+    }
+    // Extraction langue (VF/VFF/VOSTFR/MULTI)
+    var langTag = '';
+    var lm = rawTitle.match(/\b(MULTIVFF|MULTIVFQ|MULTIVF|MULTI|VFF|VFQ|VOSTFR|VOSTEN|VFI|VF|VO|VEQ)\b/i);
+    if (lm) langTag = lm[0].toUpperCase();
+
+    var metaLine = '';
+    if (year) metaLine += '<span class="meta-pill">' + escapeHtml(year) + '</span>';
+    if (qualityTag) metaLine += '<span class="meta-pill quality">' + qualityTag + '</span>';
+    if (langTag) metaLine += '<span class="meta-pill lang">' + langTag + '</span>';
+
     card.innerHTML = posterHtml +
       '<div class="vod-card-info">' +
-        '<div class="vod-card-title">' + escapeHtml(vod.name || 'Unknown') + '</div>' +
-        (year ? '<div class="vod-card-year">' + year + '</div>' : '') +
+        '<div class="vod-card-title">' + escapeHtml(cleanedTitle) + '</div>' +
+        (metaLine ? '<div class="vod-card-meta">' + metaLine + '</div>' : '') +
       '</div>';
 
     card.addEventListener('click', function() {
