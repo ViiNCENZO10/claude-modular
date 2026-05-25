@@ -1,5 +1,8 @@
 plugins {
     id("com.android.application")
+    // Combo officiel Google Q4 2023 (aligne Kotlin/Compose Compiler/BOM) :
+    // Kotlin 1.9.20 + Compose Compiler 1.5.4 + Compose BOM 2023.10.01
+    id("org.jetbrains.kotlin.android") version "1.9.20"
 }
 
 android {
@@ -12,7 +15,7 @@ android {
         targetSdk = 34
         // versionCode auto-derived from CI run number (so each push installs over previous)
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "5").toInt()
-        versionName = "4.0.3"
+        versionName = "4.0.4"
     }
 
     signingConfigs {
@@ -43,8 +46,18 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
     buildFeatures {
         viewBinding = false
+        compose = true
+    }
+
+    composeOptions {
+        // Combo officiel : Compose Compiler 1.5.4 = Kotlin 1.9.20 = BOM 2023.10.01
+        kotlinCompilerExtensionVersion = "1.5.4"
     }
 
     packaging {
@@ -57,6 +70,16 @@ android {
 dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.webkit:webkit:1.10.0")
+
+    // === Compose (combo officiel Q4 2023) ===
+    // Versions ALIGNEES explicitement (pas via BOM seul) pour eviter mismatch classpath
+    val composeVer = "1.5.4"
+    implementation("androidx.compose.ui:ui:$composeVer")
+    implementation("androidx.compose.ui:ui-graphics:$composeVer")
+    implementation("androidx.compose.foundation:foundation:$composeVer")
+    implementation("androidx.compose.material3:material3:1.1.2")
+    implementation("androidx.compose.material:material-icons-extended:$composeVer")
+    implementation("androidx.activity:activity-compose:1.8.0")
 
 
     // Media3 ExoPlayer - kept for HLS adaptive + fallback option

@@ -362,6 +362,16 @@ public class MainActivity extends AppCompatActivity {
         public boolean supportsPip() { return hasPipSupport(); }
 
         @JavascriptInterface
+        public void openNativeUi() {
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    startActivity(new Intent(MainActivity.this, ComposeMainActivity.class));
+                    finish();
+                }
+            });
+        }
+
+        @JavascriptInterface
         public void playNative(String url, String title, boolean isLive) {
             playNativeWithAuth(url, title, isLive, null, null);
         }
