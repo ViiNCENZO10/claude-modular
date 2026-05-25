@@ -309,7 +309,24 @@ public class MainActivity extends AppCompatActivity {
 
     private static String jsArg(String s) {
         if (s == null) return "''";
-        return "'" + s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ").replace("\r", " ") + "'";
+        // BUG FIX : ancienne version n'escapait pas U+2028 (LINE SEPARATOR) et
+        // U+2029 (PARAGRAPH SEPARATOR) qui sont des terminateurs de ligne JS
+        // MEME dans une string literal => SyntaxError "Invalid token" silencieux.
+        // JSONObject.quote() escape proprement tout (chars de controle, unicode,
+        // newlines, quotes, backslashes) - strictement plus safe que regex manuel.
+        try {
+            return org.json.JSONObject.quote(s);
+        } catch (Throwable t) {
+            // Fallback : version manuelle defensive
+            String safe = s.replace("\\", "\\\\")
+                           .replace("\"", "\\\"")
+                           .replace("\n", " ")
+                           .replace("\r", " ")
+                           .replace(" ", " ")
+                           .replace(" ", " ")
+                           .replace("\t", " ");
+            return "\"" + safe + "\"";
+        }
     }
 
     // ===== Picture-in-Picture =====
