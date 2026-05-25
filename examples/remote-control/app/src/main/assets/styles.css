@@ -89,9 +89,44 @@ html, body {
   overflow: hidden;
 }
 
+@keyframes screenFadeIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
 .screen.active {
   display: flex;
   flex-direction: column;
+  /* Animation smooth d'entree : 180ms fade + slide depuis la droite */
+  animation: screenFadeIn 0.18s ease-out;
+  will-change: opacity, transform;
+}
+
+/* === Loading indicator global en haut (active pendant fetch) === */
+@keyframes iprem-topbar-loader {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.iprem-top-loader {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: transparent;
+  z-index: 99999;
+  overflow: hidden;
+  pointer-events: none;
+  display: none;
+}
+.iprem-top-loader.active { display: block; }
+.iprem-top-loader::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, #06b6d4 50%, transparent);
+  animation: iprem-topbar-loader 1.1s linear infinite;
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.7);
 }
 
 /* ============================================
