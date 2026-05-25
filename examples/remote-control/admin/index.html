@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iPremTvOnline Admin - Push Updates</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#7e22ce 100%);min-height:100vh;color:#e2e8f0}
+    .container{max-width:960px;margin:0 auto;padding:24px}
+    h1{font-size:28px;margin-bottom:8px}
+    h1 .icon{font-size:24px}
+    .subtitle{color:#94a3b8;margin-bottom:24px;font-size:14px}
+    .card{background:rgba(15,23,42,.7);border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:18px;backdrop-filter:blur(8px)}
+    .card h2{margin-top:0;font-size:18px;color:#fff;display:flex;align-items:center;gap:10px}
+    .card-stat{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+    .card-stat:last-child{border-bottom:none}
+    .card-stat-label{color:#94a3b8}
+    .card-stat-val{font-weight:600;color:#fff}
+    .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#1e40af;color:#fff}
+    .badge.green{background:#16a34a}
+    .badge.red{background:#dc2626}
+    .badge.yellow{background:#d97706}
+    label{display:block;margin-bottom:6px;color:#cbd5e1;font-size:13px;font-weight:500}
+    input,textarea,select{width:100%;padding:10px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;font-family:inherit}
+    input:focus,textarea:focus,select:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.2)}
+    textarea{font-family:'Cascadia Code','Consolas',monospace;font-size:13px;min-height:200px;resize:vertical}
+    .form-row{margin-bottom:14px}
+    .btn{padding:10px 18px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
+    .btn-primary{background:linear-gradient(90deg,#3b82f6,#2563eb);color:#fff}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(59,130,246,.4)}
+    .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+    .btn-secondary{background:#334155;color:#fff}
+    .btn-secondary:hover{background:#475569}
+    .btn-danger{background:#dc2626;color:#fff}
+    .btn-danger:hover{background:#b91c1c}
+    .btn-sm{padding:6px 12px;font-size:13px}
+    .patches-list{list-style:none;padding:0;margin:0}
+    .patches-list li{display:flex;align-items:center;gap:12px;padding:10px;background:#1e293b;border-radius:8px;margin-bottom:6px;font-family:monospace;font-size:13px}
+    .patches-list li button{margin-left:auto}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:8px;border:1px solid #334155;font-size:14px;z-index:1000;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+    .actions-row{display:flex;gap:10px;margin-top:14px}
+    .help{color:#64748b;font-size:12px;margin-top:6px}
+    .token-row{display:flex;gap:6px;align-items:center}
+    .token-row input{flex:1}
+    code{background:#0f172a;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:12px;color:#fde047}
+    .examples-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-top:10px}
+    .example-card{background:#1e293b;padding:12px;border-radius:8px;cursor:pointer;transition:.15s}
+    .example-card:hover{background:#334155;transform:translateY(-2px)}
+    .example-card-title{font-weight:600;font-size:13px;color:#fff;margin-bottom:4px}
+    .example-card-desc{font-size:11px;color:#94a3b8}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><span class="icon">🚀</span> iPremTvOnline Admin</h1>
+    <p class="subtitle">Pousse des updates JS en ligne — toutes les box reçoivent dans les 30 min (ou au prochain démarrage)</p>
+
+    <!-- Token config -->
+    <div class="card">
+      <h2>🔐 Authentification GitHub</h2>
+      <div class="form-row">
+        <label>Token GitHub (avec scope <code>repo</code>)</label>
+        <div class="token-row">
+          <input type="password" id="ghToken" placeholder="ghp_...">
+          <button class="btn btn-secondary btn-sm" id="btnToggleToken">👁</button>
+          <button class="btn btn-secondary btn-sm" id="btnSaveToken">Enregistrer</button>
+        </div>
+        <div class="help">Stocké uniquement en localStorage de ton navigateur. Tu peux créer un token sur <a style="color:#60a5fa" href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a></div>
+      </div>
+      <div class="form-row">
+        <label>Repo cible</label>
+        <input type="text" id="ghRepo" placeholder="ViiNCENZO10/claude-modular" value="ViiNCENZO10/claude-modular">
+      </div>
+      <div class="form-row">
+        <label>Branche</label>
+        <input type="text" id="ghBranch" placeholder="claude/remote-control-feature-QLoSs" value="claude/remote-control-feature-QLoSs">
+      </div>
+    </div>
+
+    <!-- Current state -->
+    <div class="card">
+      <h2>📊 État actuel <button class="btn btn-secondary btn-sm" id="btnRefresh" style="margin-left:auto">🔄 Rafraîchir</button></h2>
+      <div id="currentStatus">
+        <div class="card-stat">
+          <span class="card-stat-label">Manifest version</span>
+          <span class="card-stat-val" id="currVersion">—</span>
+        </div>
+        <div class="card-stat">
+          <span class="card-stat-label">Patches actifs</span>
+          <span class="card-stat-val" id="currPatchCount">—</span>
+        </div>
+        <div class="card-stat">
+          <span class="card-stat-label">Dernier message</span>
+          <span class="card-stat-val" id="currMessage">—</span>
+        </div>
+      </div>
+      <ul class="patches-list" id="patchesList"></ul>
+    </div>
+
+    <!-- New patch -->
+    <div class="card">
+      <h2>✨ Pousser un nouveau patch</h2>
+      <div class="form-row">
+        <label>Description (visible dans le toast utilisateur)</label>
+        <input type="text" id="patchDesc" placeholder="Ex: Fix bug zapping + nouvelles traductions">
+      </div>
+      <div class="form-row">
+        <label>Nom de fichier (sans extension)</label>
+        <input type="text" id="patchFilename" placeholder="ex: 2026-05-24-fix-zapping">
+      </div>
+      <div class="form-row">
+        <label>Code JS du patch</label>
+        <textarea id="patchCode" placeholder="// Code JS à exécuter sur toutes les box au prochain check (max 30 min)&#10;// Tu as accès à: AppState, showToast, showScreen, AndroidBridge, etc.&#10;&#10;// Exemple : afficher un message&#10;showToast('Nouvelle mise à jour appliquée !');"></textarea>
+        <div class="help">Ce code sera exécuté sur toutes les box au démarrage suivant ou lors du check de mise à jour.</div>
+      </div>
+      <div class="form-row">
+        <label>Exemples de patches courants (clique pour insérer)</label>
+        <div class="examples-grid">
+          <div class="example-card" data-template="toast">
+            <div class="example-card-title">💬 Message d'annonce</div>
+            <div class="example-card-desc">Afficher un toast à tous les utilisateurs</div>
+          </div>
+          <div class="example-card" data-template="renamePortal">
+            <div class="example-card-title">🏷 Renommer un portail</div>
+            <div class="example-card-desc">Mettre à jour les noms affichés</div>
+          </div>
+          <div class="example-card" data-template="addDefaultPortal">
+            <div class="example-card-title">➕ Ajouter portail par défaut</div>
+            <div class="example-card-desc">Pousser un portail à toutes les box</div>
+          </div>
+          <div class="example-card" data-template="hideCategory">
+            <div class="example-card-title">🚫 Cacher une catégorie</div>
+            <div class="example-card-desc">Masquer "Adultes" par défaut</div>
+          </div>
+        </div>
+      </div>
+      <div class="actions-row">
+        <button class="btn btn-primary" id="btnPushPatch">🚀 POUSSER L'UPDATE EN LIGNE</button>
+        <button class="btn btn-secondary" id="btnTestLocal">🧪 Tester localement</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var TEMPLATES = {
+      toast: "// Affiche un toast au démarrage de l'app\nshowToast('Bienvenue dans la nouvelle version !', 5000);\n",
+      renamePortal: "// Renomme tous les portails Xtream pour ajouter un préfixe\ntry {\n  var portals = JSON.parse(localStorage.getItem('iprem_portals') || '[]');\n  portals.forEach(function(p) {\n    if (p.type === 'xtream' && !p.name.startsWith('VD ')) {\n      p.name = 'VD ' + p.name;\n    }\n  });\n  localStorage.setItem('iprem_portals', JSON.stringify(portals));\n  if (typeof renderConnectionsView === 'function') renderConnectionsView();\n} catch (e) {}\n",
+      addDefaultPortal: "// Ajoute un portail Xtream par défaut s'il n'existe pas déjà\ntry {\n  var portals = JSON.parse(localStorage.getItem('iprem_portals') || '[]');\n  var exists = portals.some(function(p) { return p.type === 'xtream' && p.server === 'http://example.com:8080'; });\n  if (!exists) {\n    portals.push({\n      type: 'xtream',\n      name: 'Compte VD Mobile',\n      server: 'http://example.com:8080',\n      username: 'demo',\n      password: 'demo'\n    });\n    localStorage.setItem('iprem_portals', JSON.stringify(portals));\n    if (typeof renderConnectionsView === 'function') renderConnectionsView();\n  }\n} catch (e) {}\n",
+      hideCategory: "// Cache la catégorie 'Adultes' par défaut pour tous les portails\ntry {\n  var key = 'iprem_cathidden_default_live';\n  var hidden = JSON.parse(localStorage.getItem(key) || '[]');\n  // Ajouter ici les IDs de catégorie à cacher\n  // hidden.push('123'); // remplace 123 par l'ID réel\n  // localStorage.setItem(key, JSON.stringify(hidden));\n} catch (e) {}\n"
+    };
+
+    // Token storage
+    document.getElementById('ghToken').value = localStorage.getItem('iprem_admin_token') || '';
+    document.getElementById('btnSaveToken').addEventListener('click', function() {
+      var t = document.getElementById('ghToken').value.trim();
+      localStorage.setItem('iprem_admin_token', t);
+      toast('Token enregistré');
+      loadStatus();
+    });
+    document.getElementById('btnToggleToken').addEventListener('click', function() {
+      var el = document.getElementById('ghToken');
+      el.type = el.type === 'password' ? 'text' : 'password';
+    });
+
+    document.querySelectorAll('.example-card').forEach(function(c) {
+      c.addEventListener('click', function() {
+        var tpl = c.getAttribute('data-template');
+        document.getElementById('patchCode').value = TEMPLATES[tpl];
+        if (!document.getElementById('patchFilename').value) {
+          var d = new Date().toISOString().substring(0, 10);
+          document.getElementById('patchFilename').value = d + '-' + tpl;
+        }
+      });
+    });
+
+    function getCtx() {
+      return {
+        token: document.getElementById('ghToken').value.trim(),
+        repo: document.getElementById('ghRepo').value.trim(),
+        branch: document.getElementById('ghBranch').value.trim()
+      };
+    }
+
+    function gh(path, opts) {
+      var ctx = getCtx();
+      opts = opts || {};
+      opts.headers = opts.headers || {};
+      opts.headers['Accept'] = 'application/vnd.github+json';
+      if (ctx.token) opts.headers['Authorization'] = 'Bearer ' + ctx.token;
+      return fetch('https://api.github.com/repos/' + ctx.repo + path, opts);
+    }
+
+    async function loadStatus() {
+      var ctx = getCtx();
+      try {
+        var r = await gh('/contents/examples/remote-control/hotpatch/manifest.json?ref=' + encodeURIComponent(ctx.branch));
+        if (!r.ok) {
+          document.getElementById('currVersion').textContent = 'Manifest absent';
+          return;
+        }
+        var data = await r.json();
+        var content = atob(data.content.replace(/\n/g, ''));
+        var manifest = JSON.parse(content);
+        document.getElementById('currVersion').textContent = manifest.version || '—';
+        document.getElementById('currPatchCount').textContent = (manifest.patches || []).length;
+        document.getElementById('currMessage').textContent = manifest.message || '—';
+
+        var ul = document.getElementById('patchesList');
+        ul.innerHTML = '';
+        (manifest.patches || []).forEach(function(url) {
+          var li = document.createElement('li');
+          var name = url.split('/').pop();
+          li.innerHTML = '<span style="flex:1">📜 ' + name + '</span> <button class="btn btn-danger btn-sm" data-url="' + url + '">Retirer</button>';
+          li.querySelector('button').addEventListener('click', function(e) {
+            removePatch(url);
+          });
+          ul.appendChild(li);
+        });
+      } catch (e) {
+        document.getElementById('currVersion').textContent = 'Erreur: ' + e.message;
+      }
+    }
+
+    async function getFile(path) {
+      var ctx = getCtx();
+      var r = await gh('/contents/' + path + '?ref=' + encodeURIComponent(ctx.branch));
+      if (!r.ok) return null;
+      return await r.json();
+    }
+
+    async function putFile(path, content, message, sha) {
+      var ctx = getCtx();
+      var body = {
+        message: message,
+        content: btoa(unescape(encodeURIComponent(content))),
+        branch: ctx.branch
+      };
+      if (sha) body.sha = sha;
+      var r = await gh('/contents/' + path, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return r;
+    }
+
+    async function pushPatch() {
+      var desc = document.getElementById('patchDesc').value.trim();
+      var fname = document.getElementById('patchFilename').value.trim();
+      var code = document.getElementById('patchCode').value;
+      if (!desc || !fname || !code) {
+        toast('Remplis description + nom fichier + code');
+        return;
+      }
+      if (!getCtx().token) { toast('Token GitHub requis'); return; }
+
+      var btn = document.getElementById('btnPushPatch');
+      btn.disabled = true;
+      btn.textContent = '⏳ Push en cours...';
+
+      try {
+        // 1. Get current manifest
+        var manifestFile = await getFile('examples/remote-control/hotpatch/manifest.json');
+        var manifest = manifestFile ? JSON.parse(atob(manifestFile.content.replace(/\n/g, ''))) : { version: '0.1.0', patches: [] };
+
+        // 2. Bump version (patch component)
+        var parts = (manifest.version || '0.1.0').split('.').map(Number);
+        parts[2] = (parts[2] || 0) + 1;
+        manifest.version = parts.join('.');
+        manifest.message = desc;
+
+        // 3. Upload the patch file
+        var ctx = getCtx();
+        var patchPath = 'examples/remote-control/hotpatch/' + fname + '.js';
+        var patchUrl = 'https://raw.githubusercontent.com/' + ctx.repo + '/' + ctx.branch + '/' + patchPath;
+        var patchResp = await putFile(patchPath, '/* ' + desc + ' */\n\n' + code, 'hotpatch: ' + desc);
+        if (!patchResp.ok) throw new Error('Patch upload: HTTP ' + patchResp.status);
+
+        // 4. Update manifest with new patch URL
+        manifest.patches = (manifest.patches || []);
+        if (manifest.patches.indexOf(patchUrl) === -1) manifest.patches.push(patchUrl);
+        var manResp = await putFile(
+          'examples/remote-control/hotpatch/manifest.json',
+          JSON.stringify(manifest, null, 2),
+          'hotpatch: bump manifest to v' + manifest.version,
+          manifestFile ? manifestFile.sha : null
+        );
+        if (!manResp.ok) throw new Error('Manifest update: HTTP ' + manResp.status);
+
+        toast('✅ Update poussé ! Version: ' + manifest.version);
+        document.getElementById('patchCode').value = '';
+        document.getElementById('patchDesc').value = '';
+        document.getElementById('patchFilename').value = '';
+        loadStatus();
+      } catch (e) {
+        toast('❌ Erreur: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🚀 POUSSER L\'UPDATE EN LIGNE';
+      }
+    }
+
+    async function removePatch(url) {
+      if (!confirm('Retirer ce patch du manifest ? (Le fichier .js reste dans le repo)')) return;
+      try {
+        var manifestFile = await getFile('examples/remote-control/hotpatch/manifest.json');
+        if (!manifestFile) return;
+        var manifest = JSON.parse(atob(manifestFile.content.replace(/\n/g, '')));
+        manifest.patches = (manifest.patches || []).filter(function(u) { return u !== url; });
+        var parts = (manifest.version || '0.1.0').split('.').map(Number);
+        parts[2]++;
+        manifest.version = parts.join('.');
+        manifest.message = 'Patch retiré';
+        var r = await putFile(
+          'examples/remote-control/hotpatch/manifest.json',
+          JSON.stringify(manifest, null, 2),
+          'hotpatch: remove patch',
+          manifestFile.sha
+        );
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        toast('Patch retiré');
+        loadStatus();
+      } catch (e) {
+        toast('❌ ' + e.message);
+      }
+    }
+
+    document.getElementById('btnPushPatch').addEventListener('click', pushPatch);
+    document.getElementById('btnRefresh').addEventListener('click', loadStatus);
+
+    document.getElementById('btnTestLocal').addEventListener('click', function() {
+      var code = document.getElementById('patchCode').value;
+      if (!code) { toast('Aucun code à tester'); return; }
+      try {
+        (new Function(code))();
+        toast('✅ Code valide (test syntaxique OK)');
+      } catch (e) {
+        toast('❌ Erreur JS: ' + e.message);
+      }
+    });
+
+    function toast(msg) {
+      var el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(function() { el.remove(); }, 4000);
+    }
+
+    if (getCtx().token) loadStatus();
+  </script>
+</body>
+</html>

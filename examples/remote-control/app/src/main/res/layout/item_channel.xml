@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="52dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="6dp"
+    android:paddingEnd="10dp"
+    android:focusable="true"
+    android:duplicateParentState="true">
+
+    <!-- Stripe d'accent dorée (chaîne en cours de diffusion) -->
+    <View
+        android:layout_width="3dp"
+        android:layout_height="match_parent"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="6dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/channel_item_accent"
+        android:duplicateParentState="true" />
+
+    <!-- Numéro de chaîne : 56dp pour accueillir 4 chiffres genre "7767" sans wrap -->
+    <TextView
+        android:id="@+id/channel_num"
+        android:layout_width="56dp"
+        android:layout_height="wrap_content"
+        android:textColor="@color/channel_text_secondary"
+        android:textSize="12sp"
+        android:fontFamily="monospace"
+        android:gravity="end"
+        android:singleLine="true"
+        android:ellipsize="none"
+        android:paddingEnd="8dp"
+        android:duplicateParentState="true" />
+
+    <TextView
+        android:id="@+id/channel_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textColor="@color/channel_text_primary"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:shadowColor="#000000"
+        android:shadowRadius="3"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:duplicateParentState="true" />
+
+    <TextView
+        android:id="@+id/channel_now"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/channel_text_secondary"
+        android:textSize="11sp"
+        android:maxWidth="120dp"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:paddingStart="8dp"
+        android:duplicateParentState="true" />
+
+</LinearLayout>

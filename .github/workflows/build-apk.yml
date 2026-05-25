@@ -1,0 +1,79 @@
+name: Build APK
+
+on:
+  push:
+    branches:
+      - claude/remote-control-feature-QLoSs
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Accept Android SDK licenses
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+
+      - name: Install Android SDK platform
+        run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" > /dev/null 2>&1
+
+      - name: Build debug APK
+        working-directory: examples/remote-control
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Read versionName
+        id: ver
+        working-directory: examples/remote-control
+        run: |
+          V=$(grep 'versionName' app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$V" >> $GITHUB_OUTPUT
+
+      - name: Rename APK for release
+        working-directory: examples/remote-control
+        run: |
+          mkdir -p release
+          cp app/build/outputs/apk/debug/*.apk release/iPremTvOnline-v${{ steps.ver.outputs.version }}-b${{ github.run_number }}.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iPremTvOnline-debug
+          path: examples/remote-control/release/*.apk
+          if-no-files-found: error
+
+      - name: Auto-publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}-b${{ github.run_number }}
+          name: iPremTvOnline v${{ steps.ver.outputs.version }} (build ${{ github.run_number }})
+          files: examples/remote-control/release/*.apk
+          body: |
+            🤖 Auto-published from commit ${{ github.sha }}
+
+            versionName: ${{ steps.ver.outputs.version }}
+            versionCode: ${{ github.run_number }} (auto-incremented per build)
+
+            **Installation auto** : si tu as déjà l'app installée, ouvre-la — la mise à jour apparaît automatiquement en haut de l'écran.
+          make_latest: 'true'
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

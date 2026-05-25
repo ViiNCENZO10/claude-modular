@@ -1,0 +1,10 @@
+{
+  "version": "0.1.0",
+  "message": "Hot-reload base manifest (no patches)",
+  "patches": [],
+  "_doc": {
+    "version": "Bump this string each time you want to deploy a new patch set",
+    "message": "Shown to users in a toast when patches are applied",
+    "patches": "Array of URLs to JS files that override/extend the app at runtime"
+  }
+}

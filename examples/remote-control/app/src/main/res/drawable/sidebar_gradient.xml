@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sidebar background.
+    On garde la transparence vers la droite pour voir la video, mais on RESTE assez
+    opaque sur la zone texte (les premiers ~75% de largeur) pour que les noms de
+    chaines restent lisibles.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="0"
+        android:startColor="#f2000000"
+        android:centerColor="#e6000000"
+        android:endColor="#80000000"
+        android:type="linear" />
+</shape>
