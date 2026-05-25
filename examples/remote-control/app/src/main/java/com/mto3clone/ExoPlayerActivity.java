@@ -193,7 +193,12 @@ public class ExoPlayerActivity extends AppCompatActivity {
             public void onEvent(MediaPlayer.Event event) {
                 switch (event.type) {
                     case MediaPlayer.Event.EncounteredError:
+                        cancelStartWatchdog();
                         handlePlayerError();
+                        break;
+                    case MediaPlayer.Event.Playing:
+                        // Premiere image affichee -> annule le watchdog
+                        cancelStartWatchdog();
                         break;
                     case MediaPlayer.Event.EndReached:
                         if (!isLive) {
@@ -204,8 +209,13 @@ public class ExoPlayerActivity extends AppCompatActivity {
                         break;
                     case MediaPlayer.Event.Buffering:
                         // Buffering progress = float 0..100 dans event.getBuffering()
-                        // On compte les events buffering récents pour détecter un stream instable
                         if (isLive) onBufferingTick(event.getBuffering());
+                        // Si on est en plein buffering (pas a 100%), on prolonge le watchdog
+                        // car ca veut dire qu'on charge bien quelque chose
+                        if (event.getBuffering() < 100f && event.getBuffering() > 0f) {
+                            // Reschedule (la lecture finira par demarrer ou throw EncounteredError)
+                            rescheduleStartWatchdog();
+                        }
                         break;
                 }
             }
@@ -282,6 +292,10 @@ public class ExoPlayerActivity extends AppCompatActivity {
             media.release();
             player.play();
 
+            // === Watchdog : si rien ne se joue apres 12s, on quitte avec un toast clair ===
+            // Plus d'ecran noir muet : l'user voit le diagnostic et revient sur la liste.
+            scheduleStartWatchdog();
+
             // Demarre le tracking de position pour Continue Watching (VOD only)
             if (!isLive && contentId != null && !contentId.isEmpty()) {
                 startProgressTracking();
@@ -293,6 +307,52 @@ public class ExoPlayerActivity extends AppCompatActivity {
         } catch (Exception e) {
             Toast.makeText(this, "Erreur lecture: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    // ===== Watchdog demarrage : si la lecture ne demarre pas en 12s, toast + finish =====
+    // Plus d'ecran noir muet : l'user comprend pourquoi ca ne joue pas.
+    private Handler startWatchdogHandler = null;
+    private Runnable startWatchdogRunnable = null;
+    private long watchdogStartedAt = 0;
+    private static final long WATCHDOG_TIMEOUT_MS = 12_000;
+    private static final long WATCHDOG_BUFFERING_EXTENSION_MS = 8_000;
+
+    private void scheduleStartWatchdog() {
+        cancelStartWatchdog();
+        startWatchdogHandler = new Handler(Looper.getMainLooper());
+        watchdogStartedAt = System.currentTimeMillis();
+        startWatchdogRunnable = new Runnable() {
+            @Override public void run() {
+                if (isFinishing() || isDestroyed()) return;
+                if (player != null && player.isPlaying()) return; // arrive juste a temps
+                long elapsedSec = (System.currentTimeMillis() - watchdogStartedAt) / 1000;
+                Toast.makeText(ExoPlayerActivity.this,
+                    "Lecture impossible apres " + elapsedSec + "s. Stream indisponible. Reessayez ou changez de chaine.",
+                    Toast.LENGTH_LONG).show();
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override public void run() {
+                        if (!isFinishing() && !isDestroyed()) finish();
+                    }
+                }, 2200);
+            }
+        };
+        startWatchdogHandler.postDelayed(startWatchdogRunnable, WATCHDOG_TIMEOUT_MS);
+    }
+
+    private void rescheduleStartWatchdog() {
+        // Si on a recu des events Buffering, on prolonge un peu (le stream charge)
+        if (startWatchdogHandler != null && startWatchdogRunnable != null) {
+            startWatchdogHandler.removeCallbacks(startWatchdogRunnable);
+            startWatchdogHandler.postDelayed(startWatchdogRunnable, WATCHDOG_BUFFERING_EXTENSION_MS);
+        }
+    }
+
+    private void cancelStartWatchdog() {
+        if (startWatchdogHandler != null && startWatchdogRunnable != null) {
+            startWatchdogHandler.removeCallbacks(startWatchdogRunnable);
+        }
+        startWatchdogHandler = null;
+        startWatchdogRunnable = null;
     }
 
     // ===== Continue Watching : sauvegarde la position toutes les 10s =====
@@ -565,6 +625,7 @@ public class ExoPlayerActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         stopProgressTracking();
+        cancelStartWatchdog();
         // Sauve une derniere fois la position avant de quitter (Continue Watching)
         try {
             if (!isLive && contentId != null && player != null) {
