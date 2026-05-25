@@ -270,10 +270,15 @@ public class MainActivity extends AppCompatActivity {
             if (openEpg) {
                 webView.evaluateJavascript("typeof showScreen === 'function' && showScreen('epg')", null);
             } else if (groupId != null && !groupId.isEmpty()) {
-                String js = "window.iprem && window.iprem.switchGroup && window.iprem.switchGroup('" + groupId.replace("'", "\\'") + "')";
+                // jsArg() escape correctement les quotes pour eviter SyntaxError
+                String js = "window.iprem && window.iprem.switchGroup && window.iprem.switchGroup(" + jsArg(groupId) + ")";
                 webView.evaluateJavascript(js, null);
             } else if (streamId != null && !streamId.isEmpty()) {
-                String js = "window.iprem && window.iprem.switchChannel && window.iprem.switchChannel(" + idx + ", " + streamId + ")";
+                // BUG FIX : streamId etait concatene SANS quotes. Si streamId etait
+                // non-numerique (cas Stalker), le JS genere etait invalide :
+                //   switchChannel(5, abc-123)  => abc-123 interprete comme moins
+                // => SyntaxError [index.html:1:56] qu'on voyait depuis v3.4.0
+                String js = "window.iprem && window.iprem.switchChannel && window.iprem.switchChannel(" + idx + ", " + jsArg(streamId) + ")";
                 webView.evaluateJavascript(js, null);
             }
         }
@@ -507,8 +512,9 @@ public class MainActivity extends AppCompatActivity {
                         runOnUiThread(new Runnable() {
                             @Override public void run() {
                                 if (webView != null) {
+                                    // jsArg() escape proprement quotes + newlines + backslashes
                                     webView.evaluateJavascript(
-                                        "window.iprem && window.iprem.onDownloadError && window.iprem.onDownloadError('" + msg.replace("'", "\\'") + "')", null);
+                                        "window.iprem && window.iprem.onDownloadError && window.iprem.onDownloadError(" + jsArg(msg) + ")", null);
                                 }
                             }
                         });
@@ -524,7 +530,7 @@ public class MainActivity extends AppCompatActivity {
                 @Override public void run() {
                     if (webView != null) {
                         webView.evaluateJavascript(
-                            "window.iprem && window.iprem.onDownloadProgress && window.iprem.onDownloadProgress(" + now + "," + total + ",'" + phase + "')", null);
+                            "window.iprem && window.iprem.onDownloadProgress && window.iprem.onDownloadProgress(" + now + "," + total + "," + jsArg(phase) + ")", null);
                     }
                 }
             });
