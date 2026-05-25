@@ -102,6 +102,12 @@
     var tmp = new Image();
     tmp.onload = function() {
       img.src = posterUrl;
+      // Reveal img si elle avait ete masquee (bandeau detecte)
+      img.style.display = '';
+      // Cache le placeholder s'il existe
+      var poster = img.parentElement;
+      var ph = poster && poster.querySelector('.vod-poster-placeholder');
+      if (ph) ph.style.display = 'none';
       requestAnimationFrame(function() { img.style.opacity = '1'; });
     };
     tmp.onerror = function() { /* keep original */ };
@@ -123,6 +129,33 @@
     if (placeholder) poster.insertBefore(newImg, placeholder);
     else poster.appendChild(newImg);
     return newImg;
+  }
+
+  // Detection bandeau etiquette : ratio > 0.95 = probablement un bandeau de
+  // langue (genre 300x150 "MULTIVFF") au lieu d'une affiche 2:3 (ratio ~0.67).
+  // Si on detecte ca, on masque l'img originale et on attend que TMDB nous
+  // ramene la vraie affiche.
+  function isLikelyBanner(img) {
+    if (!img || !img.naturalWidth || !img.naturalHeight) return false;
+    var ratio = img.naturalWidth / img.naturalHeight;
+    return ratio < 0.5 || ratio > 1.0;
+  }
+
+  function hideIfBanner(img, card) {
+    if (!img || !card) return;
+    try {
+      if (isLikelyBanner(img)) {
+        img.style.display = 'none';
+        var poster = card.querySelector('.vod-poster');
+        if (poster && !poster.querySelector('.vod-poster-placeholder')) {
+          var ph = document.createElement('div');
+          ph.className = 'vod-poster-placeholder';
+          var titleEl = card.querySelector('.vod-card-title');
+          ph.textContent = titleEl ? (titleEl.textContent.charAt(0).toUpperCase() || '🎬') : '🎬';
+          poster.appendChild(ph);
+        }
+      }
+    } catch (e) {}
   }
 
   function processQueue() {
@@ -243,6 +276,12 @@
   function hookCard(card, isSeries) {
     var img = ensureImg(card);
     if (!img) return;
+    // Detection bandeau : on attend que l'image originale charge pour decider
+    if (img.complete && img.naturalWidth > 0) {
+      hideIfBanner(img, card);
+    } else {
+      img.addEventListener('load', function() { hideIfBanner(img, card); }, { once: true });
+    }
     var titleEl = card.querySelector('.vod-card-title');
     var yearEl = card.querySelector('.vod-card-year');
     if (!titleEl) return;

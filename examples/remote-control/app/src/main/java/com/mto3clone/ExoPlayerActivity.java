@@ -133,22 +133,27 @@ public class ExoPlayerActivity extends AppCompatActivity {
     }
 
     // === Adaptive buffering ===
-    // Demarrage rapide a 800ms (premiere image affichee plus vite),
-    // monte jusqu'a 4000ms si on detecte des micro-freeze.
-    private int liveCachingMs = 800;
+    // Demarrage 1200ms (compromis demarrage rapide / stabilite immediate),
+    // peut monter jusqu'a 6000ms si freezes detectes.
+    // VOD : 5000ms par defaut (HTTP range OK, on prefere bourrer le buffer
+    // pour exploiter la RAM dispo et avoir zero freeze).
+    private int liveCachingMs = 1200;
+    private static final int VOD_CACHING_MS = 5000;
+    private static final int MAX_LIVE_CACHING_MS = 6000;
     private int bufferingEventsRecent = 0;
     private long lastBufferingTs = 0;
 
     private void initPlayer() {
         ArrayList<String> options = new ArrayList<>();
 
-        // === Caching unifié (init + per-media doivent matcher) ===
-        // Live : 1500ms = bon compromis. La logique adaptative l'augmente si freezes.
-        // VOD : 3000ms (HTTP range request, plus de marge).
-        options.add("--network-caching=" + (isLive ? liveCachingMs : 3000));
-        options.add("--live-caching=" + (isLive ? liveCachingMs : 3000));
-        options.add("--file-caching=" + (isLive ? liveCachingMs : 3000));
-        options.add("--sout-mux-caching=" + (isLive ? liveCachingMs : 3000));
+        // === Caching gourmand (exploite la RAM, evite tout freeze) ===
+        // Live : 1200ms initial, montera selon freezes detectes (jusqu'a 6000ms)
+        // VOD : 5000ms (HTTP range, on bourre le buffer pour zero stutter)
+        int cacheMs = isLive ? liveCachingMs : VOD_CACHING_MS;
+        options.add("--network-caching=" + cacheMs);
+        options.add("--live-caching=" + cacheMs);
+        options.add("--file-caching=" + cacheMs);
+        options.add("--sout-mux-caching=" + cacheMs);
 
         // === Reconnexion auto sur coupure HTTP (micro-coupures = stream IPTV) ===
         options.add("--http-reconnect");
@@ -218,8 +223,8 @@ public class ExoPlayerActivity extends AppCompatActivity {
         lastBufferingTs = now;
 
         // 3 buffering events en moins de 10s = stream instable, on grossit le buffer
-        if (bufferingEventsRecent >= 3 && liveCachingMs < 4000) {
-            liveCachingMs = Math.min(4000, liveCachingMs + 1000);
+        if (bufferingEventsRecent >= 3 && liveCachingMs < MAX_LIVE_CACHING_MS) {
+            liveCachingMs = Math.min(MAX_LIVE_CACHING_MS, liveCachingMs + 1500);
             bufferingEventsRecent = 0;
             // Toast discret pour debug, puis relance avec nouveau cache
             Toast.makeText(this, "Buffer adaptatif → " + liveCachingMs + "ms", Toast.LENGTH_SHORT).show();

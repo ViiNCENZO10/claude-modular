@@ -97,12 +97,28 @@ public class MainActivity extends AppCompatActivity {
         // Allow mixed content (HTTP streams from HTTPS context)
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
-        // Cache and performance
+        // Cache and performance - mode RAM-agressif
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setDatabaseEnabled(true);
+        settings.setDomStorageEnabled(true);
+        // Images charges plus tot, ne block plus le rendering initial
+        try { settings.setLoadsImagesAutomatically(true); } catch (Exception ignored) {}
+        try { settings.setBlockNetworkImage(false); } catch (Exception ignored) {}
+        // Force le JS et le layout sur thread dedie quand possible
+        try { settings.setOffscreenPreRaster(true); } catch (Throwable ignored) {}
 
         // Hardware acceleration layer
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
+        // === RAM agressive : log le heap dispo + demande le max ===
+        try {
+            Runtime rt = Runtime.getRuntime();
+            long maxMb = rt.maxMemory() / (1024L * 1024L);
+            android.util.Log.i("iPremTvOnline", "Java heap max = " + maxMb + " MB (largeHeap)");
+            // Hint au GC : on prefere garder en RAM plutot que d'agresser le CPU avec des collections
+            // Note : -XX:NewRatio etc. ne sont pas configurables a runtime sur Android,
+            // mais en gardant le heap pres du max on minimise le GC pressure
+        } catch (Throwable ignored) {}
 
         // Keep default WebView User-Agent (Xtream/M3U portals expect a browser-like UA).
         // For Stalker portals specifically, the JS layer uses AndroidBridge.stalkerFetch()
