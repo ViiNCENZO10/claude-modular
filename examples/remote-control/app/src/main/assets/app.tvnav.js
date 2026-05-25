@@ -315,20 +315,28 @@
                 if (card.dataset.bound === '1') return;
                 card.dataset.bound = '1';
                 var target = card.getAttribute('data-screen');
-                card.addEventListener('click', function() {
+                var ensureApiThen = function() {
+                  // Si pas d'API mais on a un portail sauvegarde, on le re-loade automatiquement
                   if (!window.AppState || !window.AppState.api) {
-                    showToast && showToast('Connectez-vous à un portail d\'abord');
+                    if (window.AppState && window.AppState.portals && window.AppState.portals.length > 0
+                        && typeof window.connectPortal === 'function') {
+                      try {
+                        window.connectPortal(window.AppState.portals[0]);
+                        // Naviguer immediatement, l'init de l'API se fait en bg
+                        if (typeof window.showScreen === 'function' && target) window.showScreen(target);
+                        return;
+                      } catch (e) {}
+                    }
+                    // Vraiment aucun portail : route vers Connexions au lieu de toaster
+                    if (typeof window.showScreen === 'function') window.showScreen('connections');
                     return;
                   }
                   if (typeof window.showScreen === 'function' && target) window.showScreen(target);
-                });
+                };
+                card.addEventListener('click', ensureApiThen);
                 card.addEventListener('keydown', function(e) {
                   if (e.key === 'Enter' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
-                    if (!window.AppState || !window.AppState.api) {
-                      showToast && showToast('Connectez-vous à un portail d\'abord');
-                      return;
-                    }
-                    if (typeof window.showScreen === 'function' && target) window.showScreen(target);
+                    ensureApiThen();
                   }
                 });
               });

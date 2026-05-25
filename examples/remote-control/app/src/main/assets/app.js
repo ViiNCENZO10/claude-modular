@@ -786,8 +786,9 @@ async function loadVisibleEPG() {
         var now = epgData.epg_listings[0];
         var el = document.getElementById('epg_' + stream.stream_id);
         if (el) {
-          var title = now.title ? atob(now.title) : (now.title_decoded || '');
-          el.textContent = title;
+          // Decoder robuste : skip si garbage (provider qui encode mal)
+          var title = _decodeEpgTitle(now);
+          if (title) el.textContent = title;
         }
       }
     } catch (e) {
@@ -830,14 +831,48 @@ function _setText(id, text) {
   if (el) el.textContent = text || '';
 }
 
+// Check : un texte decode contient-il trop de chars binaires/garbage ?
+function _looksLikeText(s) {
+  if (!s || s.length < 2) return false;
+  if (window.iprem && typeof window.iprem.looksLikeGarbage === 'function') {
+    return !window.iprem.looksLikeGarbage(s);
+  }
+  // Fallback : compte les chars hors ASCII printable + accents communs
+  var bad = 0;
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    if (c < 32 && c !== 9 && c !== 10 && c !== 13) bad++;
+    else if (c > 126 && c < 160) bad++;
+    else if (c === 0xFFFD) bad++;
+  }
+  return (bad / s.length) < 0.25;
+}
+
 function _decodeEpgTitle(item) {
-  try { return item.title ? atob(item.title) : (item.title_decoded || ''); }
-  catch (e) { return item.title_decoded || item.title || ''; }
+  if (!item) return '';
+  // Tente atob d'abord MAIS verifie que le resultat n'est pas du garbage
+  if (item.title) {
+    try {
+      var decoded = atob(item.title);
+      if (_looksLikeText(decoded)) return decoded;
+    } catch (e) {}
+  }
+  // Fallback : title_decoded fourni par certains providers
+  if (item.title_decoded && _looksLikeText(item.title_decoded)) return item.title_decoded;
+  // En dernier : titre brut
+  return (item.title && _looksLikeText(item.title)) ? item.title : '';
 }
 
 function _decodeEpgDesc(item) {
-  try { return item.description ? atob(item.description) : (item.description_decoded || ''); }
-  catch (e) { return item.description_decoded || item.description || ''; }
+  if (!item) return '';
+  if (item.description) {
+    try {
+      var decoded = atob(item.description);
+      if (_looksLikeText(decoded)) return decoded;
+    } catch (e) {}
+  }
+  if (item.description_decoded && _looksLikeText(item.description_decoded)) return item.description_decoded;
+  return (item.description && _looksLikeText(item.description)) ? item.description : '';
 }
 
 async function loadMiniEPG(streamId) {
