@@ -55,8 +55,8 @@ android {
     }
 
     composeOptions {
-        // Compose Compiler compatible avec Kotlin 1.9.22
-        kotlinCompilerExtensionVersion = "1.5.10"
+        // Compose Compiler 1.5.7 = compat eprouvee avec Kotlin 1.9.22 + BOM 2023.10.01
+        kotlinCompilerExtensionVersion = "1.5.7"
     }
 
     packaging {
@@ -71,24 +71,17 @@ dependencies {
     implementation("androidx.webkit:webkit:1.10.0")
 
     // === Jetpack Compose (Phase 1 native UI) ===
-    val composeBom = platform("androidx.compose:compose-bom:2024.02.02")
+    // BOM stable connue + versions explicites pour eviter les conflits Kotlin/IR
+    val composeBom = platform("androidx.compose:compose-bom:2023.10.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.activity:activity-compose:1.8.2")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    implementation("androidx.navigation:navigation-compose:2.7.7")
-    // TV Compose : focus management + composants optimises TV
-    implementation("androidx.tv:tv-foundation:1.0.0-alpha10")
-    implementation("androidx.tv:tv-material:1.0.0-alpha10")
+    implementation("androidx.activity:activity-compose:1.8.0")
     // Coroutines pour async
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    // Coil pour images (equivalent Glide, plus leger + Compose-friendly)
-    implementation("io.coil-kt:coil-compose:2.5.0")
 
     // Media3 ExoPlayer - kept for HLS adaptive + fallback option
     val media3Version = "1.3.1"
