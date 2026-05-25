@@ -249,7 +249,27 @@ public class ExoPlayerActivity extends AppCompatActivity {
     }
 
     private void loadAndPlay(String mediaUrl) {
-        if (player == null || libVLC == null) return;
+        if (player == null || libVLC == null) {
+            Toast.makeText(this, "Player non initialise. Reessayez.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        // GUARD URL : si URL absente / non-http -> message clair plutot que Uri.parse echec
+        if (mediaUrl == null || mediaUrl.isEmpty()) {
+            Toast.makeText(this, "Aucune URL de lecture (chaine non resolue par le portail)", Toast.LENGTH_LONG).show();
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override public void run() { if (!isFinishing() && !isDestroyed()) finish(); }
+            }, 1800);
+            return;
+        }
+        if (!mediaUrl.startsWith("http://") && !mediaUrl.startsWith("https://") &&
+            !mediaUrl.startsWith("rtmp://") && !mediaUrl.startsWith("rtsp://") &&
+            !mediaUrl.startsWith("udp://") && !mediaUrl.startsWith("/")) {
+            Toast.makeText(this, "URL invalide : " + mediaUrl.substring(0, Math.min(40, mediaUrl.length())), Toast.LENGTH_LONG).show();
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override public void run() { if (!isFinishing() && !isDestroyed()) finish(); }
+            }, 2000);
+            return;
+        }
         try {
             Media media = new Media(libVLC, Uri.parse(mediaUrl));
             // HW decoder ON, second param=force.
@@ -304,8 +324,20 @@ public class ExoPlayerActivity extends AppCompatActivity {
             new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                 @Override public void run() { applyBestRefreshRate(); }
             }, 1500);
-        } catch (Exception e) {
-            Toast.makeText(this, "Erreur lecture: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        } catch (Throwable e) {
+            // Message clair plutot que stack trace cryptique
+            String msg = e.getMessage();
+            if (msg == null || msg.isEmpty()) msg = e.getClass().getSimpleName();
+            Toast.makeText(this, "Erreur init libVLC : " + msg, Toast.LENGTH_LONG).show();
+            // Log diagnostic complet pour le dashboard VPS
+            try {
+                android.util.Log.e("iPremTvOnline",
+                    "loadAndPlay throw : url=" + (mediaUrl != null ? mediaUrl.substring(0, Math.min(80, mediaUrl.length())) : "null")
+                    + " msg=" + msg, e);
+            } catch (Throwable ignored) {}
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override public void run() { if (!isFinishing() && !isDestroyed()) finish(); }
+            }, 2000);
         }
     }
 
