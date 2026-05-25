@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.android") version "1.9.22"
 }
 
 android {
@@ -12,7 +13,7 @@ android {
         targetSdk = 34
         // versionCode auto-derived from CI run number (so each push installs over previous)
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "5").toInt()
-        versionName = "3.9.5"
+        versionName = "4.0.0"
     }
 
     signingConfigs {
@@ -43,8 +44,19 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
     buildFeatures {
         viewBinding = false
+        // Phase 1 : Jetpack Compose pour la nouvelle UI native (en parallele du WebView)
+        compose = true
+    }
+
+    composeOptions {
+        // Compose Compiler compatible avec Kotlin 1.9.22
+        kotlinCompilerExtensionVersion = "1.5.10"
     }
 
     packaging {
@@ -57,6 +69,26 @@ android {
 dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.webkit:webkit:1.10.0")
+
+    // === Jetpack Compose (Phase 1 native UI) ===
+    val composeBom = platform("androidx.compose:compose-bom:2024.02.02")
+    implementation(composeBom)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.activity:activity-compose:1.8.2")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+    // TV Compose : focus management + composants optimises TV
+    implementation("androidx.tv:tv-foundation:1.0.0-alpha10")
+    implementation("androidx.tv:tv-material:1.0.0-alpha10")
+    // Coroutines pour async
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    // Coil pour images (equivalent Glide, plus leger + Compose-friendly)
+    implementation("io.coil-kt:coil-compose:2.5.0")
 
     // Media3 ExoPlayer - kept for HLS adaptive + fallback option
     val media3Version = "1.3.1"

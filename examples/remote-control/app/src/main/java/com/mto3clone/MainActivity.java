@@ -361,6 +361,18 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public boolean supportsPip() { return hasPipSupport(); }
 
+        // Phase 1 native UI : permet au JS Settings de lancer la nouvelle Activity Compose
+        @JavascriptInterface
+        public void openNativeUi() {
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    Intent i = new Intent(MainActivity.this, ComposeMainActivity.class);
+                    startActivity(i);
+                    finish();
+                }
+            });
+        }
+
         @JavascriptInterface
         public void playNative(String url, String title, boolean isLive) {
             playNativeWithAuth(url, title, isLive, null, null);
