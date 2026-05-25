@@ -270,10 +270,16 @@ updateClocks();
 // Navigation / Router
 // ============================================
 function showScreen(screenId) {
-  if (screenId === AppState.activeScreen) return;
+  // SAFETY : si l'user re-clique le meme screen ET qu'il n'est pas vraiment actif
+  // dans le DOM (bug d'etat), on FORCE le rebuild. Plus de "rien ne se passe au clic".
+  var alreadyTarget = (screenId === AppState.activeScreen);
+  var domTarget = document.getElementById(screenId);
+  var domIsActive = domTarget && domTarget.classList.contains('active');
+  if (alreadyTarget && domIsActive) return; // vraiment deja la, on quitte
+  // Sinon : on traverse meme si activeScreen === screenId
 
   // Push current to history
-  if (AppState.activeScreen && AppState.activeScreen !== 'login') {
+  if (AppState.activeScreen && AppState.activeScreen !== 'login' && AppState.activeScreen !== screenId) {
     AppState.screenHistory.push(AppState.activeScreen);
   }
 
@@ -285,12 +291,15 @@ function showScreen(screenId) {
     }
   });
 
-  var target = document.getElementById(screenId);
+  var target = domTarget;
   if (target) {
     if (screenId === 'player') {
       target.style.display = 'flex';
     }
     target.classList.add('active');
+  } else {
+    console.warn('showScreen: target not found:', screenId);
+    if (typeof showToast === 'function') showToast('Écran ' + screenId + ' introuvable dans le DOM');
   }
 
   AppState.activeScreen = screenId;

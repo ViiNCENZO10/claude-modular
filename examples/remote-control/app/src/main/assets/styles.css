@@ -85,7 +85,9 @@ html, body {
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: var(--bg-dark);
+  /* Gradient visible (au lieu de noir uniforme) : si JS plante, l'user voit
+     quand meme quelque chose, pas un ecran totalement noir muet */
+  background: linear-gradient(135deg, #0a1530 0%, #0f172a 100%);
   overflow: hidden;
 }
 
