@@ -2,6 +2,7 @@ package com.mto3clone;
 
 import android.annotation.SuppressLint;
 import android.app.PictureInPictureParams;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
@@ -109,6 +110,10 @@ public class MainActivity extends AppCompatActivity {
 
         // JS bridge for Picture-in-Picture trigger from web layer
         webView.addJavascriptInterface(new AndroidBridge(), "AndroidBridge");
+
+        // BroadcastReceiver pour Continue Watching : ExoPlayerActivity envoie la
+        // position toutes les 10s, on relaie au JS via window.iprem.progress.save()
+        registerProgressReceiver();
 
         // Keep navigation inside WebView
         webView.setWebViewClient(new WebViewClient() {
@@ -229,10 +234,53 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (progressReceiver != null) {
+            try { unregisterReceiver(progressReceiver); } catch (Exception ignored) {}
+            progressReceiver = null;
+        }
         if (webView != null) {
             webView.destroy();
         }
         super.onDestroy();
+    }
+
+    // ===== Continue Watching : reception broadcast SAVE_PROGRESS =====
+    private android.content.BroadcastReceiver progressReceiver = null;
+    private void registerProgressReceiver() {
+        progressReceiver = new android.content.BroadcastReceiver() {
+            @Override
+            public void onReceive(android.content.Context ctx, Intent intent) {
+                try {
+                    String cid = intent.getStringExtra("contentId");
+                    String ctype = intent.getStringExtra("contentType");
+                    long pos = intent.getLongExtra("position", 0);
+                    long dur = intent.getLongExtra("duration", 0);
+                    String name = intent.getStringExtra("name");
+                    if (cid == null || cid.isEmpty()) return;
+                    final String js = "window.iprem && window.iprem.progress && window.iprem.progress.save("
+                            + jsArg(cid) + ", "
+                            + jsArg(ctype != null ? ctype : "vod") + ", "
+                            + pos + ", " + dur + ", "
+                            + jsArg(name != null ? name : "") + ")";
+                    runOnUiThread(new Runnable() {
+                        @Override public void run() {
+                            if (webView != null) webView.evaluateJavascript(js, null);
+                        }
+                    });
+                } catch (Exception ignored) {}
+            }
+        };
+        android.content.IntentFilter filter = new android.content.IntentFilter("com.mto3clone.SAVE_PROGRESS");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(progressReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(progressReceiver, filter);
+        }
+    }
+
+    private static String jsArg(String s) {
+        if (s == null) return "''";
+        return "'" + s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ").replace("\r", " ") + "'";
     }
 
     // ===== Picture-in-Picture =====
@@ -306,6 +354,15 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void playNativeUltimate(String url, String title, boolean isLive, String cookies, String userAgent, String channelsJson, int currentIdx, String groupsJson, String altExtsCsv) {
+            playNativeWithResume(url, title, isLive, cookies, userAgent, channelsJson, currentIdx, groupsJson, altExtsCsv, null, null, 0L);
+        }
+
+        // NOUVEAU : variant avec resume position pour Continue Watching
+        @JavascriptInterface
+        public void playNativeWithResume(String url, String title, boolean isLive, String cookies,
+                                          String userAgent, String channelsJson, int currentIdx,
+                                          String groupsJson, String altExtsCsv,
+                                          String contentId, String contentType, long resumePositionSec) {
             if (url == null || url.isEmpty()) return;
             Intent i = new Intent(MainActivity.this, ExoPlayerActivity.class);
             i.putExtra("url", url);
@@ -317,6 +374,9 @@ public class MainActivity extends AppCompatActivity {
             if (groupsJson != null && !groupsJson.isEmpty()) i.putExtra("groups", groupsJson);
             if (currentIdx >= 0) i.putExtra("currentChannelIdx", currentIdx);
             if (altExtsCsv != null && !altExtsCsv.isEmpty()) i.putExtra("altExts", altExtsCsv);
+            if (contentId != null && !contentId.isEmpty()) i.putExtra("contentId", contentId);
+            if (contentType != null && !contentType.isEmpty()) i.putExtra("contentType", contentType);
+            if (resumePositionSec > 0) i.putExtra("resumePosition", resumePositionSec);
             startActivityForResult(i, 1001);
         }
 

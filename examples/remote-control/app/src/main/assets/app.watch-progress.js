@@ -154,13 +154,60 @@
         '<div class="cw-card-name">' + escapeText(entry.name || 'Untitled') + '</div>' +
         '<div class="cw-progress"><div class="cw-progress-fill" style="width:' + Math.min(100, pct).toFixed(0) + '%"></div></div>' +
         '<div class="cw-card-time">' + formatTime(entry.position) + ' / ' + formatTime(entry.duration) + '</div>';
-      card.addEventListener('click', function() {
-        // Resume playback if api + getVodInfo available
-        showToast && showToast('Reprise : ' + entry.name);
-        // (Actual resume requires VOD lookup - simplified for now)
+      card.addEventListener('click', function() { resumePlayback(entry); });
+      card.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') resumePlayback(entry);
       });
       row.appendChild(card);
     });
+  }
+
+  // Reprend un film/serie a sa derniere position connue via le bridge natif
+  async function resumePlayback(entry) {
+    if (!entry || !entry.id) return;
+    showToast && showToast('Reprise : ' + (entry.name || ''));
+    var rawId = String(entry.id).replace(/^(vod|series|live)_/, '');
+    var type = entry.type || 'vod';
+    try {
+      if (!window.AppState || !AppState.api) {
+        showToast && showToast('Connexion requise');
+        return;
+      }
+      var url = '';
+      if (type === 'vod' && typeof AppState.api.vodUrl === 'function') {
+        // Recupere container_extension si possible (cache)
+        var ext = 'mp4';
+        try {
+          var info = await AppState.api.getVodInfo(rawId);
+          if (info && info.movie_data && info.movie_data.container_extension) {
+            ext = info.movie_data.container_extension;
+          }
+        } catch (e) {}
+        url = AppState.api.vodUrl(rawId, ext);
+      } else if (type === 'series') {
+        // Pour series, l'entry.id devrait etre serie_episodeId mais le resume
+        // exact d'un episode demande plus de wiring - reprendre la fiche serie pour l'instant
+        showToast && showToast('Ouverture de la série...');
+        return;
+      } else {
+        return;
+      }
+      if (!url) return;
+      if (window.AndroidBridge && typeof window.AndroidBridge.playNativeWithResume === 'function') {
+        window.AndroidBridge.playNativeWithResume(
+          url, entry.name || '', false,
+          '', '',           // cookies, userAgent
+          '', -1, '', '',   // channelsJson, currentIdx, groupsJson, altExts
+          'vod_' + rawId, 'vod',
+          Math.floor(entry.position || 0)
+        );
+      } else if (typeof window.startPlayer === 'function') {
+        // Fallback : pas de resume position
+        window.startPlayer(url, entry.name, '', 'vod', { stream_id: rawId });
+      }
+    } catch (e) {
+      showToast && showToast('Erreur reprise: ' + e.message);
+    }
   }
 
   function formatTime(secs) {

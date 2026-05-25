@@ -1,6 +1,7 @@
 package com.mto3clone;
 
 import android.annotation.SuppressLint;
+import android.app.PictureInPictureParams;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -75,6 +76,13 @@ public class ExoPlayerActivity extends AppCompatActivity {
     private int altExtIdx = 0;
     private long mLastBackPressTime = 0;
 
+    // Continue Watching : streamId + position de resume passes en intent extras
+    private String contentId = null;     // ex: "vod_1234" ou "live_5678"
+    private String contentType = null;   // "vod" | "series" | "live"
+    private long resumePositionSec = 0;  // > 0 = reprendre a cette position
+    private android.os.Handler progressHandler = null;
+    private Runnable progressSaver = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -98,6 +106,10 @@ public class ExoPlayerActivity extends AppCompatActivity {
             altExtensions = altExtsCsv.split(",");
             altExtIdx = 0;
         }
+        // Continue Watching : recoit l'identifiant + position de resume si presents
+        contentId = getIntent().getStringExtra("contentId");
+        contentType = getIntent().getStringExtra("contentType");
+        resumePositionSec = getIntent().getLongExtra("resumePosition", 0L);
 
         // Sidebars + bottom menu
         channelSidebar = findViewById(R.id.channel_sidebar);
@@ -241,13 +253,134 @@ public class ExoPlayerActivity extends AppCompatActivity {
             media.addOption(":clock-jitter=0");
             // Multi-thread decode
             media.addOption(":avcodec-threads=0");
+            // CONTINUE WATCHING : si l'user reprend un film, on saute direct a la position
+            if (!isLive && resumePositionSec > 5) {
+                media.addOption(":start-time=" + resumePositionSec);
+                final long pos = resumePositionSec;
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override public void run() {
+                        Toast.makeText(ExoPlayerActivity.this,
+                            "Reprise a " + (pos / 60) + ":" + String.format("%02d", pos % 60),
+                            Toast.LENGTH_SHORT).show();
+                    }
+                }, 800);
+                resumePositionSec = 0; // ne s'applique qu'une fois
+            }
 
             player.setMedia(media);
             media.release();
             player.play();
+
+            // Demarre le tracking de position pour Continue Watching (VOD only)
+            if (!isLive && contentId != null && !contentId.isEmpty()) {
+                startProgressTracking();
+            }
+            // Applique le refresh-rate matching apres ~1.5s (le temps que libVLC connaisse le fps)
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override public void run() { applyBestRefreshRate(); }
+            }, 1500);
         } catch (Exception e) {
             Toast.makeText(this, "Erreur lecture: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    // ===== Continue Watching : sauvegarde la position toutes les 10s =====
+    private void startProgressTracking() {
+        stopProgressTracking();
+        progressHandler = new Handler(Looper.getMainLooper());
+        progressSaver = new Runnable() {
+            @Override public void run() {
+                try {
+                    if (player != null && player.isPlaying() && contentId != null) {
+                        long posMs = player.getTime();
+                        long durMs = player.getLength();
+                        if (posMs > 5000 && durMs > 0) {
+                            long posSec = posMs / 1000;
+                            long durSec = durMs / 1000;
+                            // Envoie au WebView via MainActivity (qui fera evaluateJavascript)
+                            Intent broadcast = new Intent("com.mto3clone.SAVE_PROGRESS");
+                            broadcast.putExtra("contentId", contentId);
+                            broadcast.putExtra("contentType", contentType != null ? contentType : "vod");
+                            broadcast.putExtra("position", posSec);
+                            broadcast.putExtra("duration", durSec);
+                            broadcast.putExtra("name", title != null ? title : "");
+                            sendBroadcast(broadcast);
+                        }
+                    }
+                } catch (Exception ignored) {}
+                progressHandler.postDelayed(this, 10_000);
+            }
+        };
+        progressHandler.postDelayed(progressSaver, 10_000);
+    }
+
+    private void stopProgressTracking() {
+        if (progressHandler != null && progressSaver != null) {
+            progressHandler.removeCallbacks(progressSaver);
+        }
+    }
+
+    // ===== Refresh-rate matching =====
+    // Detecte le fps du stream et bascule la TV en mode display matching
+    // (ex: 50Hz pour foot europeen, 60Hz pour US, 23.976 Hz pour cinema)
+    private void applyBestRefreshRate() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return; // API 23+
+        if (player == null) return;
+        try {
+            float fps = player.getRate() > 0 ? 0 : 0; // not directly available
+            // Inspecte les media tracks pour trouver le video track + fps
+            org.videolan.libvlc.Media.VideoTrack[] vtracks = null;
+            try {
+                org.videolan.libvlc.MediaPlayer.TrackDescription[] tracks = player.getVideoTracks();
+                // libVLC 3.x : on doit passer par Media.getTracks() pour fps
+                Media m = player.getMedia();
+                if (m != null) {
+                    int n = m.getTrackCount();
+                    for (int i = 0; i < n; i++) {
+                        Media.Track t = m.getTrack(i);
+                        if (t != null && t.type == Media.Track.Type.Video) {
+                            Media.VideoTrack vt = (Media.VideoTrack) t;
+                            if (vt.frameRateNum > 0 && vt.frameRateDen > 0) {
+                                fps = (float) vt.frameRateNum / (float) vt.frameRateDen;
+                                break;
+                            }
+                        }
+                    }
+                    m.release();
+                }
+            } catch (Exception ignored) {}
+            if (fps <= 0f || fps > 200f) return;
+
+            // Cherche le mode display qui match le mieux
+            android.view.Display display = getWindow().getDecorView().getDisplay();
+            if (display == null) return;
+            android.view.Display.Mode currentMode = display.getMode();
+            android.view.Display.Mode[] modes = display.getSupportedModes();
+            if (modes == null || modes.length <= 1) return;
+
+            android.view.Display.Mode best = currentMode;
+            float bestDiff = Math.abs(currentMode.getRefreshRate() - fps);
+            for (android.view.Display.Mode m : modes) {
+                // Meme resolution que mode actuel (ne change que le refresh)
+                if (m.getPhysicalWidth() == currentMode.getPhysicalWidth() &&
+                    m.getPhysicalHeight() == currentMode.getPhysicalHeight()) {
+                    float diff = Math.abs(m.getRefreshRate() - fps);
+                    // Cherche aussi les multiples (50 Hz video sur 100 Hz display = OK)
+                    float halfDiff = Math.abs(m.getRefreshRate() - fps * 2);
+                    if (halfDiff < diff) diff = halfDiff;
+                    if (diff < bestDiff) {
+                        bestDiff = diff;
+                        best = m;
+                    }
+                }
+            }
+            if (best.getModeId() != currentMode.getModeId() && bestDiff < 1.0f) {
+                WindowManager.LayoutParams lp = getWindow().getAttributes();
+                lp.preferredDisplayModeId = best.getModeId();
+                getWindow().setAttributes(lp);
+                Toast.makeText(this, "Display " + Math.round(best.getRefreshRate()) + "Hz (video " + Math.round(fps) + "fps)", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception ignored) {}
     }
 
     private void handlePlayerError() {
@@ -292,8 +425,56 @@ public class ExoPlayerActivity extends AppCompatActivity {
         if (player != null && !isInPipMode()) player.pause();
     }
 
+    @Override
+    protected void onDestroy() {
+        stopProgressTracking();
+        // Sauve une derniere fois la position avant de quitter
+        try {
+            if (!isLive && contentId != null && player != null) {
+                long posSec = player.getTime() / 1000;
+                long durSec = player.getLength() / 1000;
+                if (posSec > 5 && durSec > 0) {
+                    Intent broadcast = new Intent("com.mto3clone.SAVE_PROGRESS");
+                    broadcast.putExtra("contentId", contentId);
+                    broadcast.putExtra("contentType", contentType != null ? contentType : "vod");
+                    broadcast.putExtra("position", posSec);
+                    broadcast.putExtra("duration", durSec);
+                    broadcast.putExtra("name", title != null ? title : "");
+                    sendBroadcast(broadcast);
+                }
+            }
+        } catch (Exception ignored) {}
+        super.onDestroy();
+    }
+
     private boolean isInPipMode() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode();
+    }
+
+    // ===== Picture-in-Picture =====
+    // L'utilisateur appuie HOME (ou navigue out) -> entre auto en PiP
+    @Override
+    public void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && player != null && player.isPlaying()) {
+            try {
+                Rational aspect = new Rational(16, 9);
+                PictureInPictureParams params = new PictureInPictureParams.Builder()
+                        .setAspectRatio(aspect)
+                        .build();
+                enterPictureInPictureMode(params);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPipMode, Configuration newConfig) {
+        super.onPictureInPictureModeChanged(isInPipMode, newConfig);
+        // En PiP : masque les overlays (sidebar, bottom menu, info)
+        // Hors PiP : remet l'UI normale
+        if (channelSidebar != null) channelSidebar.setVisibility(isInPipMode ? View.GONE : (sidebarOpen ? View.VISIBLE : View.GONE));
+        if (groupSidebar != null) groupSidebar.setVisibility(isInPipMode ? View.GONE : (groupSidebarOpen ? View.VISIBLE : View.GONE));
+        if (bottomMenu != null) bottomMenu.setVisibility(isInPipMode ? View.GONE : (bottomMenuOpen ? View.VISIBLE : View.GONE));
     }
 
     @Override
