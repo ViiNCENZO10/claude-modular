@@ -15,7 +15,7 @@ android {
         targetSdk = 34
         // versionCode auto-derived from CI run number (so each push installs over previous)
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "5").toInt()
-        versionName = "4.0.4"
+        versionName = "4.0.5"
     }
 
     signingConfigs {
@@ -51,13 +51,9 @@ android {
     }
 
     buildFeatures {
-        viewBinding = false
-        compose = true
-    }
-
-    composeOptions {
-        // Combo officiel : Compose Compiler 1.5.4 = Kotlin 1.9.20 = BOM 2023.10.01
-        kotlinCompilerExtensionVersion = "1.5.4"
+        viewBinding = true
+        // Compose abandonne (4 tentatives en CI ont echoue : couldn't find inline Row$default)
+        // On utilise XML layout classique a la place - aussi natif, plus stable.
     }
 
     packaging {
@@ -71,15 +67,11 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.webkit:webkit:1.10.0")
 
-    // === Compose (combo officiel Q4 2023) ===
-    // Versions ALIGNEES explicitement (pas via BOM seul) pour eviter mismatch classpath
-    val composeVer = "1.5.4"
-    implementation("androidx.compose.ui:ui:$composeVer")
-    implementation("androidx.compose.ui:ui-graphics:$composeVer")
-    implementation("androidx.compose.foundation:foundation:$composeVer")
-    implementation("androidx.compose.material3:material3:1.1.2")
-    implementation("androidx.compose.material:material-icons-extended:$composeVer")
-    implementation("androidx.activity:activity-compose:1.8.0")
+    // === Native Android UI (Kotlin + XML, voie historique stable) ===
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("com.google.android.material:material:1.11.0")
 
 
     // Media3 ExoPlayer - kept for HLS adaptive + fallback option

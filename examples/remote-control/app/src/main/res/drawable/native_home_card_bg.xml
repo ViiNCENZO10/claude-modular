@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Card background avec focus state premium (bordure cyan + scale via state).
+    Le clip et le ripple sont gérés par Android, on définit la couleur de fond et la bordure focus.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Focus / pressed = bordure cyan + fond légèrement plus clair -->
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#1e3a8a" />
+            <stroke android:width="2dp" android:color="#06b6d4" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#1e3a8a" />
+            <stroke android:width="2dp" android:color="#06b6d4" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+    <!-- État normal : fond sombre, pas de bordure -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#1e293b" />
+            <stroke android:width="2dp" android:color="#334155" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+</selector>

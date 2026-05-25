@@ -320,6 +320,33 @@ function buildNativePlayerToggle() {
     '</div>';
   layout.appendChild(section);
 
+  // PHASE 1 NATIVE UI (Beta) : bouton qui lance NativeHomeActivity (Kotlin + XML)
+  if (window.AndroidBridge && typeof window.AndroidBridge.openNativeUi === 'function') {
+    var nativeSection = document.createElement('div');
+    nativeSection.className = 'settings-section';
+    nativeSection.innerHTML =
+      '<h3>Interface (expérimental)</h3>' +
+      '<div class="setting-row focusable" tabindex="0" id="settingOpenNativeUi" style="cursor:pointer">' +
+        '<span class="setting-label">Essayer l\'UI Native (Phase 1 Beta)</span>' +
+        '<span style="color:#06b6d4;font-size:13px">Tester →</span>' +
+      '</div>' +
+      '<div class="setting-row">' +
+        '<span class="setting-help" style="font-size:12px;color:#888">Nouvelle UI 100% native Kotlin + XML (sans WebView). Phase 1 = écran Home uniquement. Les autres écrans retombent sur cette version WebView.</span>' +
+      '</div>';
+    layout.appendChild(nativeSection);
+    var openNativeBtn = document.getElementById('settingOpenNativeUi');
+    if (openNativeBtn) {
+      var trigger = function() {
+        try { window.AndroidBridge.openNativeUi(); }
+        catch (e) { showToast('Impossible : ' + e.message); }
+      };
+      openNativeBtn.addEventListener('click', trigger);
+      openNativeBtn.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.keyCode === 13) trigger();
+      });
+    }
+  }
+
 
   var cb = document.getElementById('settingNativePlayer');
   cb.checked = isNativePlayerEnabled();

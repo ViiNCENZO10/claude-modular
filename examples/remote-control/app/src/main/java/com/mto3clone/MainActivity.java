@@ -365,7 +365,7 @@ public class MainActivity extends AppCompatActivity {
         public void openNativeUi() {
             runOnUiThread(new Runnable() {
                 @Override public void run() {
-                    startActivity(new Intent(MainActivity.this, ComposeMainActivity.class));
+                    startActivity(new Intent(MainActivity.this, NativeHomeActivity.class));
                     finish();
                 }
             });
