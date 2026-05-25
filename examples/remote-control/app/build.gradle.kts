@@ -1,7 +1,5 @@
 plugins {
     id("com.android.application")
-    // Combo officiel teste : Kotlin 1.9.21 + Compose Compiler 1.5.7 + BOM 2023.10.01
-    id("org.jetbrains.kotlin.android") version "1.9.21"
 }
 
 android {
@@ -14,7 +12,7 @@ android {
         targetSdk = 34
         // versionCode auto-derived from CI run number (so each push installs over previous)
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "5").toInt()
-        versionName = "4.0.0"
+        versionName = "4.0.1"
     }
 
     signingConfigs {
@@ -45,19 +43,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         viewBinding = false
-        // Phase 1 : Jetpack Compose pour la nouvelle UI native (en parallele du WebView)
-        compose = true
-    }
-
-    composeOptions {
-        // Compose Compiler 1.5.7 = compat eprouvee avec Kotlin 1.9.22 + BOM 2023.10.01
-        kotlinCompilerExtensionVersion = "1.5.7"
     }
 
     packaging {
@@ -71,18 +58,6 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.webkit:webkit:1.10.0")
 
-    // === Jetpack Compose (Phase 1 native UI) ===
-    // BOM stable connue + versions explicites pour eviter les conflits Kotlin/IR
-    val composeBom = platform("androidx.compose:compose-bom:2023.10.01")
-    implementation(composeBom)
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.activity:activity-compose:1.8.0")
-    // Coroutines pour async
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     // Media3 ExoPlayer - kept for HLS adaptive + fallback option
     val media3Version = "1.3.1"

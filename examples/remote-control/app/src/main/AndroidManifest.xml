@@ -49,15 +49,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Phase 1 native UI : ComposeMainActivity (Jetpack Compose).
-             Pas dans le launcher : on y arrive via toggle Settings depuis MainActivity. -->
-        <activity
-            android:name=".ComposeMainActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
-            android:exported="false"
-            android:screenOrientation="landscape"
-            android:theme="@style/AppTheme" />
-
         <activity
             android:name=".ExoPlayerActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
