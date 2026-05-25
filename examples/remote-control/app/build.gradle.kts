@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android") version "1.9.22"
+    // Combo officiel teste : Kotlin 1.9.21 + Compose Compiler 1.5.7 + BOM 2023.10.01
+    id("org.jetbrains.kotlin.android") version "1.9.21"
 }
 
 android {
