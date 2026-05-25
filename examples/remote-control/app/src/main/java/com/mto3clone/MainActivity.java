@@ -398,6 +398,21 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        // Phase 2.2 : le JS push une copie du portail actif pour que les Activities
+        // natives (Compose) puissent y acceder sans toucher au localStorage WebView.
+        @JavascriptInterface
+        public void persistActivePortal(String json) {
+            if (json == null || json.isEmpty()) return;
+            try { PortalStore.INSTANCE.save(MainActivity.this, json); }
+            catch (Throwable ignored) {}
+        }
+
+        @JavascriptInterface
+        public void clearActivePortal() {
+            try { PortalStore.INSTANCE.clear(MainActivity.this); }
+            catch (Throwable ignored) {}
+        }
+
         @JavascriptInterface
         public void playNative(String url, String title, boolean isLive) {
             playNativeWithAuth(url, title, isLive, null, null);

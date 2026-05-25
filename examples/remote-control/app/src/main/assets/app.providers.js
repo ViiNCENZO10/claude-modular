@@ -714,6 +714,13 @@ window.addEventListener('DOMContentLoaded', function() {
         AppState.userInfo = (authData && authData.user_info) || { username: portal.username || portal.mac, status: 'Active' };
         AppState.serverInfo = (authData && authData.server_info) || { url: portal.server };
 
+        // Phase 2.2 : pousse le portail au native pour ComposeLiveTvActivity
+        try {
+          if (window.AndroidBridge && typeof window.AndroidBridge.persistActivePortal === 'function') {
+            window.AndroidBridge.persistActivePortal(JSON.stringify(portal));
+          }
+        } catch (e) {}
+
         // Save portal if not already present
         var existing = [];
         try { existing = JSON.parse(localStorage.getItem('iprem_portals') || '[]'); }

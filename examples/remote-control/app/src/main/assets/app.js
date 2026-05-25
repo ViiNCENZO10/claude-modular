@@ -476,15 +476,24 @@ async function doLogin() {
     var exists = AppState.portals.some(function(p) {
       return p.server === server && p.username === username;
     });
+    var newPortal = {
+      type: 'xtream',
+      name: username + '@' + new URL(server).hostname,
+      server: server,
+      username: username,
+      password: password
+    };
     if (!exists) {
-      AppState.portals.push({
-        name: username + '@' + new URL(server).hostname,
-        server: server,
-        username: username,
-        password: password
-      });
+      AppState.portals.push(newPortal);
       savePortals();
     }
+
+    // Phase 2.2 : pousse le portail actif au native (pour ComposeLiveTvActivity)
+    try {
+      if (window.AndroidBridge && typeof window.AndroidBridge.persistActivePortal === 'function') {
+        window.AndroidBridge.persistActivePortal(JSON.stringify(newPortal));
+      }
+    } catch (e) {}
 
     loadFavorites();
     initHomeScreen();
