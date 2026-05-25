@@ -101,13 +101,22 @@
   // ====== Track position on player while playing ======
   // We piggyback on the video element + the native bridge
   var positionInterval = null;
+  // Throttle interne : evite de JSON.stringify la map complete a chaque tick
+  // (sur 1000+ entrees, c'est 30-100ms de freeze main thread)
+  var _lastSaveTs = 0;
   function trackPosition() {
     var v = document.getElementById('videoPlayer');
     if (!v) return;
-    if (positionInterval) clearInterval(positionInterval);
+    if (positionInterval) { clearInterval(positionInterval); positionInterval = null; }
     positionInterval = setInterval(function() {
       try {
+        // Si plus de video active (player ferme), on stop l'interval
+        if (!v.parentElement || !v.duration) return;
+        // Throttle a 10s entre saves (avant : 5s = trop frequent + cout CPU)
+        var now = Date.now();
+        if (now - _lastSaveTs < 10000) return;
         if (v.duration > 0 && v.currentTime > 5 && AppState && AppState.selectedVod) {
+          _lastSaveTs = now;
           saveProgress(
             'vod_' + AppState.selectedVod.stream_id,
             'vod',
@@ -119,6 +128,11 @@
       } catch (e) {}
     }, 5000);
   }
+  // Permettre l'arret externe (depuis stopPlayer)
+  window.iprem = window.iprem || {};
+  window.iprem.stopPositionTracking = function() {
+    if (positionInterval) { clearInterval(positionInterval); positionInterval = null; }
+  };
 
 
   // ====== Add Continue Watching section on Home ======

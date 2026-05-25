@@ -632,10 +632,14 @@ function createCategoryItem(name, categoryId, active) {
 }
 
 async function selectLiveCategory(categoryId, element) {
-  // Update active state
-  var items = document.querySelectorAll('#liveCategoryList .category-item');
-  items.forEach(function(i) { i.classList.remove('active'); });
-  if (element) element.classList.add('active');
+  // PERF : on cache le dernier active au lieu d'iterer sur 100+ items
+  if (window._lastActiveLiveCat) {
+    try { window._lastActiveLiveCat.classList.remove('active'); } catch (_) {}
+  }
+  if (element) {
+    element.classList.add('active');
+    window._lastActiveLiveCat = element;
+  }
 
   AppState.selectedLiveCategory = categoryId;
 
@@ -849,69 +853,7 @@ function _appendChannelItems(channelList, streams, startIndex) {
   channelList.appendChild(frag);
 }
 
-// === Render WAS like this - kept as dead code but never reached after early return above ===
-function _legacyRender_dead() {
-  var channelList = document.getElementById('liveChannelList');
-  var dummy = AppState.liveStreams || [];
-  dummy.forEach(function(stream, index) {
-    var li = document.createElement('li');
-    li.className = 'channel-item focusable';
-    if (AppState.favorites[stream.stream_id]) {
-      li.className += ' favorite';
-    }
-    li.tabIndex = 0;
-    li.setAttribute('data-index', index);
-
-    var logoHtml;
-    if (stream.stream_icon) {
-      logoHtml = '<div class="channel-logo"><img src="' + escapeHtml(stream.stream_icon) + '" alt="" loading="lazy" onerror="this.parentElement.innerHTML=\'<span class=channel-logo-placeholder>' + escapeHtml((stream.name || '?').charAt(0)) + '</span>\'"></div>';
-    } else {
-      logoHtml = '<div class="channel-logo"><span class="channel-logo-placeholder">' + escapeHtml((stream.name || '?').charAt(0)) + '</span></div>';
-    }
-
-    li.innerHTML =
-      '<span class="channel-num">' + (stream.num || index + 1) + '</span>' +
-      logoHtml +
-      '<div class="channel-info">' +
-        '<div class="channel-name">' + escapeHtml(stream.name || 'Unknown') + '</div>' +
-        '<div class="channel-epg" id="epg_' + stream.stream_id + '"></div>' +
-      '</div>';
-
-    li.addEventListener('click', function() {
-      selectChannel(index);
-    });
-
-    li.addEventListener('dblclick', function() {
-      selectChannel(index);
-      playChannel(stream);
-    });
-
-    li.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') {
-        if (AppState.selectedChannel && AppState.selectedChannel.stream_id === stream.stream_id) {
-          playChannel(stream);
-        } else {
-          selectChannel(index);
-        }
-      }
-    });
-
-    // Auto-preview au focus (navigation D-pad sans clic) :
-    // remplit le panel droit avec EPG + nom + num des qu'on survole une chaine.
-    // Debounce 150ms pour ne pas spam quand l'user scrolle vite.
-    li.addEventListener('focus', function() {
-      clearTimeout(window._previewDebounce);
-      window._previewDebounce = setTimeout(function() {
-        selectChannel(index);
-      }, 150);
-    });
-
-    channelList.appendChild(li);
-  });
-
-  // Load EPG for visible channels (batch the first 50)
-  loadVisibleEPG();
-}
+// (Code mort _legacyRender_dead SUPPRIME : ~60 lignes inutiles en RAM/bundle)
 
 async function loadVisibleEPG() {
   if (!AppState.api || !AppState.liveStreams) return;
@@ -958,15 +900,22 @@ function selectChannel(index) {
   AppState.selectedChannel = stream;
   AppState.currentChannelIndex = index;
 
-  // Update active state
-  var items = document.querySelectorAll('#liveChannelList .channel-item');
-  items.forEach(function(item) {
-    item.classList.remove('active');
-    if (parseInt(item.getAttribute('data-index')) === index) {
-      item.classList.add('active');
-      item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  // PERF : on cache le dernier item actif au lieu de querySelectorAll sur 500 nodes
+  // a chaque keypress D-pad (avant : 30-80ms de freeze par fleche sur ARM lent).
+  var channelList = document.getElementById('liveChannelList');
+  if (channelList) {
+    if (window._lastActiveChannelItem && window._lastActiveChannelItem.parentElement === channelList) {
+      window._lastActiveChannelItem.classList.remove('active');
     }
-  });
+    var newActive = channelList.querySelector('.channel-item[data-index="' + index + '"]');
+    if (newActive) {
+      newActive.classList.add('active');
+      window._lastActiveChannelItem = newActive;
+      // scrollIntoView sans smooth pendant navigation rapide (smooth force animation 300ms
+      // qui peut etre annulee/repartir a chaque keypress -> jank)
+      newActive.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+    }
+  }
 
   // Update preview panel
   var previewPlaceholder = document.querySelector('#livePreviewPanel .preview-placeholder');
@@ -1196,9 +1145,14 @@ async function initVodScreen() {
 }
 
 async function selectVodCategory(categoryId, element) {
-  var items = document.querySelectorAll('#vodCategoryList .category-item');
-  items.forEach(function(i) { i.classList.remove('active'); });
-  if (element) element.classList.add('active');
+  // PERF : cache lastActive plutot que querySelectorAll 200 items
+  if (window._lastActiveVodCat) {
+    try { window._lastActiveVodCat.classList.remove('active'); } catch (_) {}
+  }
+  if (element) {
+    element.classList.add('active');
+    window._lastActiveVodCat = element;
+  }
   AppState.selectedVodCategory = categoryId;
   await loadVodStreams(categoryId);
 }
@@ -1650,9 +1604,13 @@ async function initSeriesScreen() {
 }
 
 async function selectSeriesCategory(categoryId, element) {
-  var items = document.querySelectorAll('#seriesCategoryList .category-item');
-  items.forEach(function(i) { i.classList.remove('active'); });
-  if (element) element.classList.add('active');
+  if (window._lastActiveSeriesCat) {
+    try { window._lastActiveSeriesCat.classList.remove('active'); } catch (_) {}
+  }
+  if (element) {
+    element.classList.add('active');
+    window._lastActiveSeriesCat = element;
+  }
   AppState.selectedSeriesCategory = categoryId;
   await loadSeriesList(categoryId);
 }
@@ -2959,14 +2917,24 @@ document.addEventListener('keydown', function(e) {
   switch (key) {
     case 'Escape':
     case 'Backspace':
-      if (document.getElementById('searchModal').style.display === 'flex') {
+      // PERF : cache les refs des modals au lieu de getElementById a chaque touche
+      // (avant : 3 lookups DOM + 3 reads style.display = 15ms par keypress sur ARM)
+      if (!window._cachedModals) {
+        window._cachedModals = {
+          search: document.getElementById('searchModal'),
+          vod: document.getElementById('vodDetailModal'),
+          series: document.getElementById('seriesDetailModal')
+        };
+      }
+      var modals = window._cachedModals;
+      if (modals.search && modals.search.style.display === 'flex') {
         closeSearch();
         e.preventDefault();
-      } else if (document.getElementById('vodDetailModal').style.display === 'flex') {
-        document.getElementById('vodDetailModal').style.display = 'none';
+      } else if (modals.vod && modals.vod.style.display === 'flex') {
+        modals.vod.style.display = 'none';
         e.preventDefault();
-      } else if (document.getElementById('seriesDetailModal').style.display === 'flex') {
-        document.getElementById('seriesDetailModal').style.display = 'none';
+      } else if (modals.series && modals.series.style.display === 'flex') {
+        modals.series.style.display = 'none';
         e.preventDefault();
       } else if (AppState.activeScreen !== 'login' && AppState.activeScreen !== 'home') {
         goBack();

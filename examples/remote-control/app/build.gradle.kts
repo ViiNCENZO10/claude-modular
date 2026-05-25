@@ -12,7 +12,7 @@ android {
         targetSdk = 34
         // versionCode auto-derived from CI run number (so each push installs over previous)
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "5").toInt()
-        versionName = "4.0.2"
+        versionName = "4.0.3"
     }
 
     signingConfigs {

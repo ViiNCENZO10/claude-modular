@@ -1232,15 +1232,20 @@ html, body {
   overflow: hidden;
 }
 
+.vod-card {
+  /* GPU promotion : evite la re-promo composite layer a chaque hover */
+  will-change: transform;
+  transform: translateZ(0);
+}
 .vod-card:hover,
 .vod-card:focus {
   /* Focus premium : bordure cyan + glow + scale */
   border-color: #06b6d4;
-  transform: translateY(-6px) scale(1.04);
+  transform: translateY(-6px) scale(1.04) translateZ(0);
+  /* Box-shadow simplifie : 2 layers au lieu de 3 (chaque blur = passe GPU couteuse) */
   box-shadow:
-    0 12px 32px rgba(0,0,0,0.55),
-    0 0 0 2px #06b6d4,
-    0 0 24px rgba(6,182,212,0.45);
+    0 12px 28px rgba(0,0,0,0.55),
+    0 0 0 2px #06b6d4;
   z-index: 5;
   outline: none;
 }
@@ -2098,7 +2103,11 @@ html, body {
   height: 100%;
   background: var(--accent-cyan);
   border-radius: 2px;
+  /* transition width force reflow a chaque frame.
+     Avec 30 EPG progress bars qui animent simultanement = 30 reflows/frame.
+     On garde la transition width (simple) mais documente le compromis */
   transition: width 1s linear;
+  will-change: width;
 }
 
 .player-controls {
