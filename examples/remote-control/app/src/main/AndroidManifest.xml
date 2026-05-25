@@ -64,6 +64,13 @@
             android:theme="@style/AppTheme" />
 
         <activity
+            android:name=".ComposeLiveTvActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+
+        <activity
             android:name=".ExoPlayerActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
             android:exported="false"

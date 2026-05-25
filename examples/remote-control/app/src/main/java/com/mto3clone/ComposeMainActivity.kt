@@ -43,7 +43,12 @@ class ComposeMainActivity : ComponentActivity() {
         setContent {
             IPremTheme {
                 HomeScreen(
-                    onCardClick = {
+                    onLiveTv = {
+                        // Live TV : ecran natif Compose (Phase 2)
+                        startActivity(Intent(this, ComposeLiveTvActivity::class.java))
+                    },
+                    onMoviesOrSeries = {
+                        // VOD / Series : retombe sur WebView en attendant Phase 3 et 4
                         startActivity(Intent(this, MainActivity::class.java))
                         finish()
                     }
@@ -70,7 +75,7 @@ private fun IPremTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun HomeScreen(onCardClick: () -> Unit) {
+private fun HomeScreen(onLiveTv: () -> Unit, onMoviesOrSeries: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -100,9 +105,9 @@ private fun HomeScreen(onCardClick: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                HomeCard(title = "Live TV", subtitle = "Chaines en direct", onClick = onCardClick)
-                HomeCard(title = "Films", subtitle = "Catalogue VOD", onClick = onCardClick)
-                HomeCard(title = "Series", subtitle = "Episodes et saisons", onClick = onCardClick)
+                HomeCard(title = "Live TV", subtitle = "Chaines en direct (NATIF)", onClick = onLiveTv)
+                HomeCard(title = "Films", subtitle = "Catalogue VOD (WebView)", onClick = onMoviesOrSeries)
+                HomeCard(title = "Series", subtitle = "Episodes (WebView)", onClick = onMoviesOrSeries)
             }
 
             Spacer(modifier = Modifier.height(40.dp))
