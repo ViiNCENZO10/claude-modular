@@ -1041,8 +1041,133 @@ function renderVodGrid() {
       if (e.key === 'Enter') showVodDetail(vod);
     });
 
+    // Auto-populate hero banner au focus (D-pad navigation)
+    card.addEventListener('focus', function() {
+      clearTimeout(window._vodHeroDebounce);
+      window._vodHeroDebounce = setTimeout(function() {
+        updateVodHero(vod);
+      }, 180);
+    });
+
     grid.appendChild(card);
   });
+}
+
+// Remplit le hero banner en haut avec backdrop + infos enrichies TMDB
+async function updateVodHero(vod) {
+  var hero = document.getElementById('vodHero');
+  if (!hero) return;
+  hero.style.display = '';
+
+  var titleEl = document.getElementById('vodHeroTitle');
+  var metaEl = document.getElementById('vodHeroMeta');
+  var descEl = document.getElementById('vodHeroDesc');
+  var castEl = document.getElementById('vodHeroCast');
+  var bgEl = document.getElementById('vodHeroBg');
+
+  // Reset visuel pendant la transition
+  bgEl.style.backgroundImage = vod.stream_icon ? 'url(' + vod.stream_icon + ')' : '';
+
+  // Titre nettoye
+  var rawTitle = vod.name || 'Sans titre';
+  var displayTitle = (window.ipremPoster && window.ipremPoster.cleanTitle)
+    ? window.ipremPoster.cleanTitle(rawTitle)
+    : rawTitle;
+  titleEl.textContent = displayTitle || rawTitle;
+
+  // Meta : annee, duree, qualite, age, tmdb score
+  var pills = [];
+  var year = '';
+  if (vod.releaseDate) year = String(vod.releaseDate).substring(0, 4);
+  else if (vod.year) year = String(vod.year);
+  else if (vod.added) {
+    try { year = String(new Date(parseInt(vod.added) * 1000).getFullYear()); } catch (e) {}
+  }
+  if (year) pills.push('<span class="pill">' + escapeHtml(year) + '</span>');
+  // Qualite : detecte via titre
+  var qm = rawTitle.match(/\b(4K|UHD|HDR|HDR10|DOLBY|FHD|HD)\b/i);
+  if (qm) pills.push('<span class="pill qual">' + qm[0].toUpperCase() + '</span>');
+  // Container ext
+  if (vod.container_extension) pills.push('<span class="pill">' + escapeHtml(String(vod.container_extension).toUpperCase()) + '</span>');
+  // Rating Xtream
+  if (vod.rating) pills.push('<span class="pill tmdb">' + escapeHtml(String(vod.rating)) + '</span>');
+  metaEl.innerHTML = pills.join('');
+
+  // Description : Xtream fields d'abord
+  var desc = vod.plot || vod.description || vod.overview || vod.synopsis || '';
+  descEl.textContent = desc || 'Chargement...';
+  castEl.textContent = '';
+
+  // Background + cast + synopsis via TMDB lookup (cache 7j)
+  if (window.ipremPoster && typeof window.ipremPoster.lookup === 'function') {
+    try {
+      var resolved = await window.ipremPoster.lookup(rawTitle, year, 'movie');
+      if (resolved && resolved.id) {
+        // Fetch details + credits en parallele (cache LS perso)
+        var detailsCache = 'iprem_tmdb_details_' + resolved.id;
+        var creditsCache = 'iprem_tmdb_credits_' + resolved.id;
+        var details = _lsCacheGet(detailsCache, 7 * 24 * 3600 * 1000);
+        var credits = _lsCacheGet(creditsCache, 7 * 24 * 3600 * 1000);
+        var jobs = [];
+        if (!details) jobs.push(fetch('https://api.themoviedb.org/3/movie/' + resolved.id + '?language=fr-FR&api_key=4ef0d7355d9ffb5151e987764708ce96')
+          .then(function(r) { return r.json(); })
+          .then(function(d) { details = d; _lsCacheSet(detailsCache, d); }).catch(function() {}));
+        if (!credits) jobs.push(fetch('https://api.themoviedb.org/3/movie/' + resolved.id + '/credits?language=fr&api_key=4ef0d7355d9ffb5151e987764708ce96')
+          .then(function(r) { return r.json(); })
+          .then(function(d) { credits = d; _lsCacheSet(creditsCache, d); }).catch(function() {}));
+        if (jobs.length) await Promise.all(jobs);
+
+        // Backdrop
+        if (details && details.backdrop_path) {
+          var backdropUrl = 'https://image.tmdb.org/t/p/w1280' + details.backdrop_path;
+          var preload = new Image();
+          preload.onload = function() { bgEl.style.backgroundImage = 'url(' + backdropUrl + ')'; };
+          preload.src = backdropUrl;
+        }
+        // Synopsis
+        if (details && details.overview && (!desc || desc === 'Chargement...')) {
+          descEl.textContent = details.overview;
+        } else if (!desc) {
+          descEl.textContent = 'Aucune description disponible pour ce contenu.';
+        }
+        // Cast : top 4 acteurs
+        if (credits && credits.cast && credits.cast.length) {
+          var top = credits.cast.slice(0, 4).map(function(c) { return c.name; }).join(' · ');
+          castEl.textContent = 'Avec : ' + top;
+        }
+        // Meta extra : duree + note TMDB officielle
+        var extraPills = '';
+        if (details && details.runtime) {
+          var h = Math.floor(details.runtime / 60);
+          var m = details.runtime % 60;
+          extraPills += '<span class="pill">' + (h > 0 ? h + 'h ' : '') + m + 'm</span>';
+        }
+        if (details && details.vote_average) {
+          extraPills += '<span class="pill tmdb">TMDb ' + (Math.round(details.vote_average * 10)) + '%</span>';
+        }
+        if (extraPills) metaEl.innerHTML = pills.join('') + extraPills;
+      } else if (!desc) {
+        descEl.textContent = 'Aucune description disponible pour ce contenu.';
+      }
+    } catch (e) {
+      if (!desc) descEl.textContent = 'Aucune description disponible pour ce contenu.';
+    }
+  }
+}
+
+// Helpers cache LS
+function _lsCacheGet(key, ttl) {
+  try {
+    var raw = localStorage.getItem(key);
+    if (!raw) return null;
+    var p = JSON.parse(raw);
+    if (!p || !p.t || (Date.now() - p.t) > ttl) return null;
+    return p.d;
+  } catch (e) { return null; }
+}
+function _lsCacheSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), d: val })); }
+  catch (e) {}
 }
 
 async function showVodDetail(vod) {
@@ -2378,6 +2503,17 @@ function init() {
   document.getElementById('btnSearch').addEventListener('click', openSearch);
   document.getElementById('btnSort').addEventListener('click', toggleSort);
   document.getElementById('btnFavorite').addEventListener('click', toggleFavorite);
+  // Toolbar VOD : utilise les memes handlers que la Live
+  var $ = function(id) { return document.getElementById(id); };
+  if ($('vodBtnSearch')) $('vodBtnSearch').addEventListener('click', openSearch);
+  if ($('vodBtnSort')) $('vodBtnSort').addEventListener('click', toggleSort);
+  if ($('vodBtnFavorites')) $('vodBtnFavorites').addEventListener('click', toggleFavorite);
+  if ($('vodBtnFilter')) $('vodBtnFilter').addEventListener('click', function() {
+    // Place focus sur la sidebar Categories (qui sert de filter par categorie)
+    var sb = document.getElementById('vodCategoryList');
+    var first = sb && sb.querySelector('li');
+    if (first) first.focus();
+  });
 
   // Search modal
   document.getElementById('searchClose').addEventListener('click', closeSearch);

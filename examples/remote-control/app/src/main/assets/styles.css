@@ -1084,20 +1084,142 @@ html, body {
 .vod-grid {
   flex: 1;
   overflow-y: auto;
-  padding: 1.2vw;
+  padding: 14px 1.2vw 24px;
   display: grid;
   /*
-   * Posters dimensionnes en cm physiques (cible MyTVOnline3) :
-   *   - TV 55" 1920x1080 : ~12 cm large x 19 cm haut par poster
-   *   - 1 cm horizontal sur cette TV = ~16 px = 0.83vw
-   *   - Donc 12 cm = ~10vw, 19 cm = 10vw * 1.58 (aspect)
-   * Avec max(10vw, 180px) on garde un minimum lisible sur petits ecrans
-   * et on grandit proportionnellement sur 4K (10vw = 384px sur 3840).
+   * Posters legerement plus compacts (8vw -> ~154px sur 1080p) pour afficher
+   * plus de contenu, vu que le hero banner du haut affiche deja un focus rich.
+   * Le ratio 19:12 (158%) reste : ~154x244 px par poster
    */
-  grid-template-columns: repeat(auto-fill, minmax(max(10vw, 180px), 1fr));
-  gap: 1vw;
+  grid-template-columns: repeat(auto-fill, minmax(max(8vw, 150px), 1fr));
+  gap: 0.9vw;
   align-content: start;
 }
+
+/* ===== Hero banner VOD (focus large) ===== */
+.vod-hero {
+  position: relative;
+  height: 30vh;
+  min-height: 220px;
+  overflow: hidden;
+  background: #0a1530;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.vod-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: background-image .3s ease;
+  filter: brightness(0.7);
+}
+.vod-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    rgba(10,21,48,0.95) 0%,
+    rgba(10,21,48,0.78) 35%,
+    rgba(10,21,48,0.45) 65%,
+    rgba(10,21,48,0.20) 100%
+  );
+}
+.vod-hero-content {
+  position: relative;
+  z-index: 2;
+  padding: 18px 28px;
+  max-width: 65%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  overflow: hidden;
+  justify-content: center;
+}
+.vod-hero-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.vod-hero-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.vod-hero-meta .pill {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+.vod-hero-meta .pill.tmdb { background: #01b4e4; }
+.vod-hero-meta .pill.qual { background: rgba(34,211,238,0.25); color: #67e8f9; }
+.vod-hero-meta .pill.age { background: rgba(239,68,68,0.25); color: #fca5a5; }
+.vod-hero-desc {
+  font-size: 13px;
+  color: #e2e8f0;
+  line-height: 1.5;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.vod-hero-cast {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* ===== Toolbar (search/filter/sort/fav) ===== */
+.vod-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-mid);
+  gap: 12px;
+  flex-shrink: 0;
+}
+.vod-toolbar-actions {
+  display: flex;
+  gap: 6px;
+}
+.vod-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  cursor: pointer;
+  transition: all .15s;
+  outline: none;
+}
+.vod-tool-btn:hover,
+.vod-tool-btn:focus {
+  background: #fff;
+  color: #0a1530;
+  border-color: #fff;
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgba(255,255,255,0.3);
+}
+.vod-tool-btn svg { flex-shrink: 0; }
 
 .vod-card {
   display: flex;
@@ -1112,9 +1234,15 @@ html, body {
 
 .vod-card:hover,
 .vod-card:focus {
-  border-color: var(--accent);
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  /* Focus premium : bordure cyan + glow + scale */
+  border-color: #06b6d4;
+  transform: translateY(-6px) scale(1.04);
+  box-shadow:
+    0 12px 32px rgba(0,0,0,0.55),
+    0 0 0 2px #06b6d4,
+    0 0 24px rgba(6,182,212,0.45);
+  z-index: 5;
+  outline: none;
 }
 
 /* Aspect-ratio 19:12 = 158.3% (poster MyTVOnline3 / cinema standard).
