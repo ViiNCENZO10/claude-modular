@@ -635,9 +635,8 @@ async function loadLiveStreams(categoryId) {
   var titleEl = document.getElementById('liveCategoryTitle');
   var countEl = document.getElementById('liveChannelCount');
 
-  // PAUSE le warmup en background pendant 2s : priorite absolue au clic user
-  // (evite que le pre-fetch sature le portail Stalker au moment ou on en a besoin)
-  window._warmupPause = Date.now() + 2000;
+  // PAUSE le warmup en background pendant 5s : priorite absolue au clic user
+  window._warmupPause = Date.now() + 5000;
 
   // Skeleton INSTANT (place de l'ecran blanc) - apparait < 16ms apres le clic
   if (window.ipremCache && window.ipremCache.showSkeletonChannels) {
@@ -645,20 +644,32 @@ async function loadLiveStreams(categoryId) {
   } else {
     channelList.innerHTML = '';
   }
-  // Le spinner reste en filigrane mais le skeleton porte le visuel
-  if (loading) loading.style.display = 'none';
+  // Spinner visible en plus du skeleton (signal clair que ca charge)
+  if (loading) loading.style.display = 'flex';
+  if (titleEl) titleEl.textContent = 'Chargement...';
+  if (countEl) countEl.textContent = '';
 
   try {
     var streams;
-    // INSTANT : si on a deja le catalogue complet en cache memoire (full-sync),
-    // on filtre cote JS au lieu de refetcher le portail (= 0ms)
-    if (!categoryId && AppState.allLiveStreams.length > 0) {
+    // Cache memoire seulement pour "All" (categoryId null), pas pour les groupes
+    // specifiques : selon le provider (Stalker), les streams n'ont pas toujours
+    // un champ category_id directement utilisable pour filter cote JS.
+    // -> Pour les groupes specifiques, on fetch normalement (le cache LS du
+    //    perf-cache.js de toute facon servira en hit instant a partir du 2e clic).
+    if (!categoryId && AppState.allLiveStreams && AppState.allLiveStreams.length > 0) {
       streams = AppState.allLiveStreams;
-    } else if (categoryId && categoryId !== 'favorites' && AppState.allLiveStreams.length > 0) {
-      // Filtre depuis le cache complet (instant, pas de fetch reseau)
-      streams = AppState.allLiveStreams.filter(function(s) {
-        return String(s.category_id) === String(categoryId);
+    } else if (categoryId && categoryId !== 'favorites' && AppState.allLiveStreams && AppState.allLiveStreams.length > 0) {
+      // Tentative filter cache d'abord (instant si streams Xtream avec category_id)
+      var filtered = AppState.allLiveStreams.filter(function(s) {
+        return s && String(s.category_id) === String(categoryId);
       });
+      if (filtered.length > 0) {
+        streams = filtered;
+      } else {
+        // Filter vide => le provider n'expose pas category_id sur les streams (Stalker)
+        // ou la categorie est nouvelle. Fallback : fetch normal du portail.
+        streams = await AppState.api.getLiveStreams(categoryId);
+      }
     } else {
       streams = await AppState.api.getLiveStreams(categoryId);
       if (!categoryId) AppState.allLiveStreams = streams || [];
