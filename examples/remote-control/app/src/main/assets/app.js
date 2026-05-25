@@ -1105,12 +1105,17 @@ function formatEpgTime(timeStr) {
 }
 
 function playChannel(stream) {
-  // PAUSE TOTALE du warmup pendant 30s pour ne pas concurrencer le portail
-  // au moment ou on a besoin de la resolution + du stream
+  if (!stream || !AppState.api) return;
   window._warmupPause = Date.now() + 30000;
   var ext = AppState.settings.streamType || 'm3u8';
-  // Si on a deja une URL pre-resolue (pre-fetch au focus), on la passe direct
-  var url = stream._resolvedUrl || AppState.api.liveUrl(stream.stream_id, ext);
+  // _resolvedUrl peut etre expire (Stalker = TTL ~5min). On verifie l'age.
+  var url = null;
+  if (stream._resolvedUrl && stream._resolvedAt &&
+      (Date.now() - stream._resolvedAt) < 240000 /* 4min */) {
+    url = stream._resolvedUrl;
+  } else {
+    url = AppState.api.liveUrl(stream.stream_id, ext);
+  }
   startPlayer(url, stream.name, stream.num || '', 'live', stream);
 }
 
@@ -1382,12 +1387,16 @@ async function updateVodHero(vod) {
   var castEl = document.getElementById('vodHeroCast');
   var bgEl = document.getElementById('vodHeroBg');
 
-  // Guard : si l'ecran n'est pas encore monte (focus tres rapide en navigation),
-  // bgEl peut etre null -> abort proprement plutot que de throw
   if (!titleEl || !metaEl || !descEl || !castEl || !bgEl) return;
 
-  // Reset visuel pendant la transition
-  bgEl.style.backgroundImage = vod.stream_icon ? 'url(' + vod.stream_icon + ')' : '';
+  // Token de cancellation : si l'user navigue vite, on ne veut PAS que l'image
+  // du film N-1 ecrase celle du film actif quand son preload finit
+  var heroToken = (window._vodHeroToken = (window._vodHeroToken || 0) + 1);
+
+  // Sanitize stream_icon (XSS prevention : refuse les URL non http/https)
+  var safeBgIcon = (typeof vod.stream_icon === 'string' && /^https?:\/\//i.test(vod.stream_icon))
+    ? vod.stream_icon.replace(/['"\\\n\r]/g, '') : '';
+  bgEl.style.backgroundImage = safeBgIcon ? 'url("' + safeBgIcon + '")' : '';
 
   // Titre nettoye
   var rawTitle = vod.name || 'Sans titre';
@@ -1442,7 +1451,15 @@ async function updateVodHero(vod) {
         if (details && details.backdrop_path) {
           var backdropUrl = 'https://image.tmdb.org/t/p/w1280' + details.backdrop_path;
           var preload = new Image();
-          preload.onload = function() { if (bgEl) bgEl.style.backgroundImage = 'url(' + backdropUrl + ')'; };
+          preload.onload = function() {
+            // Token check : si l'user a navigue ailleurs, on ne touche pas le hero
+            if (heroToken !== window._vodHeroToken || !bgEl) return;
+            // Sanitize backdrop URL (vient de TMDB mais on prefere etre safe)
+            var safeUrl = (typeof backdropUrl === 'string' && /^https?:\/\//i.test(backdropUrl))
+              ? backdropUrl.replace(/['"\\\n\r]/g, '') : '';
+            if (safeUrl) bgEl.style.backgroundImage = 'url("' + safeUrl + '")';
+          };
+          preload.onerror = function() { preload.onload = preload.onerror = null; };
           preload.src = backdropUrl;
         }
         // Synopsis
@@ -2687,6 +2704,12 @@ async function performSearch() {
   var searchVod = document.getElementById('searchVod').checked;
   var searchSeries = document.getElementById('searchSeries').checked;
 
+  // BUG FIX : vodStreams/seriesList declarees AU NIVEAU FONCTION pour eviter
+  // ReferenceError dans le click handler si l'user decoche searchVod/searchSeries
+  // et clique sur un resultat (closure captureait des vars inexistantes).
+  var vodStreams = [];
+  var seriesList = [];
+
   var html = '';
 
   try {
@@ -2719,7 +2742,7 @@ async function performSearch() {
 
     // Search VOD
     if (searchVod) {
-      var vodStreams = await AppState.api.getVodStreams();
+      vodStreams = await AppState.api.getVodStreams() || [];
       var vodResults = (Array.isArray(vodStreams) ? vodStreams : []).filter(function(s) {
         return (s.name || '').toLowerCase().indexOf(query) !== -1;
       }).slice(0, 20);
@@ -2743,7 +2766,7 @@ async function performSearch() {
 
     // Search Series
     if (searchSeries) {
-      var seriesList = await AppState.api.getSeries();
+      seriesList = await AppState.api.getSeries() || [];
       var seriesResults = (Array.isArray(seriesList) ? seriesList : []).filter(function(s) {
         return (s.name || '').toLowerCase().indexOf(query) !== -1;
       }).slice(0, 20);

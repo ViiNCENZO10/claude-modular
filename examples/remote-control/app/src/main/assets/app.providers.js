@@ -342,9 +342,15 @@ class StalkerProvider {
   }
 
   liveUrl(streamId) {
-    // Need to resolve via create_link with cmd from the channel object
-    // Caller should pass the cmd from getLiveStreams data
-    return this.baseUrl + '/portal.php?type=itv&action=create_link&cmd=auto%20' + encodeURIComponent('http://localhost/ch/' + streamId + '_') + '&JsHttpRequest=1-xml';
+    // BUG FIX CRITIQUE : avant on hardcodait 'auto http://localhost/ch/<id>_'
+    // qui ne marchait sur PRESQUE AUCUNE chaine Stalker. Maintenant on utilise
+    // le cmd memorise par _mapLiveStreams (cf this._liveCmdMap) avec fallback safe.
+    var cmd = this._liveCmdMap && this._liveCmdMap[streamId];
+    if (!cmd) {
+      // Fallback : ancien format pour les chaines non mappees (rare)
+      cmd = 'auto http://localhost/ch/' + streamId + '_';
+    }
+    return this.baseUrl + '/portal.php?type=itv&action=create_link&cmd=' + encodeURIComponent(cmd) + '&JsHttpRequest=1-xml';
   }
 
   vodUrl(streamId) {
@@ -670,6 +676,10 @@ function buildProvider(portal) {
 window.addEventListener('DOMContentLoaded', function() {
   setTimeout(function() {
     if (typeof window.doLogin !== 'function') return;
+    // Idempotent : si deja patche (cas reload du script via hotreload),
+    // on ne re-wrap pas en cascade => evite stack de N appels chains.
+    if (window._doLoginPatched) return;
+    window._doLoginPatched = true;
     var origDoLogin = window.doLogin;
 
     window.doLogin = function() {

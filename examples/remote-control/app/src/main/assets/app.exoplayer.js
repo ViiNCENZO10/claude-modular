@@ -46,8 +46,9 @@ function preResolveStalkerForChannel(stream) {
   var sid = String(stream.stream_id);
   // Deja resolu et frais ?
   var cached = _stalkerResolveCache[sid];
-  if (cached && (Date.now() - cached.t < 5 * 60 * 1000)) {
+  if (cached && cached.url && (Date.now() - cached.t < 4 * 60 * 1000) /* 4min */) {
     stream._resolvedUrl = cached.url;
+    stream._resolvedAt = cached.t;
     return;
   }
   // Marque "in flight" pour eviter de retrigger pendant qu'on attend
@@ -58,13 +59,14 @@ function preResolveStalkerForChannel(stream) {
     var ext = (AppState.settings && AppState.settings.streamType) || 'm3u8';
     var apiUrl = AppState.api.liveUrl(stream.stream_id, ext);
     var mac = AppState.api.mac || '';
-    // Lance en background : non bloquant pour l'UI
     (async function() {
       try {
         var resolved = await resolveStalkerStreamUrl(apiUrl, mac);
         if (resolved && resolved !== apiUrl) {
-          _stalkerResolveCache[sid] = { url: resolved, t: Date.now() };
+          var now = Date.now();
+          _stalkerResolveCache[sid] = { url: resolved, t: now };
           stream._resolvedUrl = resolved;
+          stream._resolvedAt = now;
         } else {
           delete _stalkerResolveCache[sid];
         }
