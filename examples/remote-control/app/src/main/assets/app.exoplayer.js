@@ -320,29 +320,46 @@ function buildNativePlayerToggle() {
     '</div>';
   layout.appendChild(section);
 
-  // PHASE 1 NATIVE UI (Beta) : bouton qui lance NativeHomeActivity (Kotlin + XML)
+  // PHASE 1 NATIVE UI (Beta) : 2 boutons pour tester les 2 voies
   if (window.AndroidBridge && typeof window.AndroidBridge.openNativeUi === 'function') {
     var nativeSection = document.createElement('div');
     nativeSection.className = 'settings-section';
     nativeSection.innerHTML =
       '<h3>Interface (expérimental)</h3>' +
-      '<div class="setting-row focusable" tabindex="0" id="settingOpenNativeUi" style="cursor:pointer">' +
-        '<span class="setting-label">Essayer l\'UI Native (Phase 1 Beta)</span>' +
+      '<div class="setting-row focusable" tabindex="0" id="settingOpenNativeXml" style="cursor:pointer">' +
+        '<span class="setting-label">Tester UI Native XML (Phase 1)</span>' +
         '<span style="color:#06b6d4;font-size:13px">Tester →</span>' +
       '</div>' +
+      (typeof window.AndroidBridge.openComposeUi === 'function' ?
+        '<div class="setting-row focusable" tabindex="0" id="settingOpenCompose" style="cursor:pointer">' +
+          '<span class="setting-label">Tester UI Native Compose (Phase 1bis)</span>' +
+          '<span style="color:#a78bfa;font-size:13px">Tester →</span>' +
+        '</div>' : '') +
       '<div class="setting-row">' +
-        '<span class="setting-help" style="font-size:12px;color:#888">Nouvelle UI 100% native Kotlin + XML (sans WebView). Phase 1 = écran Home uniquement. Les autres écrans retombent sur cette version WebView.</span>' +
+        '<span class="setting-help" style="font-size:12px;color:#888">UI Native = pas de WebView, rendu GPU direct. XML = stable. Compose = moderne. Phase 1 = écran Home seulement, le reste retombe en mode WebView.</span>' +
       '</div>';
     layout.appendChild(nativeSection);
-    var openNativeBtn = document.getElementById('settingOpenNativeUi');
-    if (openNativeBtn) {
-      var trigger = function() {
-        try { window.AndroidBridge.openNativeUi(); }
-        catch (e) { showToast('Impossible : ' + e.message); }
-      };
-      openNativeBtn.addEventListener('click', trigger);
-      openNativeBtn.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' || e.keyCode === 13) trigger();
+
+    var triggerXml = function() {
+      try { window.AndroidBridge.openNativeUi(); }
+      catch (e) { showToast('Impossible : ' + e.message); }
+    };
+    var triggerCompose = function() {
+      try { window.AndroidBridge.openComposeUi(); }
+      catch (e) { showToast('Impossible : ' + e.message); }
+    };
+    var xmlBtn = document.getElementById('settingOpenNativeXml');
+    var composeBtn = document.getElementById('settingOpenCompose');
+    if (xmlBtn) {
+      xmlBtn.addEventListener('click', triggerXml);
+      xmlBtn.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.keyCode === 13) triggerXml();
+      });
+    }
+    if (composeBtn) {
+      composeBtn.addEventListener('click', triggerCompose);
+      composeBtn.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.keyCode === 13) triggerCompose();
       });
     }
   }
