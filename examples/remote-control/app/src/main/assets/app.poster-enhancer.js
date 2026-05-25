@@ -14,7 +14,9 @@
   'use strict';
 
   var TMDB_KEY = '4ef0d7355d9ffb5151e987764708ce96';
-  var CACHE_PREFIX = 'iprem_tmdb_poster_';
+  // v2 : cache au format {id, poster} au lieu de string poster seul.
+  // Permet de servir tmdb_id a la vue detail (synopsis + casting).
+  var CACHE_PREFIX = 'iprem_tmdb_v2_';
   var TTL = 7 * 24 * 60 * 60 * 1000; // 7 jours
   var MAX_PARALLEL = 4;
 
@@ -144,22 +146,38 @@
       var data = await r.json();
       var first = data && data.results && data.results[0];
       var poster = first && first.poster_path ? 'https://image.tmdb.org/t/p/w342' + first.poster_path : '';
-      // Cache meme si vide (__none__) pour eviter de re-tenter
-      lsSet(ck, poster || '__none__');
+      var tmdbId = first && first.id ? String(first.id) : '';
+      // Format v2 : {id, poster}
+      var entry = (tmdbId || poster) ? { id: tmdbId, poster: poster } : '__none__';
+      lsSet(ck, entry);
       // Applique a TOUS les img qui attendaient ce titre
       if (poster) {
         (inProgress[ck] || []).forEach(function(imgEl) {
           applyPosterToImg(imgEl, poster);
         });
       }
+      // Resout aussi les promises pending pour lookup()
+      (lookupPending[ck] || []).forEach(function(resolve) { resolve(entry === '__none__' ? null : entry); });
+      delete lookupPending[ck];
     } catch (e) {
-      // Cache un "rien trouve" pour 1h seulement (vs 7j succes)
+      // Cache un "rien trouve" pour eviter de re-tenter
       lsSet(ck, '__none__');
+      (lookupPending[ck] || []).forEach(function(resolve) { resolve(null); });
+      delete lookupPending[ck];
     } finally {
       delete inProgress[ck];
       inFlight--;
       processQueue();
     }
+  }
+
+  // Promises en attente d'une lookup() async (pour vod-enhanced)
+  var lookupPending = {};
+
+  function _entryPoster(entry) {
+    if (!entry || entry === '__none__') return '';
+    if (typeof entry === 'string') return entry; // legacy v1 format
+    return entry.poster || '';
   }
 
   function enhance(imgEl, title, year, type) {
@@ -172,7 +190,8 @@
     // 1. Cache hit
     var cached = lsGet(ck);
     if (cached) {
-      if (cached !== '__none__') applyPosterToImg(imgEl, cached);
+      var p = _entryPoster(cached);
+      if (p) applyPosterToImg(imgEl, p);
       return;
     }
 
@@ -186,6 +205,38 @@
     // 3. Enqueue
     queue.push({ cacheKey: ck, title: clean, year: yr, type: type || 'movie' });
     processQueue();
+  }
+
+  // API publique pour vod-enhanced : lookup async qui retourne {id, poster}
+  // Utilise le meme cache que enhance() pour eviter double request.
+  function lookup(title, year, type) {
+    return new Promise(function(resolve) {
+      var clean = cleanTitle(title);
+      if (!clean || clean.length < 2) return resolve(null);
+      var yr = year || extractYear(title);
+      var ck = cacheKey(clean, yr, type);
+
+      // Cache hit
+      var cached = lsGet(ck);
+      if (cached !== null) {
+        if (cached === '__none__') return resolve(null);
+        if (typeof cached === 'string') return resolve({ id: '', poster: cached });
+        return resolve(cached);
+      }
+
+      // Attache au job en cours s'il existe
+      if (inProgress[ck]) {
+        lookupPending[ck] = lookupPending[ck] || [];
+        lookupPending[ck].push(resolve);
+        return;
+      }
+
+      // Demarre un job sans imgEl (juste pour resoudre l'id)
+      inProgress[ck] = [];
+      lookupPending[ck] = [resolve];
+      queue.push({ cacheKey: ck, title: clean, year: yr, type: type || 'movie' });
+      processQueue();
+    });
   }
 
   // ===== Auto-hook : MutationObserver sur les grilles VOD/Series =====
@@ -231,6 +282,8 @@
   // Public API
   window.ipremPoster = {
     enhance: enhance,
-    cleanTitle: cleanTitle
+    lookup: lookup,
+    cleanTitle: cleanTitle,
+    extractYear: extractYear
   };
 })();

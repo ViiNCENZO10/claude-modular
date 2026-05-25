@@ -443,6 +443,23 @@
     var ageRating = movie.rating_mpaa || movie.age || '';
     var tmdbId = movie.tmdb_id || movie.tmdb || '';
 
+    // Si le provider ne fournit PAS d'id TMDB, on resout via le titre+annee
+    // (memes API que poster-enhancer => cache LS 7j partage, pas de double request)
+    if (!tmdbId && window.ipremPoster && typeof window.ipremPoster.lookup === 'function') {
+      try {
+        var rawTitle = movie.name || movie.title || vod.name || '';
+        var rawYear = '';
+        if (movie.releaseDate) rawYear = String(movie.releaseDate).substring(0, 4);
+        else if (movie.year) rawYear = String(movie.year);
+        else if (movie.added) {
+          try { rawYear = String(new Date(parseInt(movie.added) * 1000).getFullYear()); } catch (e) {}
+        }
+        var t = (vod._type === 'series') ? 'tv' : 'movie';
+        var resolved = await window.ipremPoster.lookup(rawTitle, rawYear, t);
+        if (resolved && resolved.id) tmdbId = resolved.id;
+      } catch (e) {}
+    }
+
     var badges = '';
     if (ageRating) badges += '<span class="cin-badge cin-badge-age">' + escapeText(String(ageRating)) + '</span>';
     if (ratingPct > 0) badges += '<span class="cin-badge cin-badge-tmdb" style="background:' + scoreColor(ratingPct) + '">TMDb ' + Math.round(ratingPct) + '%</span>';
